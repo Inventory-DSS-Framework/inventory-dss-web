@@ -115,9 +115,11 @@ export default function DashboardPage() {
               <Badge variant="warning">{nextAction.status}</Badge>
             </div>
           </div>
-          <button className="btn btn-primary mt-auto w-full py-2.5 text-sm">
-            Revisar recomendación
-          </button>
+          <div className="mt-5">
+            <button className="btn btn-primary w-full py-2.5 text-sm">
+              Revisar recomendación
+            </button>
+          </div>
         </Card>
       </div>
 

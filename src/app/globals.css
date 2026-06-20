@@ -46,59 +46,46 @@
     @apply bg-surface rounded-3xl shadow-soft border border-border;
   }
 
-  /* ── Premium buttons ─────────────────────────────────────────
-     Softer color, glassy top sheen, a gentle lift on hover and a
-     springy press. Shared by every primary/secondary/violet button. */
+  /* ── Minimalist buttons ─────────────────────────────────────────
+     Solid colors, clean transitions, no heavy shadows. */
   .btn {
     @apply relative inline-flex items-center justify-center font-semibold rounded-xl select-none;
-    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.18s ease, filter 0.18s ease, background-color 0.18s ease;
-    will-change: transform;
+    transition: all 0.2s ease;
   }
   .btn:active {
-    transform: translateY(0) scale(0.97);
+    transform: scale(0.98);
   }
   .btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 4px rgba(73, 99, 232, 0.22);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
   }
 
-  /* Primary — frosted translucent glass in a softer periwinkle indigo */
+  /* Primary — Minimalist Glass */
   .btn-primary {
-    color: #fff;
-    background: linear-gradient(180deg, rgba(108, 126, 244, 0.86) 0%, rgba(82, 102, 232, 0.86) 100%);
-    backdrop-filter: blur(10px) saturate(150%);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.45),
-      0 6px 18px -8px rgba(82, 102, 232, 0.50);
+    color: #ffffff;
+    background-color: rgba(37, 99, 235, 0.85); /* primary blue with 85% opacity */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: none;
+    box-shadow: 0 4px 12px -4px rgba(37, 99, 235, 0.3);
   }
   .btn-primary:hover {
-    transform: translateY(-1px);
-    background: linear-gradient(180deg, rgba(118, 136, 248, 0.94) 0%, rgba(92, 112, 240, 0.94) 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      0 10px 22px -8px rgba(82, 102, 232, 0.55);
+    background-color: rgba(37, 99, 235, 0.95);
+    box-shadow: 0 4px 16px -4px rgba(37, 99, 235, 0.4);
   }
 
-  /* Violet variant — same frosted glass, lavender hue */
+  /* Violet variant — Minimalist Glass */
   .btn-violet {
-    color: #fff;
-    background: linear-gradient(180deg, rgba(154, 124, 252, 0.86) 0%, rgba(131, 100, 246, 0.86) 100%);
-    backdrop-filter: blur(10px) saturate(150%);
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.45),
-      0 6px 18px -8px rgba(124, 92, 252, 0.50);
+    color: #ffffff;
+    background-color: rgba(124, 58, 237, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: none;
+    box-shadow: 0 4px 12px -4px rgba(124, 58, 237, 0.3);
   }
   .btn-violet:hover {
-    transform: translateY(-1px);
-    background: linear-gradient(180deg, rgba(164, 134, 255, 0.94) 0%, rgba(141, 110, 250, 0.94) 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      0 10px 22px -8px rgba(124, 92, 252, 0.55);
+    background-color: rgba(124, 58, 237, 0.95);
+    box-shadow: 0 4px 16px -4px rgba(124, 58, 237, 0.4);
   }
 
   /* Secondary — frosted glass, sits on light surfaces */
