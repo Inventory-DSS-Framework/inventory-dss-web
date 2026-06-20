@@ -1,81 +1,73 @@
-# Inventory DSS Web
+# Inventory DSS Frontend
 
-Frontend web de la plataforma **Inventory Optimization DSS Platform**, una solución de soporte de decisiones para la optimización de inventarios en MYPEs retail de Lima Metropolitana.
+Frontend principal de la plataforma **Inventory Optimization DSS Platform**.
 
-Este repositorio contiene únicamente la aplicación web orientada al usuario final. Su objetivo es permitir que administradores o responsables de inventario puedan cargar datos, visualizar pronósticos, revisar KPIs y consultar recomendaciones accionables de reposición.
+Este repositorio contiene la Interfaz de Usuario (UI) construida para soportar el módulo de decisiones de inventario basado en pronósticos FTGM. Ha sido diseñado con una estética moderna de producto SaaS, orientada a ofrecer la mejor experiencia de usuario para MYPEs retail.
 
-## Rol dentro del sistema
+## Estética y Diseño (UX/UI)
 
-Este proyecto forma parte de una arquitectura multi-repositorio:
+El diseño está fuertemente inspirado en interfaces SaaS limpias y premium:
+- Fondo gris claro y superficies blancas (`#F5F7FB`, `#FFFFFF`).
+- Bordes redondeados generosos (radius de 16px a 24px).
+- Sombras muy suaves (soft shadows).
+- Colores primarios en tonos azul y lavanda (`#2563EB`, `#7C3AED`).
+- Diseño enfocado en el espacio en blanco y tipografía legible (`Inter`).
 
-| Repositorio                 | Responsabilidad                                 |
-| --------------------------- | ----------------------------------------------- |
-| `inventory-dss-web`         | Frontend Next.js                                |
-| `inventory-dss-api`         | Backend FastAPI como monolito modular hexagonal |
-| `inventory-dss-ftgm-engine` | Motor analítico FTGM desacoplado                |
-| `inventory-dss-infra`       | Infraestructura y despliegue                    |
-| `inventory-dss-docs`        | Documentación académica y arquitectónica        |
+## Stack Tecnológico
 
-## Responsabilidades del frontend
+- **Framework:** Next.js (App Router)
+- **Lenguaje:** TypeScript
+- **Estilos:** Tailwind CSS
+- **Iconos:** Lucide React
+- **Gráficos:** Recharts
+- **Utilidades UI:** `clsx`, `tailwind-merge`
 
-El frontend será responsable de:
+## Módulos Incluidos
 
-* Autenticación visual de usuarios.
-* Navegación principal de la plataforma.
-* Carga de archivos CSV o Excel.
-* Visualización del catálogo de productos.
-* Visualización de ventas históricas.
-* Visualización de inventario.
-* Visualización de ejecuciones de pronóstico.
-* Visualización de KPIs.
-* Visualización de recomendaciones.
-* Visualización de reportes.
-* Consumo de la API del backend.
+El frontend contiene páginas dedicadas para todos los módulos de la arquitectura hexagonal del backend:
+- `/dashboard`: Panel de resumen (Dashboard principal SaaS).
+- `/products`, `/sales`, `/inventory`: Gestión de datos operativos base.
+- `/ingestion`: Carga de archivos (Datasets).
+- `/data-preparation`: Historial de limpieza y detección de outliers.
+- `/forecasting`: Corridas del motor predictivo FTGM.
+- `/kpis`: Coberturas, stockout risk y rotación.
+- `/recommendations`: Sugerencias accionables de reposición de inventario.
+- `/reports`, `/notifications`, `/files`, `/validation`, `/settings`, `/admin`: Herramientas de soporte y gestión.
 
-## Lo que este repositorio no debe hacer
+## Estado de la Implementación (Modo Mock)
 
-Este repositorio no debe contener:
+Actualmente, el frontend opera en **Modo Mock**:
+- Los datos visualizados son estáticos (hardcoded/simulados), pero realistas para el contexto de retail e inventarios.
+- La página de login (`/login`) guarda una bandera (`mock-session`) en el `localStorage` para dejar pasar al usuario al dashboard.
+- **No existe** integración directa con el backend real en esta etapa, pero la arquitectura base y los componentes UI están preparados para ser integrados usando llamadas asíncronas en el futuro.
 
-* Lógica matemática del modelo FTGM.
-* Reglas fuertes de negocio.
-* Acceso directo a PostgreSQL o Supabase.
-* Procesamiento pesado de datos.
-* Cálculo oficial de KPIs.
-* Generación oficial de recomendaciones.
-* Lógica de autenticación del lado servidor.
-* Código de infraestructura global.
-
-## Tecnología objetivo
-
-* Next.js.
-* React.
-* TypeScript.
-* Consumo HTTP/REST/JSON.
-* Gráficos futuros con librerías de visualización.
-* Componentes reutilizables por dominio funcional.
-
-## Estructura principal
+## Estructura de Carpetas
 
 ```text
 src/
-├── app/
-├── components/
-├── features/
-├── hooks/
-├── lib/
-└── types/
+├── app/                  # Rutas (App Router Next.js)
+│   ├── dashboard/
+│   ├── login/
+│   ├── ...
+├── components/           # Componentes UI reutilizables
+│   ├── layout/           # AppShell, Sidebar, Topbar
+│   ├── ui/               # Card, Badge, Table, StatCard
+│   ├── charts/           # Gráficos con Recharts
+├── lib/                  # Utilidades (cn)
+├── mocks/                # Datos simulados (Dashboard, Mocks)
+├── types/                # Interfaces TypeScript del dominio
 ```
 
-## Relación con el backend
+## Ejecución Local
 
-El frontend consume el backend a través de:
+Para levantar este frontend de forma local, ejecuta los siguientes comandos en tu terminal de PowerShell:
 
-```text
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+```powershell
+cd C:\Users\Usuario\Documents\2026-1\Thesis\inventory-dss-web
+npm install
+npm run dev
 ```
 
-La aplicación web no debe comunicarse directamente con el FTGM Engine. Toda predicción debe solicitarse mediante el backend `inventory-dss-api`.
-
-## Estado actual
-
-Este repositorio se encuentra en fase inicial. Contiene únicamente estructura base, configuración mínima y documentación inicial.
+Una vez que el servidor esté en funcionamiento, puedes abrir tu navegador en:
+- **Login Mock:** http://localhost:3000/login
+- **Dashboard:** http://localhost:3000/dashboard
