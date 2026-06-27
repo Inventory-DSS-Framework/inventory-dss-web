@@ -2,49 +2,51 @@
 
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
-import { Button } from "@/components/ui/Button";
-import { FileText, Download } from "lucide-react";
+import { DataState } from "@/components/ui/DataState";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { reportsApi } from "@/lib/api";
 
 export default function ReportsPage() {
-  const reports = [
-    { id: "REP-010", name: "Reporte de pronósticos - Junio", type: "Predicción", date: "2026-06-20", format: "PDF" },
-    { id: "REP-009", name: "Dashboard KPIs consolidado", type: "KPIs", date: "2026-06-19", format: "Excel" },
-    { id: "REP-008", name: "Sugerencias de compra Q3", type: "Recomendaciones", date: "2026-06-15", format: "PDF" },
-  ];
+  const companyId = useCompanyId();
+  const reports = useApi(
+    () => (companyId ? reportsApi.list(companyId) : Promise.resolve(null)),
+    [companyId],
+  );
+  const items = reports.data?.items ?? [];
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <PageHeader
         eyebrow="Salida"
-        title="Reportes exportables"
-        description="Genera y descarga reportes de pronósticos, KPIs y sugerencias."
-        action={
-          <Button>
-            <FileText className="w-4 h-4" />
-            Nuevo reporte
-          </Button>
-        }
+        title="Reportes"
+        description="Reportes de pronósticos, KPIs y recomendaciones."
       />
-      <Table
-        title="Reportes generados"
-        data={reports}
-        keyExtractor={(r) => r.id}
-        columns={[
-          { header: "ID", accessor: (r) => <span className="font-mono text-text-secondary">{r.id}</span> },
-          { header: "Nombre del reporte", accessor: (r) => <span className="font-medium text-text-primary">{r.name}</span> },
-          { header: "Tipo", accessor: (r) => <Badge variant="default">{r.type}</Badge> },
-          { header: "Generación", accessor: (r) => r.date },
-          { header: "Formato", accessor: (r) => <Badge variant={r.format === "PDF" ? "danger" : "success"}>{r.format}</Badge> },
-          {
-            header: "Acción",
-            accessor: () => (
-              <button className="inline-flex items-center gap-1 text-primary hover:text-primary-hover text-sm font-semibold">
-                <Download className="w-4 h-4" /> Descargar
-              </button>
-            ),
-          },
-        ]}
-      />
+      <DataState
+        loading={reports.loading}
+        error={reports.error}
+        empty={items.length === 0}
+        emptyMessage="No hay reportes generados."
+        onRetry={reports.reload}
+      >
+        <Table
+          title="Reportes"
+          data={items}
+          keyExtractor={(r) => r.id}
+          columns={[
+            { header: "Título", accessor: (r) => <span className="font-medium text-text-primary">{r.title}</span> },
+            { header: "Tipo", accessor: (r) => <Badge variant="default">{r.report_type}</Badge> },
+            {
+              header: "Estado",
+              accessor: (r) => (
+                <Badge variant={r.status === "ready" ? "success" : r.status === "failed" ? "danger" : "warning"} dot>
+                  {r.status}
+                </Badge>
+              ),
+            },
+          ]}
+        />
+      </DataState>
     </div>
   );
 }

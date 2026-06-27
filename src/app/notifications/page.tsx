@@ -1,52 +1,54 @@
 "use client";
 
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Table, Badge } from "@/components/ui/Table";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Table";
+import { DataState } from "@/components/ui/DataState";
+import { Bell, AlertTriangle, Info } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { notificationsApi } from "@/lib/api";
 
 export default function NotificationsPage() {
-  const notifications = [
-    { id: "NOT-112", title: "Quiebre de stock detectado", message: "Cat Litter 10kg está bajo el mínimo esperado.", date: "Hace 10 min", status: "unread", type: "alert" },
-    { id: "NOT-111", title: "Forecast completado", message: "La corrida FCT-991 ha finalizado exitosamente.", date: "Hace 2 horas", status: "read", type: "info" },
-    { id: "NOT-110", title: "Nuevo reporte", message: "El reporte de KPIs de Mayo está listo.", date: "Ayer", status: "read", type: "info" },
-  ];
+  const companyId = useCompanyId();
+  const notifs = useApi(
+    () => (companyId ? notificationsApi.list(companyId) : Promise.resolve(null)),
+    [companyId],
+  );
+  const items = notifs.data?.items ?? [];
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="max-w-[1000px] mx-auto space-y-6">
       <PageHeader
         eyebrow="Salida"
         title="Notificaciones"
-        description="Alertas del sistema, eventos y avisos importantes."
+        description="Alertas internas del sistema y eventos relevantes."
       />
-      <Table
-        title="Bandeja de notificaciones"
-        data={notifications}
-        keyExtractor={(n) => n.id}
-        columns={[
-          {
-            header: "",
-            className: "w-8",
-            accessor: (n) => <div className={`w-2 h-2 rounded-full ${n.status === "unread" ? "bg-primary" : "bg-border"}`} />,
-          },
-          {
-            header: "Notificación",
-            accessor: (n) => (
-              <div>
-                <p className="font-medium text-text-primary">{n.title}</p>
-                <p className="text-sm text-text-secondary">{n.message}</p>
+      <DataState
+        loading={notifs.loading}
+        error={notifs.error}
+        empty={items.length === 0}
+        emptyMessage="No tienes notificaciones."
+        onRetry={notifs.reload}
+      >
+        <div className="space-y-3">
+          {items.map((n) => (
+            <Card key={n.id} className="flex items-start gap-4">
+              <div className={`p-2.5 rounded-xl shrink-0 ${n.severity === "critical" ? "bg-danger-soft text-danger" : n.severity === "warning" ? "bg-warning-soft text-warning" : "bg-primary-soft text-primary"}`}>
+                {n.severity === "critical" ? <AlertTriangle className="w-5 h-5" /> : n.severity === "warning" ? <Bell className="w-5 h-5" /> : <Info className="w-5 h-5" />}
               </div>
-            ),
-          },
-          {
-            header: "Tipo",
-            accessor: (n) => (
-              <Badge variant={n.type === "alert" ? "danger" : "primary"} dot>
-                {n.type === "alert" ? "Alerta" : "Info"}
-              </Badge>
-            ),
-          },
-          { header: "Fecha", accessor: (n) => <span className="text-text-secondary">{n.date}</span> },
-        ]}
-      />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-text-primary">{n.title}</h3>
+                  {!n.is_read && <Badge variant="primary" dot>Nuevo</Badge>}
+                </div>
+                <p className="text-sm text-text-secondary mt-1">{n.message}</p>
+                <p className="text-xs text-text-muted mt-2">{n.created_at.slice(0, 16).replace("T", " ")}</p>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </DataState>
     </div>
   );
 }

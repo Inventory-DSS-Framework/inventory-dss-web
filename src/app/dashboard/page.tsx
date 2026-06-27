@@ -1,218 +1,126 @@
 "use client";
 
-import { useState } from "react";
-import { LineChartCard } from "@/components/charts/LineChartCard";
+import { useMemo } from "react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { CircularGauge } from "@/components/ui/CircularGauge";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { DateRangePill } from "@/components/ui/DateRangePill";
+import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/Table";
-import {
-  dashboardMetrics,
-  demandVsForecastData,
-  ticketMedioData,
-  assistantTasks,
-  nextAction,
-} from "@/mocks/data/dashboard";
-import {
-  Users, Package, ArrowUpRight, Bot, Send,
-  MapPin, FileText, AlertCircle, Maximize2, Clock,
-} from "lucide-react";
-
-const soles = (v: number) => `S/ ${v.toFixed(0)}`;
+import { DataState } from "@/components/ui/DataState";
+import { Package, CheckCircle, Activity, TrendingDown, ShoppingCart } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { forecastingApi, kpisApi, productsApi, recommendationsApi } from "@/lib/api";
 
 export default function DashboardPage() {
-  const [tab, setTab] = useState("ventas");
+  const companyId = useCompanyId();
+
+  const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
+  const recs = useApi(() => (companyId ? recommendationsApi.list(companyId, true) : Promise.resolve([])), [companyId]);
+  const kpis = useApi(() => (companyId ? kpisApi.list(companyId) : Promise.resolve([])), [companyId]);
+  const runs = useApi(() => (companyId ? forecastingApi.listRuns(companyId) : Promise.resolve([])), [companyId]);
+
+  const activeProducts = (products.data ?? []).filter((p) => p.is_active).length;
+  const pendingRecs = recs.data ?? [];
+  const latestRun = (runs.data ?? [])[0];
+
+  const avgStockoutRisk = useMemo(() => {
+    const values = (kpis.data ?? []).filter((k) => k.kpi_type === "stockout_risk").map((k) => Number(k.value));
+    if (!values.length) return 0;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  }, [kpis.data]);
+
+  const loading = products.loading || recs.loading || kpis.loading || runs.loading;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          value={tab}
-          onChange={setTab}
-          options={[
-            { label: "Ventas", value: "ventas" },
-            { label: "Inventario", value: "inventario" },
-          ]}
+      <PageHeader
+        eyebrow="Inicio"
+        title="Panel de control"
+        description="Resumen del estado del inventario y la inteligencia del DSS."
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="Productos activos" value={String(activeProducts)} icon={Package} accent="primary" />
+        <StatCard title="Recomendaciones pendientes" value={String(pendingRecs.length)} icon={ShoppingCart} accent="violet" />
+        <StatCard title="Riesgo de quiebre medio" value={avgStockoutRisk.toFixed(1)} suffix="%" icon={TrendingDown} accent="danger" />
+        <StatCard
+          title="Último pronóstico"
+          value={latestRun ? latestRun.status : "—"}
+          icon={Activity}
+          accent="success"
         />
-        <DateRangePill />
       </div>
 
-      {/* Row 1 — hero + mini stats + next action */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Hero sales card */}
-        <Card className="lg:col-span-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-text-secondary">
-              Ventas del mes <span className="text-text-muted">· Junio</span>
-            </p>
-            <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-lg font-semibold text-text-secondary">S/</span>
-              <span className="text-4xl font-bold tracking-tight text-text-primary">20.845</span>
-              <span className="text-lg font-semibold text-text-secondary">mil</span>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <Badge variant="success" dot>+32%</Badge>
-              <span className="text-xs text-text-muted">vs Junio del año anterior</span>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <ShoppingCart className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-text-primary">Próximas acciones sugeridas</h3>
           </div>
-          <CircularGauge value={83} caption="de la meta" />
+          <DataState
+            loading={recs.loading}
+            error={recs.error}
+            empty={pendingRecs.length === 0}
+            emptyMessage="Sin recomendaciones pendientes."
+            onRetry={recs.reload}
+          >
+            <div className="space-y-3">
+              {pendingRecs.slice(0, 5).map((r) => (
+                <div key={r.id} className="flex items-center justify-between bg-surface-soft rounded-2xl px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-primary truncate">{r.reason}</p>
+                    <p className="text-xs text-text-muted mt-0.5">Sugerido: {r.recommended_quantity} uds.</p>
+                  </div>
+                  <Badge variant={r.priority === "high" ? "danger" : r.priority === "medium" ? "warning" : "primary"} dot>
+                    {r.priority}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </DataState>
         </Card>
 
-        {/* Mini stat stack */}
-        <div className="lg:col-span-3 grid grid-cols-1 gap-6">
-          <Card interactive className="flex items-center justify-between gap-3 py-5">
-            <div>
-              <p className="text-sm font-medium text-text-secondary">Clientes atendidos</p>
-              <p className="mt-1 text-3xl font-bold tracking-tight text-text-primary">58</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-primary-soft text-primary">
-              <Users className="w-5 h-5" />
-            </div>
-          </Card>
-          <Card interactive className="flex items-center justify-between gap-3 py-5">
-            <div>
-              <p className="text-sm font-medium text-text-secondary">Productos activos</p>
-              <div className="mt-1 flex items-center gap-2">
-                <p className="text-3xl font-bold tracking-tight text-text-primary">214</p>
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-success-soft px-1.5 py-0.5 text-xs font-semibold text-success">
-                  <ArrowUpRight className="w-3 h-3" />6%
-                </span>
-              </div>
-            </div>
-            <div className="p-2.5 rounded-xl bg-accent-violet-soft text-accent-violet">
-              <Package className="w-5 h-5" />
-            </div>
-          </Card>
-        </div>
-
-        {/* Next recommended action */}
-        <Card className="lg:col-span-4 flex flex-col">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-text-primary">Próxima acción</h3>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
-              <Clock className="w-4 h-4" /> {nextAction.time}
-            </span>
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-5 h-5 text-accent-violet" />
+            <h3 className="font-semibold text-text-primary">Pronósticos recientes</h3>
           </div>
-          <div className="mt-4 space-y-2.5 text-sm">
-            <div className="flex items-start gap-2">
-              <FileText className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />
-              <p className="text-text-secondary">
-                <span className="font-medium text-text-primary">{nextAction.title}</span>
-              </p>
+          <DataState
+            loading={runs.loading}
+            error={runs.error}
+            empty={(runs.data ?? []).length === 0}
+            emptyMessage="Aún no se han ejecutado pronósticos."
+            onRetry={runs.reload}
+          >
+            <div className="space-y-3">
+              {(runs.data ?? []).slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center justify-between bg-surface-soft rounded-2xl px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{run.model_name} · {run.horizon_days}d</p>
+                    <p className="text-xs text-text-muted mt-0.5 font-mono">{run.id.slice(0, 8)}</p>
+                  </div>
+                  <Badge
+                    variant={run.status === "success" ? "success" : run.status === "failed" ? "danger" : "warning"}
+                    dot
+                  >
+                    {run.status}
+                  </Badge>
+                </div>
+              ))}
             </div>
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />
-              <p className="text-text-secondary">{nextAction.location}</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <Package className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />
-              <p className="text-text-secondary">{nextAction.description}</p>
-            </div>
-            <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-text-muted text-xs">Estado</span>
-              <Badge variant="warning">{nextAction.status}</Badge>
-            </div>
-          </div>
-          <div className="mt-5">
-            <button className="btn btn-primary w-full py-2.5 text-sm">
-              Revisar recomendación
-            </button>
-          </div>
+          </DataState>
         </Card>
       </div>
 
-      {/* Row 2 — charts + side panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <LineChartCard
-            title="Total en ventas"
-            data={demandVsForecastData}
-            valueFormatter={soles}
-            lines={[
-              { dataKey: "actual", name: "Mes actual", stroke: "#3358F4", value: "S/ 20.845" },
-              { dataKey: "forecast", name: "Mes anterior", stroke: "#7C5CFC", value: "S/ 17.431" },
-            ]}
-          />
-          <LineChartCard
-            title="Ticket medio"
-            data={ticketMedioData}
-            valueFormatter={soles}
-            lines={[
-              { dataKey: "actual", name: "Mes actual", stroke: "#10B981", value: "S/ 50.00" },
-              { dataKey: "forecast", name: "Mes anterior", stroke: "#7C5CFC", value: "S/ 38.45" },
-            ]}
-          />
+      {!loading && (products.error || kpis.error) && (
+        <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+          Algunos datos no pudieron cargarse. Verifica que el backend esté disponible.
         </div>
+      )}
 
-        <div className="space-y-6">
-          {/* Ticket medio highlight */}
-          <Card className="bg-gradient-lavender border-accent-lavender/40">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-text-primary">Ticket medio</h3>
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold text-success">
-                <ArrowUpRight className="w-3 h-3" />4%
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-text-secondary">vs año anterior</p>
-            <p className="mt-4 text-4xl font-bold tracking-tight text-primary">S/ 50.00</p>
-            <div className="mt-4 flex items-end gap-1 h-10">
-              {[40, 55, 45, 65, 50, 70, 60, 80, 72, 88, 75, 92].map((h, i) => (
-                <span
-                  key={i}
-                  className="flex-1 rounded-full bg-primary/30"
-                  style={{ height: `${h}%` }}
-                />
-              ))}
-            </div>
-          </Card>
-
-          {/* DSS Assistant */}
-          <Card className="flex flex-col h-[360px]">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary-soft flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-text-primary leading-tight">Asistente DSS</h3>
-                  <p className="text-[11px] text-text-muted">Sugerencias inteligentes</p>
-                </div>
-              </div>
-              <button className="p-1.5 rounded-lg text-text-muted hover:bg-surface-soft transition-colors">
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2.5 -mr-2 pr-2">
-              {assistantTasks.map((task) => (
-                <button
-                  key={task.id}
-                  className="w-full text-left bg-surface-soft hover:bg-primary-softer border border-border hover:border-primary/20 p-3 rounded-2xl text-sm text-text-secondary flex items-start gap-2.5 transition-colors"
-                >
-                  {task.type === "task" ? (
-                    <FileText className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 mt-0.5 text-accent-violet shrink-0" />
-                  )}
-                  {task.text}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative mt-3">
-              <input
-                type="text"
-                placeholder="Pregunta al asistente…"
-                className="w-full bg-surface-soft border border-border rounded-full py-2.5 pl-4 pr-12 text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all"
-              />
-              <button className="btn-primary absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full inline-flex items-center justify-center transition-[filter] hover:brightness-105">
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </Card>
-        </div>
+      <div className="flex items-center gap-2 text-success text-sm">
+        <CheckCircle className="w-4 h-4" />
+        Conectado al backend del DSS.
       </div>
     </div>
   );

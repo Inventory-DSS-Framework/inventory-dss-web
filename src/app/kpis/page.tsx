@@ -1,72 +1,109 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
-import { Card } from "@/components/ui/Card";
-import { CircularGauge } from "@/components/ui/CircularGauge";
-import { Badge } from "@/components/ui/Table";
-import { BarChart2, TrendingUp, TrendingDown, RefreshCcw, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Table, Badge } from "@/components/ui/Table";
+import { DataState } from "@/components/ui/DataState";
+import { BarChart2, TrendingDown, TrendingUp, RefreshCcw, Sparkles } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { kpisApi } from "@/lib/api";
+import type { KpiType } from "@/types/api";
+
+const KPI_LABEL: Record<KpiType, string> = {
+  coverage_days: "Cobertura (días)",
+  stockout_risk: "Riesgo de quiebre",
+  turnover: "Rotación",
+  overstock_risk: "Riesgo de sobrestock",
+};
 
 export default function KPIsPage() {
-  const kpis = [
-    { label: "Cobertura de inventario", value: "28", suffix: " días", change: 5, icon: BarChart2, accent: "primary" as const },
-    { label: "Riesgo de quiebre (stockout)", value: "12", suffix: "%", change: -3, icon: TrendingDown, accent: "danger" as const },
-    { label: "Riesgo de sobrestock", value: "8", suffix: "%", change: 2, icon: TrendingUp, accent: "warning" as const },
-    { label: "Rotación promedio", value: "4.5", suffix: "x", change: 4, icon: RefreshCcw, accent: "violet" as const },
-  ];
+  const companyId = useCompanyId();
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const health = [
-    { label: "Productos en cobertura óptima", value: 72, color: "#10B981" },
-    { label: "En riesgo de quiebre", value: 18, color: "#F2545B" },
-    { label: "En sobrestock", value: 10, color: "#F5A623" },
-  ];
+  const kpis = useApi(
+    () => (companyId ? kpisApi.list(companyId) : Promise.resolve([])),
+    [companyId],
+  );
+  const items = kpis.data ?? [];
+
+  const averages = useMemo(() => {
+    const sums = new Map<KpiType, { total: number; count: number }>();
+    for (const k of items) {
+      const cur = sums.get(k.kpi_type) ?? { total: 0, count: 0 };
+      cur.total += Number(k.value);
+      cur.count += 1;
+      sums.set(k.kpi_type, cur);
+    }
+    return (type: KpiType) => {
+      const s = sums.get(type);
+      return s && s.count ? s.total / s.count : 0;
+    };
+  }, [items]);
+
+  const handleCalculate = async () => {
+    if (!companyId) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await kpisApi.calculate(companyId);
+      kpis.reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo calcular");
+    } finally {
+      setWorking(false);
+    }
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <PageHeader
         eyebrow="Indicadores"
         title="Indicadores clave (KPIs)"
-        description="Métricas calculadas a partir del pronóstico FTGM y el estado actual del inventario."
+        description="Métricas calculadas a partir del pronóstico y el estado actual del inventario."
+        action={
+          <Button variant="violet" onClick={handleCalculate} disabled={working}>
+            <Sparkles className="w-4 h-4" />
+            {working ? "Calculando…" : "Calcular KPIs"}
+          </Button>
+        }
       />
 
+      {actionError && (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+          {actionError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpis.map((kpi, i) => (
-          <StatCard key={i} title={kpi.label} value={kpi.value} suffix={kpi.suffix} change={kpi.change} icon={kpi.icon} accent={kpi.accent} />
-        ))}
+        <StatCard title={KPI_LABEL.coverage_days} value={averages("coverage_days").toFixed(1)} suffix=" d" icon={BarChart2} accent="primary" />
+        <StatCard title={KPI_LABEL.stockout_risk} value={averages("stockout_risk").toFixed(1)} suffix="%" icon={TrendingDown} accent="danger" />
+        <StatCard title={KPI_LABEL.overstock_risk} value={averages("overstock_risk").toFixed(1)} suffix="%" icon={TrendingUp} accent="warning" />
+        <StatCard title={KPI_LABEL.turnover} value={averages("turnover").toFixed(2)} suffix="x" icon={RefreshCcw} accent="violet" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="flex flex-col items-center justify-center text-center py-8">
-          <CircularGauge value={82} size={148} label="82%" caption="salud global" color="#10B981" trackColor="#D6F5E7" />
-          <h3 className="mt-4 font-semibold text-text-primary">Salud del inventario</h3>
-          <p className="text-sm text-text-secondary mt-1 max-w-xs">Índice compuesto de cobertura, riesgo de quiebre y sobrestock.</p>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <div className="flex items-center gap-2 mb-5">
-            <ShieldAlert className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-text-primary">Distribución del catálogo por estado</h3>
-          </div>
-          <div className="space-y-5">
-            {health.map((h) => (
-              <div key={h.label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-text-secondary">{h.label}</span>
-                  <span className="text-sm font-semibold text-text-primary">{h.value}%</span>
-                </div>
-                <div className="h-2.5 w-full rounded-full bg-surface-muted overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${h.value}%`, background: h.color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Badge variant="success" dot>Saludable</Badge>
-            <Badge variant="danger" dot>Atención requerida</Badge>
-            <Badge variant="warning" dot>Optimizable</Badge>
-          </div>
-        </Card>
-      </div>
+      <DataState
+        loading={kpis.loading}
+        error={kpis.error}
+        empty={items.length === 0}
+        emptyMessage="Aún no hay KPIs. Ejecuta un pronóstico y luego calcula los KPIs."
+        onRetry={kpis.reload}
+      >
+        <Table
+          title="KPIs por producto"
+          data={items}
+          keyExtractor={(k) => k.id}
+          columns={[
+            { header: "Producto", accessor: (k) => <span className="font-mono text-text-secondary">{k.product_id.slice(0, 8)}</span> },
+            { header: "Indicador", accessor: (k) => <Badge variant="default">{KPI_LABEL[k.kpi_type]}</Badge> },
+            { header: "Valor", accessor: (k) => <span className="font-semibold">{Number(k.value).toFixed(2)}</span> },
+            { header: "Calculado", accessor: (k) => k.computed_at.slice(0, 10) },
+          ]}
+        />
+      </DataState>
     </div>
   );
 }

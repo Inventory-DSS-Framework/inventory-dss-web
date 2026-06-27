@@ -1,22 +1,50 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
+import { DataState } from "@/components/ui/DataState";
 import { CheckCircle, ShoppingCart, Sparkles } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { recommendationsApi } from "@/lib/api";
+import type { RecommendationPriority } from "@/types/api";
+
+const accentBar: Record<RecommendationPriority, string> = {
+  high: "before:bg-danger",
+  medium: "before:bg-warning",
+  low: "before:bg-primary",
+};
+const priorityLabel: Record<RecommendationPriority, string> = {
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
 
 export default function RecommendationsPage() {
-  const recommendations = [
-    { id: "REC-332", product: "Premium Dog Food 15kg", type: "Reabastecimiento", quantity: 150, reason: "Riesgo de stockout en 12 días (alta confianza FTGM)", priority: "critical", confidence: 94 },
-    { id: "REC-333", product: "Cat Litter 10kg", type: "Reabastecimiento", quantity: 50, reason: "Cobertura por debajo del mínimo esperado", priority: "high", confidence: 87 },
-    { id: "REC-334", product: "Anti-flea Collar Large", type: "Liquidación", quantity: 0, reason: "Rotación muy baja en los últimos 3 meses", priority: "medium", confidence: 76 },
-  ];
+  const companyId = useCompanyId();
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const accentBar: Record<string, string> = {
-    critical: "before:bg-danger",
-    high: "before:bg-warning",
-    medium: "before:bg-primary",
+  const recs = useApi(
+    () => (companyId ? recommendationsApi.list(companyId) : Promise.resolve([])),
+    [companyId],
+  );
+  const items = recs.data ?? [];
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setWorking(true);
+    setActionError(null);
+    try {
+      await fn();
+      recs.reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Operación fallida");
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
@@ -24,62 +52,78 @@ export default function RecommendationsPage() {
       <PageHeader
         eyebrow="Inteligencia"
         title="Recomendaciones accionables"
-        description="Sugerencias del sistema DSS basadas en el cruce de pronósticos y KPIs."
+        description="Sugerencias del DSS basadas en el cruce de pronósticos, stock y parámetros."
         action={
-          <Button variant="secondary">
+          <Button
+            variant="secondary"
+            disabled={working || !companyId}
+            onClick={() => companyId && run(() => recommendationsApi.generate(companyId))}
+          >
             <Sparkles className="w-4 h-4" />
-            Regenerar
+            {working ? "Procesando…" : "Generar"}
           </Button>
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {recommendations.map((rec) => (
-          <Card
-            key={rec.id}
-            interactive
-            className={`relative flex flex-col h-full overflow-hidden before:absolute before:left-0 before:top-0 before:h-full before:w-1 ${accentBar[rec.priority]}`}
-          >
-            <div className="flex justify-between items-start mb-4">
-              <Badge variant={rec.priority === "critical" ? "danger" : rec.priority === "high" ? "warning" : "primary"} dot>
-                {rec.priority === "critical" ? "Crítica" : rec.priority === "high" ? "Alta" : "Media"}
-              </Badge>
-              <span className="text-xs text-text-muted font-mono">{rec.id}</span>
-            </div>
+      {actionError && (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+          {actionError}
+        </div>
+      )}
 
-            <h3 className="font-semibold text-text-primary text-lg leading-snug">{rec.product}</h3>
-            <p className="text-sm font-medium text-primary mt-0.5 mb-4">{rec.type}</p>
-
-            <div className="bg-surface-soft rounded-2xl p-3.5 mb-4">
-              <p className="text-sm text-text-secondary">{rec.reason}</p>
-            </div>
-
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs text-text-muted">Confianza del modelo</span>
-              <span className="text-xs font-semibold text-text-primary">{rec.confidence}%</span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden mb-4">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${rec.confidence}%` }} />
-            </div>
-
-            <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
-              <div className="flex items-center gap-2 text-text-primary">
-                <ShoppingCart className="w-4 h-4 text-text-secondary" />
-                <span className="font-semibold text-sm">Sugerido: {rec.quantity} uds.</span>
+      <DataState
+        loading={recs.loading}
+        error={recs.error}
+        empty={items.length === 0}
+        emptyMessage="Sin recomendaciones. Genera a partir del último pronóstico."
+        onRetry={recs.reload}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((rec) => (
+            <Card
+              key={rec.id}
+              className={`relative flex flex-col h-full overflow-hidden before:absolute before:left-0 before:top-0 before:h-full before:w-1 ${accentBar[rec.priority]}`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <Badge variant={rec.priority === "high" ? "danger" : rec.priority === "medium" ? "warning" : "primary"} dot>
+                  {priorityLabel[rec.priority]}
+                </Badge>
+                <span className="text-xs text-text-muted font-mono">{rec.id.slice(0, 8)}</span>
               </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button className="flex-1">
-                <CheckCircle className="w-4 h-4" />
-                Aprobar
-              </Button>
-              <Button variant="secondary" className="flex-1">
-                Descartar
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+
+              <h3 className="font-semibold text-text-primary leading-snug font-mono text-sm">
+                Producto {rec.product_id.slice(0, 8)}
+              </h3>
+
+              <div className="bg-surface-soft rounded-2xl p-3.5 my-4">
+                <p className="text-sm text-text-secondary">{rec.reason}</p>
+              </div>
+
+              <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
+                <div className="flex items-center gap-2 text-text-primary">
+                  <ShoppingCart className="w-4 h-4 text-text-secondary" />
+                  <span className="font-semibold text-sm">Sugerido: {rec.recommended_quantity} uds.</span>
+                </div>
+                <Badge variant={rec.status === "pending" ? "default" : rec.status === "accepted" ? "success" : "danger"}>
+                  {rec.status}
+                </Badge>
+              </div>
+
+              {rec.status === "pending" && (
+                <div className="flex gap-2 mt-4">
+                  <Button className="flex-1" disabled={working} onClick={() => companyId && run(() => recommendationsApi.accept(companyId, rec.id))}>
+                    <CheckCircle className="w-4 h-4" />
+                    Aprobar
+                  </Button>
+                  <Button variant="secondary" className="flex-1" disabled={working} onClick={() => companyId && run(() => recommendationsApi.dismiss(companyId, rec.id))}>
+                    Descartar
+                  </Button>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      </DataState>
     </div>
   );
 }

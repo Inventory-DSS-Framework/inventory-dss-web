@@ -2,54 +2,67 @@
 
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
-
-const inputClass =
-  "w-full bg-surface-soft border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:bg-surface focus:border-primary/30 focus:ring-4 focus:ring-primary/10 transition-all";
+import { DataState } from "@/components/ui/DataState";
+import { LogOut, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useApi } from "@/hooks/useApi";
+import { authApi } from "@/lib/api";
+import { logout } from "@/lib/auth";
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const me = useApi(() => authApi.me(), []);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-[800px] mx-auto space-y-6">
       <PageHeader
-        eyebrow="Sistema"
+        eyebrow="Cuenta"
         title="Configuración"
-        description="Ajustes de la empresa, parámetros del modelo y gestión de usuarios."
+        description="Datos de tu cuenta y sesión."
       />
-      <Card>
-        <h3 className="text-base font-semibold text-text-primary mb-6">Detalles de la empresa</h3>
-        <form className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Nombre de la empresa</label>
-              <input type="text" defaultValue="Unidad Petshop 1" className={inputClass} />
+      <DataState loading={me.loading} error={me.error} onRetry={me.reload}>
+        {me.data && (
+          <Card className="space-y-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary-soft flex items-center justify-center text-primary">
+                <User className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-semibold text-text-primary">{me.data.full_name}</p>
+                <p className="text-sm text-text-secondary">{me.data.email}</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Rubro</label>
-              <input type="text" defaultValue="Retail Veterinaria" className={inputClass} />
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-text-muted">Rol</p>
+                <Badge variant="primary">{me.data.role}</Badge>
+              </div>
+              <div>
+                <p className="text-text-muted">Estado</p>
+                <Badge variant="success">{me.data.status}</Badge>
+              </div>
+              <div className="col-span-2">
+                <p className="text-text-muted">Empresa (ID)</p>
+                <p className="font-mono text-text-secondary">{me.data.company_id}</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Moneda</label>
-              <select className={inputClass}>
-                <option>PEN (S/)</option>
-                <option>USD ($)</option>
-              </select>
+            <div className="pt-2 border-t border-border">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  logout();
+                  router.push("/login");
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+                Cerrar sesión
+              </Button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Frecuencia de forecast</label>
-              <select className={inputClass}>
-                <option>Mensual</option>
-                <option>Semanal</option>
-                <option>Diario</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end pt-2 border-t border-border">
-            <div className="pt-4">
-              <Button type="button">Guardar cambios</Button>
-            </div>
-          </div>
-        </form>
-      </Card>
+          </Card>
+        )}
+      </DataState>
     </div>
   );
 }

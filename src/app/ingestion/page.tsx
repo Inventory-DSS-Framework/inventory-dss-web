@@ -1,58 +1,93 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card } from "@/components/ui/Card";
+import { Table, Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Table";
-import { UploadCloud, CheckCircle, FileSpreadsheet } from "lucide-react";
+import { DataState } from "@/components/ui/DataState";
+import { UploadCloud } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { ingestionApi } from "@/lib/api";
 
 export default function IngestionPage() {
-  const recent = [
-    { name: "historico_ventas_2025.csv", date: "Hace 2 horas", rows: "15.420 filas", status: "Procesado" },
-    { name: "inventario_corte_mayo.xlsx", date: "Ayer", rows: "8.200 filas", status: "Procesado" },
-  ];
+  const companyId = useCompanyId();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const uploads = useApi(
+    () => (companyId ? ingestionApi.listUploads(companyId) : Promise.resolve([])),
+    [companyId],
+  );
+  const items = uploads.data ?? [];
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !companyId) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await ingestionApi.upload(companyId, file);
+      uploads.reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo subir el archivo");
+    } finally {
+      setWorking(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-[1400px] mx-auto space-y-6">
       <PageHeader
         eyebrow="Datos"
         title="Ingesta de datos"
-        description="Sube tus archivos CSV/Excel de ventas e inventario histórico para alimentar el modelo."
+        description="Carga archivos CSV/Excel de ventas para alimentar el pipeline."
+        action={
+          <>
+            <input ref={fileInput} type="file" accept=".csv,.xls,.xlsx" className="hidden" onChange={handleFile} />
+            <Button onClick={() => fileInput.current?.click()} disabled={working || !companyId}>
+              <UploadCloud className="w-4 h-4" />
+              {working ? "Subiendo…" : "Subir archivo"}
+            </Button>
+          </>
+        }
       />
 
-      <Card className="border-dashed border-2 border-primary/25 bg-primary-softer/60 hover:bg-primary-soft/50 transition-colors cursor-pointer flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-primary-soft flex items-center justify-center mb-4">
-          <UploadCloud className="w-8 h-8 text-primary" />
+      {actionError && (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+          {actionError}
         </div>
-        <h3 className="text-xl font-semibold text-text-primary mb-1.5">Arrastra tu archivo aquí</h3>
-        <p className="text-text-secondary mb-6 max-w-sm text-sm">
-          Soporta CSV, XLS y XLSX hasta 50 MB. Asegúrate de incluir las columnas requeridas.
-        </p>
-        <Button>Seleccionar archivo</Button>
-      </Card>
+      )}
 
-      <div>
-        <h3 className="text-base font-semibold text-text-primary mb-3">Cargas recientes</h3>
-        <div className="space-y-3">
-          {recent.map((file, i) => (
-            <Card key={i} interactive className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-success-soft flex items-center justify-center">
-                  <FileSpreadsheet className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="font-medium text-text-primary text-sm">{file.name}</p>
-                  <p className="text-xs text-text-muted">{file.date} · {file.rows}</p>
-                </div>
-              </div>
-              <Badge variant="success" dot>
-                <CheckCircle className="w-3.5 h-3.5" />
-                {file.status}
-              </Badge>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <DataState
+        loading={uploads.loading}
+        error={uploads.error}
+        empty={items.length === 0}
+        emptyMessage="Aún no se han cargado archivos."
+        onRetry={uploads.reload}
+      >
+        <Table
+          title="Cargas recientes"
+          data={items}
+          keyExtractor={(u) => u.id}
+          columns={[
+            { header: "Archivo", accessor: (u) => <span className="font-medium text-text-primary">{u.file_name}</span> },
+            { header: "Tipo", accessor: (u) => <Badge variant="default">{u.file_type}</Badge> },
+            { header: "Filas", accessor: (u) => u.row_count },
+            { header: "Errores", accessor: (u) => <span className={u.error_count ? "text-danger" : "text-text-secondary"}>{u.error_count}</span> },
+            {
+              header: "Estado",
+              accessor: (u) => (
+                <Badge variant={u.status === "validated" ? "success" : u.status === "failed" ? "danger" : "warning"} dot>
+                  {u.status}
+                </Badge>
+              ),
+            },
+          ]}
+        />
+      </DataState>
     </div>
   );
 }

@@ -1,63 +1,108 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
-import { LineChartCard } from "@/components/charts/LineChartCard";
-import { demandVsForecastData } from "@/mocks/data/dashboard";
+import { DataState } from "@/components/ui/DataState";
 import { Activity } from "lucide-react";
+import { useApi } from "@/hooks/useApi";
+import { useCompanyId } from "@/hooks/useCompanyId";
+import { forecastingApi } from "@/lib/api";
+import type { RunStatus } from "@/types/api";
+
+const statusVariant: Record<RunStatus, "default" | "success" | "warning" | "danger" | "primary"> = {
+  pending: "default",
+  running: "primary",
+  success: "success",
+  failed: "danger",
+  cancelled: "warning",
+};
+const statusLabel: Record<RunStatus, string> = {
+  pending: "Pendiente",
+  running: "En curso",
+  success: "Completado",
+  failed: "Fallido",
+  cancelled: "Cancelado",
+};
 
 export default function ForecastingPage() {
-  const forecasts = [
-    { id: "FCT-991", date: "2026-06-20 10:05", model: "FTGM", horizon: "30 días", mape: "8.5%", status: "success" },
-    { id: "FCT-990", date: "2026-06-19 10:05", model: "FTGM", horizon: "30 días", mape: "8.2%", status: "success" },
-    { id: "FCT-989", date: "2026-06-18 10:05", model: "ARIMA Baseline", horizon: "30 días", mape: "15.4%", status: "success" },
-  ];
+  const companyId = useCompanyId();
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const runs = useApi(
+    () => (companyId ? forecastingApi.listRuns(companyId) : Promise.resolve([])),
+    [companyId],
+  );
+  const items = runs.data ?? [];
+
+  const handleRun = async () => {
+    if (!companyId) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      const run = await forecastingApi.createRun(companyId, {
+        model_name: "FTGM",
+        horizon_days: 30,
+      });
+      await forecastingApi.executeRun(companyId, run.id);
+      runs.reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "No se pudo ejecutar");
+    } finally {
+      setWorking(false);
+    }
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6">
       <PageHeader
         eyebrow="Inteligencia"
         title="Predicción de demanda"
-        description="Ejecuciones del motor FTGM y visualización de pronósticos por producto."
+        description="Ejecuciones del motor FTGM y su estado."
         action={
-          <Button variant="violet">
+          <Button variant="violet" onClick={handleRun} disabled={working || !companyId}>
             <Activity className="w-4 h-4" />
-            Ejecutar forecast
+            {working ? "Ejecutando…" : "Ejecutar forecast"}
           </Button>
         }
       />
 
-      <LineChartCard
-        title="Demanda observada vs. pronóstico (FTGM)"
-        data={demandVsForecastData}
-        height={280}
-        lines={[
-          { dataKey: "actual", name: "Demanda real", stroke: "#3358F4" },
-          { dataKey: "forecast", name: "Pronóstico FTGM", stroke: "#7C5CFC" },
-        ]}
-      />
+      {actionError && (
+        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+          {actionError}
+        </div>
+      )}
 
-      <Table
-        title="Historial de ejecuciones"
-        data={forecasts}
-        keyExtractor={(f) => f.id}
-        columns={[
-          { header: "Ejecución", accessor: (f) => <span className="font-mono text-text-secondary">{f.id}</span> },
-          { header: "Fecha", accessor: (f) => f.date },
-          { header: "Modelo", accessor: (f) => <span className="font-medium text-text-primary">{f.model}</span> },
-          { header: "Horizonte", accessor: (f) => f.horizon },
-          { header: "MAPE global", accessor: (f) => <span className="font-semibold">{f.mape}</span> },
-          {
-            header: "Estado",
-            accessor: (f) => (
-              <Badge variant={f.status === "success" ? "success" : "danger"} dot>
-                {f.status === "success" ? "Completado" : "Fallido"}
-              </Badge>
-            ),
-          },
-        ]}
-      />
+      <DataState
+        loading={runs.loading}
+        error={runs.error}
+        empty={items.length === 0}
+        emptyMessage="Aún no hay ejecuciones de pronóstico."
+        onRetry={runs.reload}
+      >
+        <Table
+          title="Historial de ejecuciones"
+          data={items}
+          keyExtractor={(r) => r.id}
+          columns={[
+            { header: "Ejecución", accessor: (r) => <span className="font-mono text-text-secondary">{r.id.slice(0, 8)}</span> },
+            { header: "Modelo", accessor: (r) => <span className="font-medium text-text-primary">{r.model_name}</span> },
+            { header: "Horizonte", accessor: (r) => `${r.horizon_days} días` },
+            { header: "Creado", accessor: (r) => (r.started_at ? r.started_at.slice(0, 16).replace("T", " ") : "—") },
+            {
+              header: "Estado",
+              accessor: (r) => (
+                <Badge variant={statusVariant[r.status]} dot>
+                  {statusLabel[r.status]}
+                </Badge>
+              ),
+            },
+            { header: "Detalle", accessor: (r) => <span className="text-text-muted text-xs">{r.error_message ?? ""}</span> },
+          ]}
+        />
+      </DataState>
     </div>
   );
 }
