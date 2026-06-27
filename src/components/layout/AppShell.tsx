@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isAuthenticated } from "@/lib/auth";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -11,8 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsMounted(true);
-    const mockSession = localStorage.getItem("mock-session");
-    if (!mockSession && pathname !== "/login") {
+    if (!isAuthenticated() && pathname !== "/login") {
       window.location.replace("/login");
     }
   }, [pathname]);

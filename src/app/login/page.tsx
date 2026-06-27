@@ -2,22 +2,48 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, TrendingUp, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, TrendingUp, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
+import { login, register } from "@/lib/auth";
+
+type Mode = "login" | "register";
 
 export default function Login() {
   const router = useRouter();
-  const [email, setEmail] = useState("demo@inventorydss.com");
-  const [password, setPassword] = useState("password");
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem("mock-session", "true");
-    router.push("/dashboard");
+    setError(null);
+    setLoading(true);
+    try {
+      if (mode === "login") {
+        await login(email, password);
+      } else {
+        await register({
+          email,
+          password,
+          full_name: fullName,
+          company_name: companyName,
+          tax_id: taxId,
+        });
+      }
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo completar la operación");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Form side */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md">
           <div className="mb-10">
@@ -27,51 +53,60 @@ export default function Login() {
             <span className="text-xs text-text-muted">Soporte de decisiones · Retail</span>
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-2">Bienvenido de nuevo</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-2">
+            {mode === "login" ? "Bienvenido de nuevo" : "Crea tu cuenta"}
+          </h1>
           <p className="text-text-secondary mb-8 text-sm">
-            Ingresa tus credenciales para acceder a la plataforma <span className="font-medium text-text-primary">(Modo Demo)</span>.
+            {mode === "login"
+              ? "Ingresa tus credenciales para acceder a la plataforma."
+              : "Registra tu empresa y tu usuario administrador."}
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Correo electrónico</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-all"
-                required
-              />
+          {error && (
+            <div className="mb-5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+              {error}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-all"
-                required
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center text-sm text-text-secondary cursor-pointer">
-                <input type="checkbox" className="mr-2 rounded border-border text-primary focus:ring-primary" />
-                Recordarme
-              </label>
-              <a href="#" className="text-sm font-medium text-primary hover:text-primary-hover">¿Olvidaste tu contraseña?</a>
-            </div>
-            <button type="submit" className="btn btn-primary w-full py-3 group">
-              Ingresar al sistema
-              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button type="button" onClick={handleLogin} className="btn btn-secondary w-full py-3">
-              Continuar en modo demo
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {mode === "register" && (
+              <>
+                <Field label="Nombre completo" value={fullName} onChange={setFullName} />
+                <Field label="Nombre de la empresa" value={companyName} onChange={setCompanyName} />
+                <Field label="RUC" value={taxId} onChange={setTaxId} />
+              </>
+            )}
+            <Field label="Correo electrónico" type="email" value={email} onChange={setEmail} />
+            <Field label="Contraseña" type="password" value={password} onChange={setPassword} />
+
+            <button type="submit" disabled={loading} className="btn btn-primary w-full py-3 group disabled:opacity-60">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  {mode === "login" ? "Ingresar al sistema" : "Crear cuenta"}
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
+
+          <p className="mt-6 text-sm text-text-secondary">
+            {mode === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError(null);
+              }}
+              className="font-medium text-primary hover:text-primary-hover"
+            >
+              {mode === "login" ? "Regístrate" : "Inicia sesión"}
+            </button>
+          </p>
         </div>
       </div>
 
-      {/* Brand side — flat deep indigo with frosted-glass cards */}
       <div className="hidden lg:flex flex-1 items-center justify-center p-12 relative overflow-hidden bg-[#1B1F3B]">
         <div className="absolute inset-0 bg-dots opacity-40" />
         <div className="absolute -top-24 -right-24 w-[26rem] h-[26rem] rounded-full bg-primary/25 blur-[120px]" />
@@ -103,6 +138,31 @@ export default function Login() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-all"
+        required
+      />
     </div>
   );
 }

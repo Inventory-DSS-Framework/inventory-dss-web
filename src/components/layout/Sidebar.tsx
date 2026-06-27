@@ -8,6 +8,8 @@ import {
   Settings, Activity, BarChart2, Bell, FileText, CheckCircle, Database,
   ChevronsUpDown, Sparkles, LogOut, FolderOpen,
 } from "lucide-react";
+import { logout } from "@/lib/auth";
+import { initialsOf, useProfile } from "@/hooks/useProfile";
 
 type NavItem = { name: string; href: string; icon: typeof LayoutDashboard };
 
@@ -50,6 +52,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { company } = useProfile();
 
   return (
     <aside className="w-[260px] bg-surface h-full flex flex-col border-r border-border shrink-0">
@@ -60,18 +63,20 @@ export function Sidebar() {
         </span>
       </div>
 
-      {/* Unit selector */}
+      {/* Company */}
       <div className="px-4 pb-3">
-        <button className="w-full flex items-center gap-3 rounded-2xl border border-border bg-surface-soft p-2.5 hover:bg-surface-muted transition-colors group">
+        <div className="w-full flex items-center gap-3 rounded-2xl border border-border bg-surface-soft p-2.5">
           <div className="w-9 h-9 rounded-lg bg-primary-soft flex items-center justify-center shrink-0 text-sm font-bold text-primary">
-            P1
+            {initialsOf(company?.name)}
           </div>
           <div className="flex-1 text-left min-w-0">
-            <p className="text-[11px] font-medium text-text-muted leading-tight">Unidad</p>
-            <p className="text-sm font-semibold text-text-primary truncate leading-tight">Petshop 1</p>
+            <p className="text-[11px] font-medium text-text-muted leading-tight">Empresa</p>
+            <p className="text-sm font-semibold text-text-primary truncate leading-tight">
+              {company?.name ?? "—"}
+            </p>
           </div>
-          <ChevronsUpDown className="w-4 h-4 text-text-muted group-hover:text-text-secondary shrink-0" />
-        </button>
+          <ChevronsUpDown className="w-4 h-4 text-text-muted shrink-0" />
+        </div>
       </div>
 
       {/* Navigation */}
@@ -133,7 +138,7 @@ export function Sidebar() {
 
         <Link
           href="/login"
-          onClick={() => { try { localStorage.removeItem("mock-session"); } catch {} }}
+          onClick={() => { try { logout(); } catch {} }}
           className="mt-2 flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-xl text-text-secondary hover:bg-surface-soft hover:text-text-primary transition-colors"
         >
           <LogOut className="h-[18px] w-[18px] text-text-muted" />
