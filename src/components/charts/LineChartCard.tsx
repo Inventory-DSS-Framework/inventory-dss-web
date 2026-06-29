@@ -10,6 +10,10 @@ interface SeriesDef {
   name: string;
   /** Optional headline value shown next to the legend chip. */
   value?: string;
+  /** Fill the area under the line. Defaults to true. */
+  fill?: boolean;
+  /** Render the line dashed (e.g. confidence bounds). */
+  dashed?: boolean;
 }
 
 interface LineChartCardProps {
@@ -20,13 +24,17 @@ interface LineChartCardProps {
   height?: number;
   /** Format Y axis / tooltip values. */
   valueFormatter?: (v: number) => string;
+  /** Prefix for the tooltip label (defaults to "Día"). Pass "" to show the raw label. */
+  labelPrefix?: string;
+  /** Optional explanatory line under the title. */
+  subtitle?: string;
 }
 
-function CustomTooltip({ active, payload, label, lines, valueFormatter }: any) {
+function CustomTooltip({ active, payload, label, lines, valueFormatter, labelPrefix }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-2xl bg-surface border border-border shadow-soft-lg px-4 py-3 min-w-[150px]">
-      <p className="text-[11px] font-medium text-text-muted mb-2">Día {label}</p>
+      <p className="text-[11px] font-medium text-text-muted mb-2">{[labelPrefix, label].filter(Boolean).join(" ")}</p>
       <div className="space-y-1.5">
         {payload.map((entry: any) => {
           const def = lines.find((l: SeriesDef) => l.dataKey === entry.dataKey);
@@ -47,11 +55,14 @@ function CustomTooltip({ active, payload, label, lines, valueFormatter }: any) {
   );
 }
 
-export function LineChartCard({ title, data, lines, className, height = 260, valueFormatter }: LineChartCardProps) {
+export function LineChartCard({ title, data, lines, className, height = 260, valueFormatter, labelPrefix = "Día", subtitle }: LineChartCardProps) {
   return (
     <Card className={className}>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-display text-base font-semibold text-text-primary">{title}</h3>
+          {subtitle && <p className="text-xs text-text-secondary mt-0.5">{subtitle}</p>}
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           {lines.map((line) => (
             <div key={line.dataKey} className="flex items-center gap-2">
@@ -78,21 +89,20 @@ export function LineChartCard({ title, data, lines, className, height = 260, val
             <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9AA1B9", fontSize: 11 }} width={48} />
             <Tooltip
               cursor={{ stroke: "#C9D2EA", strokeWidth: 1, strokeDasharray: "4 4" }}
-              content={<CustomTooltip lines={lines} valueFormatter={valueFormatter} />}
+              content={<CustomTooltip lines={lines} valueFormatter={valueFormatter} labelPrefix={labelPrefix} />}
             />
-            {lines.map((line, i) => (
+            {lines.map((line) => (
               <Area
                 key={line.dataKey}
                 type="monotone"
                 dataKey={line.dataKey}
                 stroke={line.stroke}
-                strokeWidth={2.5}
-                fill={`url(#fill-${line.dataKey})`}
+                strokeWidth={line.dashed ? 1.5 : 2.5}
+                strokeDasharray={line.dashed ? "5 4" : undefined}
+                fill={line.fill === false ? "none" : `url(#fill-${line.dataKey})`}
                 name={line.name}
                 dot={false}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff", fill: line.stroke }}
-                // primary series drawn on top
-                style={{ filter: i === 0 ? "none" : "none" }}
               />
             ))}
           </AreaChart>

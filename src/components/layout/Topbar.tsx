@@ -6,6 +6,8 @@ import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { initialsOf, useProfile } from "@/hooks/useProfile";
 import { notificationsApi } from "@/lib/api";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { ModeToggle } from "@/components/ui/ModeToggle";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "Propietario",
@@ -43,6 +45,11 @@ export function Topbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-1 pr-1 mr-1 border-r border-border">
+          <ThemeSwitcher />
+          <ModeToggle />
+        </div>
+
         <button
           onClick={() => window.location.reload()}
           className="btn btn-primary hidden sm:inline-flex gap-1.5 px-4 py-2 text-sm"

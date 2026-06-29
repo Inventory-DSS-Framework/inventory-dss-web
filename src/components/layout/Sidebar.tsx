@@ -58,7 +58,7 @@ export function Sidebar() {
     <aside className="w-[260px] bg-surface h-full flex flex-col border-r border-border shrink-0">
       {/* Brand wordmark */}
       <div className="px-5 pt-6 pb-2">
-        <span className="text-lg font-bold tracking-tight text-text-primary">
+        <span className="font-display text-lg font-bold tracking-tight text-text-primary">
           Inventory<span className="text-primary">DSS</span>
         </span>
       </div>

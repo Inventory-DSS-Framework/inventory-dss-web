@@ -17,7 +17,7 @@ export function PageHeader({ title, description, action, eyebrow }: PageHeaderPr
             {eyebrow}
           </p>
         )}
-        <h1 className="text-[26px] leading-tight font-bold tracking-tight text-text-primary">{title}</h1>
+        <h1 className="font-display text-[26px] leading-tight font-bold tracking-tight text-text-primary">{title}</h1>
         {description && <p className="text-sm text-text-secondary mt-1.5 max-w-2xl">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}

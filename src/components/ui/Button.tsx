@@ -23,7 +23,16 @@ const sizes: Record<Size, string> = {
 
 export function Button({ variant = "primary", size = "md", className, children, ...props }: ButtonProps) {
   return (
-    <button className={cn("btn", variants[variant], sizes[size], className)} {...props}>
+    <button
+      className={cn(
+        "btn",
+        variants[variant],
+        sizes[size],
+        "disabled:opacity-50 disabled:pointer-events-none",
+        className,
+      )}
+      {...props}
+    >
       {children}
     </button>
   );

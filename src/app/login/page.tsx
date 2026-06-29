@@ -47,13 +47,13 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md">
           <div className="mb-10">
-            <span className="text-xl font-bold tracking-tight text-text-primary block leading-tight">
+            <span className="font-display text-xl font-bold tracking-tight text-text-primary block leading-tight">
               Inventory<span className="text-primary">DSS</span>
             </span>
             <span className="text-xs text-text-muted">Soporte de decisiones · Retail</span>
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-2">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary mb-2">
             {mode === "login" ? "Bienvenido de nuevo" : "Crea tu cuenta"}
           </h1>
           <p className="text-text-secondary mb-8 text-sm">
@@ -117,7 +117,7 @@ export default function Login() {
             <Sparkles className="w-3.5 h-3.5" />
             Modelo FTGM
           </div>
-          <h2 className="text-4xl font-bold leading-tight mb-6">
+          <h2 className="font-display text-4xl font-bold leading-tight mb-6">
             Optimización inteligente para tu inventario
           </h2>
           <p className="text-white/70 text-lg mb-10 leading-relaxed">

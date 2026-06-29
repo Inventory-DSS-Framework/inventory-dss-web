@@ -16,14 +16,16 @@ interface TableProps<T> {
   title?: string;
   /** Optional element (e.g. button, filter) aligned to the right of the title. */
   action?: ReactNode;
+  /** If provided, rows become clickable and this handler is called on click. */
+  onRowClick?: (item: T) => void;
 }
 
-export function Table<T>({ columns, data, keyExtractor, title, action }: TableProps<T>) {
+export function Table<T>({ columns, data, keyExtractor, title, action, onRowClick }: TableProps<T>) {
   return (
     <Card className="p-0 overflow-hidden">
       {(title || action) && (
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          {title && <h3 className="text-base font-semibold text-text-primary">{title}</h3>}
+          {title && <h3 className="font-display text-base font-semibold text-text-primary">{title}</h3>}
           {action && <div>{action}</div>}
         </div>
       )}
@@ -46,7 +48,14 @@ export function Table<T>({ columns, data, keyExtractor, title, action }: TablePr
           </thead>
           <tbody className="divide-y divide-border-soft">
             {data.map((item) => (
-              <tr key={keyExtractor(item)} className="hover:bg-surface-soft/70 transition-colors">
+              <tr
+                key={keyExtractor(item)}
+                onClick={onRowClick ? () => onRowClick(item) : undefined}
+                className={cn(
+                  "hover:bg-surface-soft/70 transition-colors",
+                  onRowClick && "cursor-pointer"
+                )}
+              >
                 {columns.map((col, j) => (
                   <td key={j} className={cn("px-6 py-4 text-sm text-text-primary", col.className)}>
                     {col.accessor(item)}

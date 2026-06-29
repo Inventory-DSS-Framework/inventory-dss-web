@@ -2,6 +2,182 @@
 
 @config "../../tailwind.config.ts";
 
+/* ── Themes ───────────────────────────────────────────────────────────────
+   Each token is an RGB channel triplet so Tailwind can apply opacity modifiers.
+   :root is the default theme (Teal & coral). `data-theme` on <html> swaps them.
+   Status colors (success/warning/danger) are shared and only declared here. */
+:root {
+  --c-success: 16 185 129;
+  --c-success-soft: 214 245 231;
+  --c-warning: 245 166 35;
+  --c-warning-soft: 253 240 214;
+  --c-danger: 229 72 77;
+  --c-danger-soft: 253 226 227;
+  --c-sky: 56 189 248;
+
+  /* Teal & coral (default) */
+  --c-bg: 246 249 248;
+  --c-bg-deep: 238 243 242;
+  --c-surface: 255 255 255;
+  --c-surface-soft: 244 248 247;
+  --c-surface-muted: 237 243 241;
+  --c-border: 230 238 235;
+  --c-border-soft: 239 244 243;
+  --c-primary: 15 179 166;
+  --c-primary-hover: 12 155 143;
+  --c-primary-soft: 215 242 239;
+  --c-primary-softer: 234 247 245;
+  --c-accent: 251 122 91;
+  --c-accent-soft: 252 231 220;
+  --c-accent-2: 242 164 140;
+  --c-accent-2-soft: 252 237 231;
+  --c-text: 20 35 58;
+  --c-text-secondary: 91 102 117;
+  --c-text-muted: 153 161 174;
+  --c-grad-from: 234 247 245;
+  --c-grad-to: 215 242 239;
+}
+
+[data-theme="turquoise"] {
+  --c-bg: 243 248 247;
+  --c-bg-deep: 235 243 241;
+  --c-surface-soft: 242 248 246;
+  --c-surface-muted: 233 243 239;
+  --c-border: 226 237 233;
+  --c-border-soft: 237 244 242;
+  --c-primary: 15 179 166;
+  --c-primary-hover: 10 110 102;
+  --c-primary-soft: 215 242 239;
+  --c-primary-softer: 225 245 238;
+  --c-accent: 10 110 102;
+  --c-accent-soft: 215 242 239;
+  --c-accent-2: 93 202 165;
+  --c-accent-2-soft: 225 245 238;
+  --c-text: 15 42 46;
+  --c-text-secondary: 74 92 92;
+  --c-text-muted: 141 158 156;
+  --c-grad-from: 225 245 238;
+  --c-grad-to: 215 242 239;
+}
+
+[data-theme="warm"] {
+  --c-bg: 251 246 241;
+  --c-bg-deep: 245 237 228;
+  --c-surface-soft: 250 244 238;
+  --c-surface-muted: 243 234 224;
+  --c-border: 239 230 219;
+  --c-border-soft: 244 236 227;
+  --c-primary: 242 120 75;
+  --c-primary-hover: 220 98 56;
+  --c-primary-soft: 252 231 220;
+  --c-primary-softer: 253 241 234;
+  --c-accent: 196 80 42;
+  --c-accent-soft: 251 226 214;
+  --c-accent-2: 244 168 140;
+  --c-accent-2-soft: 252 237 230;
+  --c-text: 42 27 20;
+  --c-text-secondary: 110 95 85;
+  --c-text-muted: 168 154 142;
+  --c-grad-from: 253 241 234;
+  --c-grad-to: 252 231 220;
+}
+
+[data-theme="indigo"] {
+  --c-bg: 245 246 251;
+  --c-bg-deep: 238 240 248;
+  --c-surface-soft: 247 248 252;
+  --c-surface-muted: 240 242 250;
+  --c-border: 232 234 244;
+  --c-border-soft: 240 242 250;
+  --c-primary: 79 70 229;
+  --c-primary-hover: 63 55 201;
+  --c-primary-soft: 231 230 254;
+  --c-primary-softer: 241 240 254;
+  --c-accent: 244 162 89;
+  --c-accent-soft: 252 235 216;
+  --c-accent-2: 169 180 251;
+  --c-accent-2-soft: 238 240 254;
+  --c-text: 22 26 46;
+  --c-text-secondary: 90 98 117;
+  --c-text-muted: 154 161 185;
+  --c-grad-from: 241 240 254;
+  --c-grad-to: 231 230 254;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────────────
+   `data-mode="dark"` on <html> combines with `data-theme`. Shared dark neutrals
+   + status live here; each theme overrides only its brand identity below. */
+[data-mode="dark"] {
+  --c-bg: 15 18 26;
+  --c-bg-deep: 11 13 19;
+  --c-surface: 24 29 40;
+  --c-surface-soft: 31 37 50;
+  --c-surface-muted: 40 47 62;
+  --c-border: 44 52 68;
+  --c-border-soft: 36 43 57;
+  --c-text: 226 232 240;
+  --c-text-secondary: 151 163 185;
+  --c-text-muted: 107 119 142;
+  --c-success: 52 211 153;
+  --c-success-soft: 18 49 41;
+  --c-warning: 251 191 96;
+  --c-warning-soft: 58 45 22;
+  --c-danger: 248 113 113;
+  --c-danger-soft: 58 28 31;
+}
+
+[data-mode="dark"][data-theme="teal-coral"] {
+  --c-primary: 30 201 186;
+  --c-primary-hover: 52 214 197;
+  --c-primary-soft: 14 52 49;
+  --c-primary-softer: 16 40 38;
+  --c-accent: 251 146 110;
+  --c-accent-soft: 54 34 28;
+  --c-accent-2: 244 164 140;
+  --c-accent-2-soft: 50 34 30;
+  --c-grad-from: 16 40 38;
+  --c-grad-to: 14 52 49;
+}
+
+[data-mode="dark"][data-theme="turquoise"] {
+  --c-primary: 30 201 186;
+  --c-primary-hover: 52 214 197;
+  --c-primary-soft: 14 52 49;
+  --c-primary-softer: 16 40 38;
+  --c-accent: 45 212 191;
+  --c-accent-soft: 14 52 49;
+  --c-accent-2: 93 202 165;
+  --c-accent-2-soft: 15 46 41;
+  --c-grad-from: 16 40 38;
+  --c-grad-to: 14 52 49;
+}
+
+[data-mode="dark"][data-theme="warm"] {
+  --c-primary: 248 140 96;
+  --c-primary-hover: 250 160 122;
+  --c-primary-soft: 58 35 25;
+  --c-primary-softer: 46 30 22;
+  --c-accent: 232 120 80;
+  --c-accent-soft: 54 33 25;
+  --c-accent-2: 244 168 140;
+  --c-accent-2-soft: 52 35 29;
+  --c-grad-from: 46 30 22;
+  --c-grad-to: 58 35 25;
+}
+
+[data-mode="dark"][data-theme="indigo"] {
+  --c-primary: 131 126 252;
+  --c-primary-hover: 152 147 255;
+  --c-primary-soft: 33 32 64;
+  --c-primary-softer: 27 27 52;
+  --c-accent: 245 170 100;
+  --c-accent-soft: 56 43 25;
+  --c-accent-2: 169 180 251;
+  --c-accent-2-soft: 33 35 62;
+  --c-grad-from: 27 27 52;
+  --c-grad-to: 33 32 64;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -57,62 +233,62 @@
   }
   .btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 3px rgb(var(--c-primary) / 0.22);
   }
 
-  /* Primary — Minimalist Glass */
+  /* Primary — glass, tinted by the active theme's primary */
   .btn-primary {
     color: #ffffff;
-    background-color: rgba(37, 99, 235, 0.85); /* primary blue with 85% opacity */
+    background-color: rgb(var(--c-primary) / 0.92);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: none;
-    box-shadow: 0 4px 12px -4px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px -4px rgb(var(--c-primary) / 0.35);
   }
   .btn-primary:hover {
-    background-color: rgba(37, 99, 235, 0.95);
-    box-shadow: 0 4px 16px -4px rgba(37, 99, 235, 0.4);
+    background-color: rgb(var(--c-primary));
+    box-shadow: 0 4px 16px -4px rgb(var(--c-primary) / 0.45);
   }
 
-  /* Violet variant — Minimalist Glass */
+  /* Accent variant — glass, tinted by the theme's secondary accent */
   .btn-violet {
     color: #ffffff;
-    background-color: rgba(124, 58, 237, 0.85);
+    background-color: rgb(var(--c-accent) / 0.92);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: none;
-    box-shadow: 0 4px 12px -4px rgba(124, 58, 237, 0.3);
+    box-shadow: 0 4px 12px -4px rgb(var(--c-accent) / 0.35);
   }
   .btn-violet:hover {
-    background-color: rgba(124, 58, 237, 0.95);
-    box-shadow: 0 4px 16px -4px rgba(124, 58, 237, 0.4);
+    background-color: rgb(var(--c-accent));
+    box-shadow: 0 4px 16px -4px rgb(var(--c-accent) / 0.45);
   }
 
   /* Secondary — frosted glass, sits on light surfaces */
   .btn-secondary {
-    color: #2A3052;
-    background: rgba(255, 255, 255, 0.7);
+    color: rgb(var(--c-text));
+    background: rgb(var(--c-surface) / 0.7);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1px solid #E4E8F2;
+    border: 1px solid rgb(var(--c-border));
     box-shadow: 0 1px 2px rgba(22, 26, 46, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   }
   .btn-secondary:hover {
     transform: translateY(-1.5px);
-    border-color: #CED6E8;
-    background: rgba(255, 255, 255, 0.92);
+    border-color: rgb(var(--c-text-muted) / 0.4);
+    background: rgb(var(--c-surface) / 0.95);
     box-shadow: 0 6px 16px -8px rgba(22, 26, 46, 0.18);
   }
 
   /* Ghost — no chrome until hovered */
   .btn-ghost {
-    color: #6B7390;
+    color: rgb(var(--c-text-secondary));
     background: transparent;
     border: 1px solid transparent;
   }
   .btn-ghost:hover {
-    color: #161A2E;
-    background: rgba(241, 244, 250, 0.9);
+    color: rgb(var(--c-text));
+    background: rgb(var(--c-surface-muted) / 0.9);
   }
 
   /* Subtle dotted texture for hero / accent panels */
@@ -151,6 +327,14 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* A light particle that travels around a card's rounded border (the dash length
+     is set per element via the --travel custom property, so one loop is seamless). */
+  @keyframes border-travel {
+    to {
+      stroke-dashoffset: calc(-1 * var(--travel));
     }
   }
 }

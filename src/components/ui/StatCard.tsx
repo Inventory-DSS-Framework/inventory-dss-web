@@ -13,6 +13,8 @@ interface StatCardProps {
   accent?: "primary" | "violet" | "success" | "warning" | "danger";
   /** Caption shown next to the change indicator. */
   changeLabel?: string;
+  /** On hover, a theme-colored particle travels around the card's border. */
+  particle?: boolean;
   className?: string;
 }
 
@@ -33,13 +35,14 @@ export function StatCard({
   icon: Icon,
   accent = "primary",
   changeLabel = "vs mes anterior",
+  particle,
   className,
 }: StatCardProps) {
   const isPositive = change !== undefined && change > 0;
   const isNegative = change !== undefined && change < 0;
 
   return (
-    <Card interactive className={cn("flex flex-col justify-between gap-5", className)}>
+    <Card interactive particle={particle} className={cn("flex flex-col justify-between gap-5", className)}>
       <div className="flex justify-between items-start">
         <h3 className="text-sm font-medium text-text-secondary">{title}</h3>
         {Icon && (
@@ -51,7 +54,7 @@ export function StatCard({
       <div>
         <div className="flex items-baseline gap-1">
           {prefix && <span className="text-lg font-semibold text-text-secondary">{prefix}</span>}
-          <span className="text-[28px] leading-none font-bold tracking-tight text-text-primary">{value}</span>
+          <span className="font-display text-[28px] leading-none font-bold tracking-tight text-text-primary tabular-nums">{value}</span>
           {suffix && <span className="text-lg font-semibold text-text-secondary">{suffix}</span>}
         </div>
 
