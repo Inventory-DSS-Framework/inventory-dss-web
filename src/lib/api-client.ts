@@ -99,6 +99,29 @@ async function request<TResponse>(
   return (await response.json()) as TResponse;
 }
 
+/** Fetches a file response as a blob, regardless of content-type, with its filename. */
+async function requestBlob(path: string): Promise<{ blob: Blob; filename: string }> {
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    clearTokens();
+    if (window.location.pathname !== "/login") window.location.replace("/login");
+    throw new ApiError("Sesión expirada", 401);
+  }
+  if (!response.ok) {
+    throw new ApiError(`Error ${response.status}`, response.status);
+  }
+
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition);
+  const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : "descarga";
+  return { blob: await response.blob(), filename };
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
@@ -106,4 +129,5 @@ export const apiClient = {
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
+  getBlob: (path: string) => requestBlob(path),
 };

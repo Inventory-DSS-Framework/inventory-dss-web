@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
@@ -99,7 +100,14 @@ export default function ForecastingPage() {
                 </Badge>
               ),
             },
-            { header: "Detalle", accessor: (r) => <span className="text-text-muted text-xs">{r.error_message ?? ""}</span> },
+            {
+              header: "",
+              accessor: (r) => (
+                <Link href={`/forecasting/${r.id}`} className="text-primary hover:text-primary-hover text-sm font-semibold whitespace-nowrap">
+                  Ver detalle
+                </Link>
+              ),
+            },
           ]}
         />
       </DataState>

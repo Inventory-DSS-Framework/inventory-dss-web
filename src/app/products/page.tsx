@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
 import { StatCard } from "@/components/ui/StatCard";
+import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
-import { Package, CheckCircle, XCircle } from "lucide-react";
+import { ProductFormModal } from "@/components/products/ProductFormModal";
+import { Package, CheckCircle, XCircle, PackagePlus, Pencil } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { categoriesApi, productsApi } from "@/lib/api";
+import type { ProductDTO } from "@/types/api";
 
 export default function ProductsPage() {
   const companyId = useCompanyId();
@@ -21,6 +24,18 @@ export default function ProductsPage() {
     () => (companyId ? categoriesApi.list(companyId) : Promise.resolve([])),
     [companyId],
   );
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<ProductDTO | null>(null);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+  const openEdit = (product: ProductDTO) => {
+    setEditing(product);
+    setFormOpen(true);
+  };
 
   const categoryName = useMemo(() => {
     const map = new Map((categories.data ?? []).map((c) => [c.id, c.name]));
@@ -37,6 +52,12 @@ export default function ProductsPage() {
         eyebrow="Catálogo"
         title="Productos"
         description="Catálogo de productos y SKUs monitoreados por el modelo."
+        action={
+          <Button onClick={openCreate} disabled={!companyId}>
+            <PackagePlus className="w-4 h-4" />
+            Nuevo producto
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -49,7 +70,7 @@ export default function ProductsPage() {
         loading={products.loading}
         error={products.error}
         empty={items.length === 0}
-        emptyMessage="Aún no hay productos registrados."
+        emptyMessage="Aún no hay productos. Crea el primero o cárgalos por ingesta."
         onRetry={products.reload}
       >
         <Table
@@ -71,9 +92,30 @@ export default function ProductsPage() {
                 </Badge>
               ),
             },
+            {
+              header: "",
+              accessor: (p) => (
+                <button
+                  onClick={() => openEdit(p)}
+                  className="inline-flex items-center gap-1 text-primary hover:text-primary-hover text-sm font-semibold"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Editar
+                </button>
+              ),
+            },
           ]}
         />
       </DataState>
+
+      <ProductFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        companyId={companyId}
+        product={editing}
+        categories={categories.data ?? []}
+        onSaved={products.reload}
+      />
     </div>
   );
 }

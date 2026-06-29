@@ -6,6 +6,7 @@ import type {
   FileDTO,
   ForecastRunDTO,
   ForecastMetricsDTO,
+  ForecastResultDTO,
   IngestionBatchDTO,
   KpiDTO,
   MessageResponse,
@@ -16,6 +17,7 @@ import type {
   ProductDTO,
   RecommendationDTO,
   ReportDTO,
+  ReportType,
   ReplenishmentDTO,
   SaleDTO,
   SalesBatchDTO,
@@ -96,6 +98,10 @@ export const forecastingApi = {
     apiClient.get<ForecastMetricsDTO[]>(
       `${base(companyId)}/forecast-runs/${runId}/metrics`,
     ),
+  runResults: (companyId: string, runId: string) =>
+    apiClient.get<ForecastResultDTO[]>(
+      `${base(companyId)}/forecast-runs/${runId}/results`,
+    ),
 };
 
 export const kpisApi = {
@@ -135,12 +141,26 @@ export const ingestionApi = {
       form,
     );
   },
+  setMapping: (companyId: string, uploadId: string, mapping: Record<string, string>) =>
+    apiClient.post<IngestionBatchDTO>(
+      `${base(companyId)}/ingestion/uploads/${uploadId}/mapping`,
+      { mapping },
+    ),
+  validate: (companyId: string, uploadId: string) =>
+    apiClient.post<IngestionBatchDTO>(
+      `${base(companyId)}/ingestion/uploads/${uploadId}/validate`,
+    ),
 };
 
 export const dataPreparationApi = {
   listDatasets: (companyId: string) =>
     apiClient.get<PreparedDatasetDTO[]>(
       `${base(companyId)}/data-preparation/datasets`,
+    ),
+  prepare: (companyId: string, batchId: string, treatZeroAsStockout = false) =>
+    apiClient.post<PreparedDatasetDTO>(
+      `${base(companyId)}/data-preparation/prepare`,
+      { batch_id: batchId, treat_zero_as_stockout: treatZeroAsStockout },
     ),
 };
 
@@ -163,6 +183,12 @@ export const filesApi = {
 export const reportsApi = {
   list: (companyId: string) =>
     apiClient.get<PaginatedResponse<ReportDTO>>(`${base(companyId)}/reports`),
+  create: (
+    companyId: string,
+    body: { title: string; report_type: ReportType; params?: Record<string, unknown> },
+  ) => apiClient.post<ReportDTO>(`${base(companyId)}/reports`, { params: {}, ...body }),
+  download: (companyId: string, id: string) =>
+    apiClient.getBlob(`${base(companyId)}/reports/${id}/download`),
 };
 
 export const validationApi = {

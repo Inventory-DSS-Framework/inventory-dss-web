@@ -142,6 +142,21 @@ export interface ForecastMetricsDTO {
   rmse: Numeric;
 }
 
+export interface ForecastPointDTO {
+  period_date: string;
+  predicted_demand: Numeric;
+  lower_bound: Numeric | null;
+  upper_bound: Numeric | null;
+}
+
+export interface ForecastResultDTO {
+  id: string;
+  run_id: string;
+  company_id: string;
+  product_id: string;
+  points: ForecastPointDTO[];
+}
+
 export type KpiType =
   | "coverage_days"
   | "stockout_risk"
@@ -226,12 +241,15 @@ export interface FileDTO {
   category: string;
 }
 
+export type ReportType = "forecast" | "kpi" | "recommendation";
+export type ReportStatus = "pending" | "ready" | "failed";
+
 export interface ReportDTO {
   id: string;
   company_id: string;
   title: string;
-  report_type: string;
-  status: string;
+  report_type: ReportType;
+  status: ReportStatus;
   file_path: string | null;
   params: Record<string, unknown>;
 }
