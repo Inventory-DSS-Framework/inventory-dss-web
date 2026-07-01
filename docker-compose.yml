@@ -1,0 +1,15 @@
+# Inventory DSS Web (Next.js) — standalone local container.
+# Run:  docker compose up --build
+#
+# The browser (on the host) calls the API, so NEXT_PUBLIC_API_BASE_URL points at
+# localhost:8000 — NOT host.docker.internal (that name only means anything INSIDE a
+# container; the browser runs on your machine). Open http://localhost:3000
+
+services:
+  web:
+    build: .
+    container_name: inventory_dss_web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
