@@ -1,0 +1,24 @@
+# Render Blueprint — Inventory DSS Web (Next.js)
+#
+# Deployed as a Node web service (not Docker: the repo Dockerfile runs the dev
+# server and is only for local docker-compose). Render builds a production bundle.
+#
+# IMPORTANT: NEXT_PUBLIC_API_BASE_URL is baked into the browser bundle at BUILD time,
+# so it must be set before/at build. Set it in the dashboard to the API's public URL
+# (with the /api/v1 suffix), e.g. https://inventory-dss-api.onrender.com/api/v1.
+# Changing it later requires a rebuild ("Clear build cache & deploy").
+
+services:
+  - type: web
+    name: inventory-dss-web
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- -p $PORT
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Public URL of the API, ending in /api/v1. Set in the dashboard.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
