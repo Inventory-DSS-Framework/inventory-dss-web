@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
-import { CheckCircle, ShoppingCart, Sparkles } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { CheckCircle, ShoppingCart, Sparkles, Lightbulb } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
-import { recommendationsApi } from "@/lib/api";
+import { productsApi, recommendationsApi } from "@/lib/api";
 import type { RecommendationPriority } from "@/types/api";
 
 const accentBar: Record<RecommendationPriority, string> = {
@@ -32,7 +33,16 @@ export default function RecommendationsPage() {
     () => (companyId ? recommendationsApi.list(companyId) : Promise.resolve([])),
     [companyId],
   );
+  const products = useApi(
+    () => (companyId ? productsApi.list(companyId) : Promise.resolve([])),
+    [companyId],
+  );
   const items = recs.data ?? [];
+
+  const productOf = useMemo(() => {
+    const map = new Map((products.data ?? []).map((p) => [p.id, p]));
+    return (id: string) => map.get(id);
+  }, [products.data]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setWorking(true);
@@ -75,8 +85,15 @@ export default function RecommendationsPage() {
         loading={recs.loading}
         error={recs.error}
         empty={items.length === 0}
-        emptyMessage="Sin recomendaciones. Genera a partir del último pronóstico."
         onRetry={recs.reload}
+        emptyState={
+          <EmptyState
+            icon={Lightbulb}
+            title="Sin recomendaciones todavía"
+            description="Las recomendaciones se generan del último pronóstico cruzado con tu stock y lead time. Se crean solas al ejecutar un pronóstico, o puedes generarlas con el botón «Generar»."
+            action={{ label: "Ir a Pronóstico", href: "/forecasting" }}
+          />
+        }
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((rec) => (
@@ -91,8 +108,13 @@ export default function RecommendationsPage() {
                 <span className="text-xs text-text-muted font-mono">{rec.id.slice(0, 8)}</span>
               </div>
 
-              <h3 className="font-semibold text-text-primary leading-snug font-mono text-sm">
-                Producto {rec.product_id.slice(0, 8)}
+              <h3 className="font-semibold text-text-primary leading-snug text-sm">
+                {productOf(rec.product_id)?.name ?? `Producto ${rec.product_id.slice(0, 8)}`}
+                {productOf(rec.product_id) && (
+                  <span className="block font-mono text-[11px] font-normal text-text-muted mt-0.5">
+                    {productOf(rec.product_id)!.sku}
+                  </span>
+                )}
               </h3>
 
               <div className="bg-surface-soft rounded-2xl p-3.5 my-4">

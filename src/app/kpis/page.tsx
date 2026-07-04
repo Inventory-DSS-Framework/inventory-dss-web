@@ -6,11 +6,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { Table, Badge } from "@/components/ui/Table";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { BarChart2, TrendingDown, TrendingUp, RefreshCcw, Sparkles } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
-import { kpisApi } from "@/lib/api";
-import type { KpiType } from "@/types/api";
+import { kpisApi, productsApi } from "@/lib/api";
+import type { KpiDTO, KpiType } from "@/types/api";
 
 const KPI_LABEL: Record<KpiType, string> = {
   coverage_days: "Cobertura (días)",
@@ -28,7 +29,26 @@ export default function KPIsPage() {
     () => (companyId ? kpisApi.list(companyId) : Promise.resolve([])),
     [companyId],
   );
-  const items = kpis.data ?? [];
+  const products = useApi(
+    () => (companyId ? productsApi.list(companyId) : Promise.resolve([])),
+    [companyId],
+  );
+
+  const productOf = useMemo(() => {
+    const map = new Map((products.data ?? []).map((p) => [p.id, p]));
+    return (id: string) => map.get(id);
+  }, [products.data]);
+
+  // KPIs accumulate across runs; keep only the most recent value per (product, type).
+  const items = useMemo(() => {
+    const latest = new Map<string, KpiDTO>();
+    for (const k of kpis.data ?? []) {
+      const key = `${k.product_id}:${k.kpi_type}`;
+      const prev = latest.get(key);
+      if (!prev || k.computed_at > prev.computed_at) latest.set(key, k);
+    }
+    return [...latest.values()];
+  }, [kpis.data]);
 
   const averages = useMemo(() => {
     const sums = new Map<KpiType, { total: number; count: number }>();
@@ -89,17 +109,37 @@ export default function KPIsPage() {
         loading={kpis.loading}
         error={kpis.error}
         empty={items.length === 0}
-        emptyMessage="Aún no hay KPIs. Ejecuta un pronóstico y luego calcula los KPIs."
         onRetry={kpis.reload}
+        emptyState={
+          <EmptyState
+            icon={BarChart2}
+            title="Aún no hay KPIs"
+            description="Los KPIs cruzan tu pronóstico con el stock actual. Se calculan solos al ejecutar un pronóstico, o puedes recalcularlos con «Calcular KPIs»."
+            action={{ label: "Ir a Pronóstico", href: "/forecasting" }}
+          />
+        }
       >
         <Table
           title="KPIs por producto"
           data={items}
           keyExtractor={(k) => k.id}
           columns={[
-            { header: "Producto", accessor: (k) => <span className="font-mono text-text-secondary">{k.product_id.slice(0, 8)}</span> },
+            {
+              header: "Producto",
+              accessor: (k) => {
+                const p = productOf(k.product_id);
+                return p ? (
+                  <div className="min-w-0">
+                    <span className="font-medium text-text-primary block truncate">{p.name}</span>
+                    <span className="font-mono text-[11px] text-text-muted">{p.sku}</span>
+                  </div>
+                ) : (
+                  <span className="font-mono text-text-secondary">{k.product_id.slice(0, 8)}</span>
+                );
+              },
+            },
             { header: "Indicador", accessor: (k) => <Badge variant="default">{KPI_LABEL[k.kpi_type]}</Badge> },
-            { header: "Valor", accessor: (k) => <span className="font-semibold">{Number(k.value).toFixed(2)}</span> },
+            { header: "Valor", accessor: (k) => <span className="font-semibold tabular-nums">{Number(k.value).toFixed(2)}</span> },
             { header: "Calculado", accessor: (k) => k.computed_at.slice(0, 10) },
           ]}
         />

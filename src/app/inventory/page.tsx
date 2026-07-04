@@ -6,10 +6,12 @@ import { Table, Badge } from "@/components/ui/Table";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
-import { ScanSearch } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ScanSearch, Boxes } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { inventoryApi, productsApi } from "@/lib/api";
+import type { ProductDTO } from "@/types/api";
 
 const typeLabel: Record<string, string> = {
   inbound: "Entrada",
@@ -17,13 +19,22 @@ const typeLabel: Record<string, string> = {
   adjustment: "Ajuste",
 };
 
+type StockStatus = { label: string; variant: "success" | "warning" | "danger" };
+function stockStatus(onHand: number, reorder: number, safety: number): StockStatus {
+  if (onHand <= 0) return { label: "Sin stock", variant: "danger" };
+  if (onHand <= safety) return { label: "Crítico", variant: "danger" };
+  if (onHand <= reorder) return { label: "Bajo reorden", variant: "warning" };
+  return { label: "OK", variant: "success" };
+}
+
 export default function InventoryPage() {
   const companyId = useCompanyId();
-  const [tab, setTab] = useState("movements");
+  const [tab, setTab] = useState("stock");
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
+  const stock = useApi(() => (companyId ? inventoryApi.currentStockAll(companyId) : Promise.resolve([])), [companyId]);
   const movements = useApi(() => (companyId ? inventoryApi.listMovements(companyId) : Promise.resolve([])), [companyId]);
   const replenishments = useApi(() => (companyId ? inventoryApi.listReplenishments(companyId) : Promise.resolve([])), [companyId]);
   const stockouts = useApi(() => (companyId ? inventoryApi.listStockouts(companyId) : Promise.resolve([])), [companyId]);
@@ -32,6 +43,18 @@ export default function InventoryPage() {
     const map = new Map((products.data ?? []).map((p) => [p.id, p.sku]));
     return (id: string) => map.get(id) ?? id.slice(0, 8);
   }, [products.data]);
+
+  // Join current stock with the product catalog (name, reorder, safety) for the table.
+  const stockRows = useMemo(() => {
+    const onHand = new Map((stock.data ?? []).map((s) => [s.product_id, s.quantity_on_hand]));
+    return (products.data ?? [])
+      .filter((p) => p.is_active)
+      .map((p: ProductDTO) => ({
+        product: p,
+        onHand: onHand.get(p.id) ?? 0,
+      }))
+      .sort((a, b) => a.onHand - b.onHand);
+  }, [products.data, stock.data]);
 
   const detect = async () => {
     if (!companyId) return;
@@ -48,6 +71,7 @@ export default function InventoryPage() {
   };
 
   const tabs = [
+    { id: "stock", label: "Stock actual", count: stockRows.length },
     { id: "movements", label: "Movimientos", count: (movements.data ?? []).length },
     { id: "replenishments", label: "Reabastecimientos", count: (replenishments.data ?? []).length },
     { id: "stockouts", label: "Quiebres", count: (stockouts.data ?? []).length },
@@ -76,6 +100,50 @@ export default function InventoryPage() {
       )}
 
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
+
+      {tab === "stock" && (
+        <DataState
+          loading={products.loading || stock.loading}
+          error={products.error || stock.error}
+          empty={stockRows.length === 0}
+          onRetry={() => { products.reload(); stock.reload(); }}
+          emptyState={
+            <EmptyState
+              icon={Boxes}
+              title="Aún no hay stock registrado"
+              description="El stock inicial se siembra al preparar un dataset desde tus ventas. Sube tu CSV y pulsa «Preparar dataset» para ver aquí el stock de cada producto."
+              action={{ label: "Ir a Ventas", href: "/ingestion" }}
+            />
+          }
+        >
+          <Table
+            title="Stock actual por producto"
+            data={stockRows}
+            keyExtractor={(r) => r.product.id}
+            columns={[
+              {
+                header: "Producto",
+                accessor: (r) => (
+                  <div className="min-w-0">
+                    <span className="font-medium text-text-primary block truncate">{r.product.name}</span>
+                    <span className="font-mono text-[11px] text-text-muted">{r.product.sku}</span>
+                  </div>
+                ),
+              },
+              { header: "Stock actual", accessor: (r) => <span className="font-semibold text-text-primary tabular-nums">{r.onHand}</span> },
+              { header: "Punto reorden", accessor: (r) => <span className="text-text-secondary tabular-nums">{r.product.reorder_point}</span> },
+              { header: "Stock seguridad", accessor: (r) => <span className="text-text-secondary tabular-nums">{r.product.safety_stock}</span> },
+              {
+                header: "Estado",
+                accessor: (r) => {
+                  const st = stockStatus(r.onHand, r.product.reorder_point, r.product.safety_stock);
+                  return <Badge variant={st.variant} dot>{st.label}</Badge>;
+                },
+              },
+            ]}
+          />
+        </DataState>
+      )}
 
       {tab === "movements" && (
         <DataState

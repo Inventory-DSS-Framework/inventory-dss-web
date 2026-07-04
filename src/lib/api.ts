@@ -71,6 +71,8 @@ export const inventoryApi = {
     apiClient.get<StockLevelDTO>(
       `${base(companyId)}/inventory/current-stock/${productId}`,
     ),
+  currentStockAll: (companyId: string) =>
+    apiClient.get<StockLevelDTO[]>(`${base(companyId)}/inventory/current-stock`),
   listReplenishments: (companyId: string) =>
     apiClient.get<ReplenishmentDTO[]>(
       `${base(companyId)}/inventory/replenishments`,
