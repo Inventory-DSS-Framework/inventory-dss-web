@@ -134,12 +134,23 @@ export interface ForecastRunDTO {
   error_message: string | null;
 }
 
+export type ForecastProductStatus = "ok" | "fallback" | "skipped";
+
 export interface ForecastMetricsDTO {
   run_id: string;
   product_id: string;
   mape: Numeric;
   mae: Numeric;
   rmse: Numeric;
+  mase: Numeric | null;
+  rmsse: Numeric | null;
+  /** Fourier order chosen by Algorithm 1; 0 = baseline fallback. */
+  order_selected: number;
+  /** Model that actually produced the forecast ("FTGM" | "SeasonalNaive"). */
+  model_used: string;
+  status: ForecastProductStatus;
+  fallback_reason: string | null;
+  validation_rmse: Numeric | null;
 }
 
 export interface ForecastPointDTO {
@@ -149,12 +160,22 @@ export interface ForecastPointDTO {
   upper_bound: Numeric | null;
 }
 
+/** One in-sample bucket: observed demand, cleaned (stockout-imputed) and model fit. */
+export interface HistoryPointDTO {
+  period_date: string;
+  observed: Numeric;
+  cleaned: Numeric;
+  fitted: Numeric | null;
+  is_stockout: boolean;
+}
+
 export interface ForecastResultDTO {
   id: string;
   run_id: string;
   company_id: string;
   product_id: string;
   points: ForecastPointDTO[];
+  history: HistoryPointDTO[];
 }
 
 export type KpiType =
