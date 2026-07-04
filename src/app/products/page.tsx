@@ -6,6 +6,7 @@ import { Table, Badge } from "@/components/ui/Table";
 import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ProductFormModal } from "@/components/products/ProductFormModal";
 import { Package, CheckCircle, XCircle, PackagePlus, Pencil } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
@@ -70,8 +71,15 @@ export default function ProductsPage() {
         loading={products.loading}
         error={products.error}
         empty={items.length === 0}
-        emptyMessage="Aún no hay productos. Crea el primero o cárgalos por ingesta."
         onRetry={products.reload}
+        emptyState={
+          <EmptyState
+            icon={Package}
+            title="Empieza tu catálogo de productos"
+            description="Registra tus productos con su SKU, costo y precio. Es el paso 1 del flujo: las ventas que subas se cruzan contra este catálogo."
+            action={{ label: "Nuevo producto", onClick: openCreate }}
+          />
+        }
       >
         <Table
           title="Listado de productos"

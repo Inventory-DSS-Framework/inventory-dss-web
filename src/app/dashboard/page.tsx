@@ -8,10 +8,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Badge } from "@/components/ui/Table";
 import { DataState } from "@/components/ui/DataState";
 import { LineChartCard } from "@/components/charts/LineChartCard";
+import { StartChecklist } from "@/components/onboarding/StartChecklist";
 import { Package, ShoppingCart, TrendingDown, Gauge, BarChart3, Activity, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
+import { useOnboarding } from "@/hooks/useOnboarding";
 import { useBrandColors } from "@/hooks/useBrandColors";
 import { forecastingApi, kpisApi, productsApi, recommendationsApi, salesApi } from "@/lib/api";
 import type { ChartDataPoint } from "@/types";
@@ -48,6 +50,7 @@ function buildDemandChart(sales: Map<string, number>, forecast: Map<string, numb
 export default function DashboardPage() {
   const companyId = useCompanyId();
   const colors = useBrandColors();
+  const onboarding = useOnboarding(companyId);
 
   const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
   const kpis = useApi(() => (companyId ? kpisApi.list(companyId) : Promise.resolve([])), [companyId]);
@@ -100,6 +103,8 @@ export default function DashboardPage() {
         title="Panel de control"
         description="Estado del inventario y la inteligencia del DSS, en un vistazo."
       />
+
+      <StartChecklist state={onboarding} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard particle title="Productos activos" value={String(activeProducts)} icon={Package} accent="primary" />

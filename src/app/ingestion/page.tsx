@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { IngestionDetailModal } from "@/components/ingestion/IngestionDetailModal";
 import { UploadCloud } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
@@ -89,8 +90,16 @@ export default function IngestionPage() {
         loading={uploads.loading}
         error={uploads.error}
         empty={items.length === 0}
-        emptyMessage="Aún no se han cargado archivos."
         onRetry={uploads.reload}
+        emptyState={
+          <EmptyState
+            icon={UploadCloud}
+            title="Sube tu historial de ventas"
+            description="Carga un CSV/Excel con tus ventas (fecha, SKU, cantidad). Luego mapeas las columnas, lo validas y preparas el dataset."
+            action={{ label: "Subir archivo", onClick: () => fileInput.current?.click() }}
+            hint="Crea antes tus productos en el Catálogo: las ventas se cruzan por SKU."
+          />
+        }
       >
         <Table
           title="Cargas recientes"

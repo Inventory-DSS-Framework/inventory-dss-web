@@ -3,6 +3,8 @@
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table, Badge } from "@/components/ui/Table";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Database } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { dataPreparationApi } from "@/lib/api";
@@ -26,8 +28,16 @@ export default function DataPreparationPage() {
         loading={datasets.loading}
         error={datasets.error}
         empty={items.length === 0}
-        emptyMessage="Aún no hay datasets preparados."
         onRetry={datasets.reload}
+        emptyState={
+          <EmptyState
+            icon={Database}
+            title="Aún no hay datasets preparados"
+            description="La preparación se lanza desde Ventas: sube tu CSV, mapéalo y pulsa «Preparar dataset». Aquí verás el resultado."
+            action={{ label: "Ir a Ventas", href: "/ingestion" }}
+            hint="Recuerda tener productos en el catálogo: las ventas se cruzan por SKU."
+          />
+        }
       >
         <Table
           title="Datasets preparados"

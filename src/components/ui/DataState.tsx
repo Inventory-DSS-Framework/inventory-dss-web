@@ -8,6 +8,8 @@ interface DataStateProps {
   /** When true (and not loading/error), render an empty-state message. */
   empty?: boolean;
   emptyMessage?: string;
+  /** Rich guided empty state; takes precedence over emptyMessage when provided. */
+  emptyState?: ReactNode;
   onRetry?: () => void;
   children: ReactNode;
 }
@@ -18,6 +20,7 @@ export function DataState({
   error,
   empty = false,
   emptyMessage = "No hay datos disponibles.",
+  emptyState,
   onRetry,
   children,
 }: DataStateProps) {
@@ -45,6 +48,7 @@ export function DataState({
   }
 
   if (empty) {
+    if (emptyState) return <>{emptyState}</>;
     return (
       <Card className="flex items-center justify-center py-16 text-text-secondary">
         {emptyMessage}

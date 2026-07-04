@@ -4,48 +4,51 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Package, TrendingUp, Archive, UploadCloud,
-  Settings, Activity, BarChart2, Bell, FileText, CheckCircle, Database,
-  ChevronsUpDown, Sparkles, LogOut, FolderOpen,
+  LayoutDashboard, Package, UploadCloud, Settings, Activity, BarChart2,
+  Bell, FileText, CheckCircle, Database, ChevronsUpDown, Sparkles, LogOut,
+  FolderOpen, Archive, ShoppingCart, Lightbulb,
 } from "lucide-react";
 import { logout } from "@/lib/auth";
 import { initialsOf, useProfile } from "@/hooks/useProfile";
 
-type NavItem = { name: string; href: string; icon: typeof LayoutDashboard };
+type NavItem = { name: string; href: string; icon: typeof LayoutDashboard; step?: number };
 
+// The navigation reads in the order the product is actually used: the "Flujo de datos"
+// group is the numbered pipeline (catalog → sales → prepare → forecast); its numbers
+// match the start-up checklist on the Panel.
 const navSections: { label: string; items: NavItem[] }[] = [
   {
-    label: "Principal",
+    label: "Inicio",
     items: [
-      { name: "Inicio", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Panel", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    label: "Datos",
+    label: "Flujo de datos",
     items: [
-      { name: "Ingesta", href: "/ingestion", icon: UploadCloud },
-      { name: "Productos", href: "/products", icon: Package },
-      { name: "Ventas", href: "/sales", icon: TrendingUp },
-      { name: "Inventario", href: "/inventory", icon: Archive },
-      { name: "Preparación", href: "/data-preparation", icon: Database },
+      { name: "Catálogo", href: "/products", icon: Package, step: 1 },
+      { name: "Ventas", href: "/ingestion", icon: UploadCloud, step: 2 },
+      { name: "Preparación", href: "/data-preparation", icon: Database, step: 3 },
+      { name: "Pronóstico", href: "/forecasting", icon: Activity, step: 4 },
     ],
   },
   {
-    label: "Inteligencia",
+    label: "Decisiones",
     items: [
-      { name: "Predicción", href: "/forecasting", icon: Activity },
       { name: "KPIs", href: "/kpis", icon: BarChart2 },
-      { name: "Recomendaciones", href: "/recommendations", icon: CheckCircle },
+      { name: "Recomendaciones", href: "/recommendations", icon: Lightbulb },
+      { name: "Inventario", href: "/inventory", icon: Archive },
+      { name: "Reportes", href: "/reports", icon: FileText },
     ],
   },
   {
-    label: "Salida",
+    label: "Sistema",
     items: [
-      { name: "Reportes", href: "/reports", icon: FileText },
-      { name: "Notificaciones", href: "/notifications", icon: Bell },
+      { name: "Registro de ventas", href: "/sales", icon: ShoppingCart },
       { name: "Archivos", href: "/files", icon: FolderOpen },
       { name: "Validación", href: "/validation", icon: CheckCircle },
-      { name: "Configuración", href: "/settings", icon: Settings },
+      { name: "Notificaciones", href: "/notifications", icon: Bell },
+      { name: "Ajustes", href: "/settings", icon: Settings },
     ],
   },
 ];
@@ -103,12 +106,25 @@ export function Sidebar() {
                     {isActive && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-primary" />
                     )}
-                    <item.icon
-                      className={cn(
-                        "h-[18px] w-[18px] shrink-0 transition-colors",
-                        isActive ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
-                      )}
-                    />
+                    {item.step ? (
+                      <span
+                        className={cn(
+                          "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-md text-[10px] font-bold tabular-nums transition-colors",
+                          isActive
+                            ? "bg-primary text-white"
+                            : "bg-surface-muted text-text-muted group-hover:text-text-secondary"
+                        )}
+                      >
+                        {item.step}
+                      </span>
+                    ) : (
+                      <item.icon
+                        className={cn(
+                          "h-[18px] w-[18px] shrink-0 transition-colors",
+                          isActive ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
+                        )}
+                      />
+                    )}
                     <span className="truncate">{item.name}</span>
                   </Link>
                 );
