@@ -196,6 +196,15 @@ export const reportsApi = {
 export const validationApi = {
   listRules: (companyId: string) =>
     apiClient.get<ValidationRuleDTO[]>(`${base(companyId)}/validation/rules`),
+  createRule: (
+    companyId: string,
+    body: { rule_name: string; rule_type: string; is_active?: boolean },
+  ) => apiClient.post<ValidationRuleDTO>(`${base(companyId)}/validation/rules`, body),
+  updateRule: (
+    companyId: string,
+    ruleId: string,
+    body: { is_active?: boolean; rule_name?: string; rule_type?: string },
+  ) => apiClient.patch<ValidationRuleDTO>(`${base(companyId)}/validation/rules/${ruleId}`, body),
 };
 
 export const billingApi = {
