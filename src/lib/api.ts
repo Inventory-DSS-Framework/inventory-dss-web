@@ -58,8 +58,12 @@ export const categoriesApi = {
 };
 
 export const salesApi = {
-  list: (companyId: string) =>
-    apiClient.get<SaleDTO[]>(`${base(companyId)}/sales`),
+  list: (companyId: string, page = 1, size = 50) =>
+    apiClient.get<SaleDTO[]>(`${base(companyId)}/sales?page=${page}&size=${size}`),
+  listByProduct: (companyId: string, productId: string, start: string, end: string) =>
+    apiClient.get<SaleDTO[]>(
+      `${base(companyId)}/sales/by-product/${productId}?start=${start}&end=${end}`,
+    ),
   listBatches: (companyId: string) =>
     apiClient.get<SalesBatchDTO[]>(`${base(companyId)}/sales/batches`),
 };

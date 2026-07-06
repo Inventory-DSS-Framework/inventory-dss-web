@@ -6,8 +6,10 @@ import { Table, Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Card } from "@/components/ui/Card";
 import { IngestionDetailModal } from "@/components/ingestion/IngestionDetailModal";
-import { UploadCloud } from "lucide-react";
+import { SalesLog } from "@/components/ingestion/SalesLog";
+import { UploadCloud, ListOrdered } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { ingestionApi } from "@/lib/api";
@@ -141,6 +143,24 @@ export default function IngestionPage() {
           ]}
         />
       </DataState>
+
+      {/* Sales records materialized from the uploads — right where you uploaded them. */}
+      {companyId && (
+        <Card className="space-y-5">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-soft text-primary">
+              <ListOrdered className="h-[18px] w-[18px]" />
+            </div>
+            <div>
+              <h3 className="font-display font-semibold text-text-primary">Registro de ventas</h3>
+              <p className="text-xs text-text-secondary">
+                Transacciones generadas al preparar tus cargas. Filtra por producto o fecha.
+              </p>
+            </div>
+          </div>
+          <SalesLog companyId={companyId} />
+        </Card>
+      )}
 
       {companyId && (
         <IngestionDetailModal
