@@ -7,6 +7,7 @@ import {
   ArrowLeft, ArrowRight, CalendarRange, ChevronDown, Crown, FileSpreadsheet, Loader2, PackageCheck, SlidersHorizontal, Sparkles, Wand2,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -276,11 +277,14 @@ function ForecastingFlow() {
             : "Miramos tus ventas pasadas y te decimos cuánto venderás de cada producto y qué te conviene comprar."
         }
         action={
-          !isPremium && !planLoading ? (
-            <Link href="/premium" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
-              <Crown className="h-4 w-4 text-accent-violet" /> Calcular todo mi catálogo
-            </Link>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <HowItWorksButton />
+            {!isPremium && !planLoading && (
+              <Link href="/premium" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
+                <Crown className="h-4 w-4 text-accent-violet" /> Calcular todo mi catálogo
+              </Link>
+            )}
+          </div>
         }
       />
 

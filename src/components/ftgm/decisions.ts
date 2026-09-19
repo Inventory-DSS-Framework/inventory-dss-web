@@ -38,9 +38,9 @@ const money = (n: number) => `S/ ${Math.round(n).toLocaleString("es-PE")}`;
 export function decide(p: OverviewProduct): Decision {
   const perWeek = p.frequency === "weekly";
   const periodDays = perWeek ? 7 : 30;
-  const unit = perWeek ? "semana" : "mes";
+  const unit = perWeek ? "sem." : "mes";
   const rateN = Math.max(0, p.next_period_units);
-  const rate = rateN < 0.5 ? "casi nada" : `≈ ${round(rateN)} por ${unit}`;
+  const rate = rateN < 0.5 ? "casi nada" : `≈ ${round(rateN)}/${unit}`;
   const daily = rateN / periodDays;
   const cover = p.coverage_days != null ? Math.round(p.coverage_days) : daily > 0 ? Math.round(p.on_hand / daily) : null;
   const buy = p.suggested_qty > 0 ? `Compra ${Math.ceil(p.suggested_qty)} u (≈ ${money(p.suggested_investment)})` : "Haz un pedido";

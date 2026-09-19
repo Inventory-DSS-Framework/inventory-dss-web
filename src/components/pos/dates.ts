@@ -13,7 +13,7 @@ export function addDaysISO(iso: string, days: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
-export type RangePreset = "today" | "7d" | "30d" | "month" | "custom";
+export type RangePreset = "today" | "7d" | "30d" | "month" | "all" | "custom";
 
 export function presetRange(preset: Exclude<RangePreset, "custom">): { from: string; to: string } {
   const today = limaISO();
@@ -26,6 +26,9 @@ export function presetRange(preset: Exclude<RangePreset, "custom">): { from: str
       return { from: addDaysISO(today, -29), to: today };
     case "month":
       return { from: `${today.slice(0, 8)}01`, to: today };
+    case "all":
+      // Wide enough to cover any imported history.
+      return { from: "2000-01-01", to: today };
   }
 }
 

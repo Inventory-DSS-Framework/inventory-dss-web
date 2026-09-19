@@ -171,7 +171,7 @@ export default function ProductDetailPage() {
               <span className="text-text-muted">Unidad: {product.unit_of_measure === "unit" ? "unidad" : product.unit_of_measure}</span>
             </div>
             {product.description && <p className="max-w-2xl text-sm text-text-secondary">{product.description}</p>}
-            <div className={cn("grid grid-cols-2 gap-3 pt-1", expert ? "sm:grid-cols-5" : "sm:grid-cols-4")}>
+            <div className={cn("grid grid-cols-2 gap-3 pt-1", expert ? "md:grid-cols-3 xl:grid-cols-5" : "md:grid-cols-4")}>
               <HeroFigure
                 label="Te quedan"
                 value={`${stats.stock_on_hand.toLocaleString("es-PE")} u.`}
@@ -209,7 +209,7 @@ export default function ProductDetailPage() {
           icon={Clock}
           label="Te alcanza para"
           value={stats.coverage_days == null ? "—" : stats.coverage_days >= 365 ? "+1 año" : `${Math.round(stats.coverage_days)} días`}
-          sub={stats.coverage_days == null ? "Sin ventas en 30 días" : "Si sigues vendiendo como ahora"}
+          sub={stats.coverage_days == null ? "Sin ventas en 30 días" : "Al ritmo de venta que calculamos"}
           tone={stats.coverage_days != null && stats.coverage_days < 7 ? "danger" : stats.coverage_days != null && stats.coverage_days < 15 ? "warning" : undefined}
         />
         <Kpi

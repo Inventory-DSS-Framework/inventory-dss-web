@@ -27,6 +27,7 @@ import { ActionPlan } from "@/components/ftgm/ActionPlan";
 import { DiagnosticsPanel } from "@/components/ftgm/DiagnosticsPanel";
 import { EngineProgress } from "@/components/ftgm/EngineProgress";
 import { ForecastDrilldownChart } from "@/components/ftgm/ForecastDrilldownChart";
+import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { TrackingPanel } from "@/components/ftgm/TrackingPanel";
 import {
   dateLabel,
@@ -125,7 +126,12 @@ export default function ForecastRunDetailPage() {
               : `Calculado el ${dateLabel(r.created_at ?? r.started_at)} · ${forWhen(r.horizon_days)} · ${r.product_count} ${r.product_count === 1 ? "producto" : "productos"}`
             : "Cargando…"
         }
-        action={status ? <Badge variant={status.tone} dot>{status.label}</Badge> : undefined}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <HowItWorksButton />
+            {status && <Badge variant={status.tone} dot>{status.label}</Badge>}
+          </div>
+        }
       />
 
       {r && (active || r.status === "failed" || r.status === "cancelled") && (
@@ -141,6 +147,26 @@ export default function ForecastRunDetailPage() {
               <Reliability accuracy={ov.summary.accuracy_pct ?? null} products={ov.summary.products} />
 
               <ActionPlan rows={rows} />
+
+              {/* Projection: past sales + forecast, in plain words (the technical version lives below). */}
+              <Card>
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-display text-base font-semibold text-text-primary">Así irían tus ventas</h3>
+                    <p className="text-xs text-text-muted">
+                      La línea sólida es lo que vendiste; la punteada, lo que venderías. La franja es el rango probable.
+                    </p>
+                  </div>
+                  <div className="w-72 max-w-full">
+                    <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
+                  </div>
+                </div>
+                {activeResult && activeRow ? (
+                  <ForecastDrilldownChart result={activeResult} frequency={activeRow.frequency} simple={!expert} height={280} />
+                ) : (
+                  <p className="py-14 text-center text-sm text-text-muted">Sin historia para este producto.</p>
+                )}
+              </Card>
 
               {expert && (
               <div className="flex justify-center pt-2">
@@ -323,7 +349,22 @@ function Trend({ value }: { value: number | null }) {
  * shop's own past months and measured how many units it got right.
  */
 function Reliability({ accuracy, products }: { accuracy: number | null; products: number }) {
-  if (accuracy == null) return null;
+  if (accuracy == null) {
+    return (
+      <Card className="flex flex-wrap items-center gap-4 border-primary/25 bg-primary-soft/30">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-surface font-display text-lg font-semibold">
+          ✓
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-semibold text-text-primary">Cálculo listo — aún con pocas ventas para probarlo</p>
+          <p className="text-sm text-text-secondary">
+            Tus productos todavía registran pocas ventas, así que no pudimos medir cuánto acierta el cálculo con tu
+            historial. Úsalo como referencia: mientras más semanas de ventas registres, más preciso se vuelve.
+          </p>
+        </div>
+      </Card>
+    );
+  }
   const level = confidenceOf(accuracy);
   const tone =
     level === "Alta"

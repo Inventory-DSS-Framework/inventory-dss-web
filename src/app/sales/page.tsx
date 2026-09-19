@@ -31,6 +31,7 @@ const PRESETS: { id: Exclude<RangePreset, "custom">; label: string }[] = [
   { id: "7d", label: "7 días" },
   { id: "30d", label: "30 días" },
   { id: "month", label: "Este mes" },
+  { id: "all", label: "Todo" },
 ];
 
 const PAGE_SIZE = 25;
@@ -121,6 +122,14 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
     () => (isAdmin ? usersApi.list(companyId) : Promise.resolve([])),
     [companyId, isAdmin],
   );
+  // All-time count: when the date filter hides sales (e.g. imported history), say so.
+  const allTime = useApi(
+    () => {
+      const all = presetRange("all");
+      return posApi.summary(companyId, { date_from: all.from, date_to: all.to, seller_id: sellerId || undefined });
+    },
+    [companyId, sellerId],
+  );
 
   const sellerOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -136,7 +145,7 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
   const paymentsTotal = payments.reduce((a, p) => a + Number(p.total), 0);
   const extraFilters = [sellerId, docType, status].filter(Boolean).length;
   const showFilters = moreFilters || extraFilters > 0 || preset === "custom";
-  const periodLabel = preset === "today" ? "hoy" : preset === "custom" ? "en esas fechas" : preset === "month" ? "este mes" : `en ${PRESETS.find((p) => p.id === preset)?.label ?? ""}`;
+  const periodLabel = preset === "today" ? "hoy" : preset === "custom" ? "en esas fechas" : preset === "month" ? "este mes" : preset === "all" ? "en total" : `en ${PRESETS.find((p) => p.id === preset)?.label ?? ""}`;
 
   const chartAndPayments = (
       <div className="grid gap-4 lg:grid-cols-3">
@@ -314,6 +323,23 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
         )}
       </div>
 
+      {/* Sales hidden by the date filter (typical after importing months of history) */}
+      {preset !== "all" && s && allTime.data && allTime.data.orders > s.orders && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 border-primary/25 bg-primary-softer/50 px-5 py-3.5">
+          <p className="text-sm text-text-secondary">
+            Tienes <span className="font-semibold text-text-primary">{allTime.data.orders.toLocaleString("es-PE")} ventas en total</span>; con
+            este filtro de fechas ves {s.orders.toLocaleString("es-PE")}.
+          </p>
+          <button
+            type="button"
+            className="text-sm font-semibold text-primary hover:underline"
+            onClick={() => { setPreset("all"); setRange(presetRange("all")); }}
+          >
+            Ver todas mis ventas
+          </button>
+        </Card>
+      )}
+
       {/* Chart + payment mix: secondary, collapsed unless Modo experto */}
       {expert ? chartAndPayments : <MoreDetails summary="Ver gráfico y formas de pago">{chartAndPayments}</MoreDetails>}
 
@@ -330,9 +356,9 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
             description="Registra una venta con “Nueva venta” o mira otras fechas."
             action={{ label: "Nueva venta", href: "/sales/new" }}
             hint={
-              preset !== "30d" ? (
-                <button className="font-semibold text-primary hover:underline" onClick={() => { setPreset("30d"); setRange(presetRange("30d")); }}>
-                  Ver los últimos 30 días
+              preset !== "all" ? (
+                <button className="font-semibold text-primary hover:underline" onClick={() => { setPreset("all"); setRange(presetRange("all")); }}>
+                  Ver todas mis ventas
                 </button>
               ) : undefined
             }

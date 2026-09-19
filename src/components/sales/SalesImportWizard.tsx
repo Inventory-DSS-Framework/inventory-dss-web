@@ -76,6 +76,7 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished, mode =
       );
       notes.push("Ya aparecen en tus Ventas y en tu Inicio.");
       notes.push(affectStock ? "Se descontó el stock de cada producto." : "Tu stock no se modificó.");
+      notes.push("Siguiente paso: entra a «Planifica tus compras» y toca «Calcular cuánto venderé».");
     }
     return { created: res.created, errors: res.errors, notes };
   };

@@ -19,15 +19,18 @@ import type { ForecastResultDTO } from "@/types/api";
 import { ChartTooltip, LegendChip } from "./ChartTooltip";
 import { periodLabel } from "./labels";
 
-/** History (observed / cleaned / fitted) + forecast with its interval band + stock-out markers. */
+/** History (observed / cleaned / fitted) + forecast with its interval band + stock-out markers.
+ * With `simple`, only past sales + forecast + probable range, in plain words. */
 export function ForecastDrilldownChart({
   result,
   frequency,
   height = 320,
+  simple = false,
 }: {
   result: ForecastResultDTO;
   frequency: string;
   height?: number;
+  simple?: boolean;
 }) {
   const c = useBrandColors();
   const [range, setRange] = useState<"recent" | "all">("recent");
@@ -61,12 +64,22 @@ export function ForecastDrilldownChart({
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          <LegendChip color={c.primary} label="Demanda observada" />
-          <LegendChip color={c.warning} label="Demanda reparada" />
-          <LegendChip color={c.muted} label="Ajuste del modelo" dashed />
-          <LegendChip color={c.accent} label="Pronóstico" />
-          <LegendChip color={c.accent2} label="Intervalo 90%" />
-          <LegendChip color={c.danger} label="Quiebre" />
+          {simple ? (
+            <>
+              <LegendChip color={c.primary} label="Lo que vendiste" />
+              <LegendChip color={c.accent} label="Lo que venderías" />
+              <LegendChip color={c.accent2} label="Rango probable" />
+            </>
+          ) : (
+            <>
+              <LegendChip color={c.primary} label="Demanda observada" />
+              <LegendChip color={c.warning} label="Demanda reparada" />
+              <LegendChip color={c.muted} label="Ajuste del modelo" dashed />
+              <LegendChip color={c.accent} label="Pronóstico" />
+              <LegendChip color={c.accent2} label="Intervalo 90%" />
+              <LegendChip color={c.danger} label="Quiebre" />
+            </>
+          )}
         </div>
         <div className="flex rounded-xl border border-border bg-surface-soft p-0.5 text-xs">
           {(["recent", "all"] as const).map((r) => (
@@ -100,15 +113,19 @@ export function ForecastDrilldownChart({
             <Tooltip
               content={
                 <ChartTooltip
-                  names={{
-                    observed: "Observada",
-                    cleaned: "Reparada / limpia",
-                    fitted: "Ajuste",
-                    forecast: "Pronóstico",
-                    band: "Intervalo",
-                    stockout: "Quiebre",
-                    outlier: "Atípico",
-                  }}
+                  names={
+                    simple
+                      ? { observed: "Vendiste", forecast: "Venderías", band: "Rango probable" }
+                      : {
+                          observed: "Observada",
+                          cleaned: "Reparada / limpia",
+                          fitted: "Ajuste",
+                          forecast: "Pronóstico",
+                          band: "Intervalo",
+                          stockout: "Quiebre",
+                          outlier: "Atípico",
+                        }
+                  }
                   labelFormat={(l) => periodLabel(l, frequency)}
                 />
               }
@@ -116,11 +133,11 @@ export function ForecastDrilldownChart({
             {boundary && <ReferenceLine x={boundary} stroke={c.accent} strokeOpacity={0.35} strokeDasharray="3 3" />}
             <Area dataKey="band" stroke="none" fill={c.accent2} fillOpacity={0.28} isAnimationActive={false} />
             <Area type="monotone" dataKey="observed" stroke={c.primary} strokeWidth={2} fill={c.primary} fillOpacity={0.07} dot={false} />
-            <Line type="monotone" dataKey="cleaned" stroke={c.warning} strokeWidth={0} dot={{ r: 3.5, fill: c.warning }} />
-            <Line type="monotone" dataKey="fitted" stroke={c.muted} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
-            <Line type="monotone" dataKey="forecast" stroke={c.accent} strokeWidth={2.6} dot={{ r: 3, fill: c.accent }} />
-            <Scatter dataKey="stockout" fill={c.danger} />
-            <Scatter dataKey="outlier" fill={c.warning} shape="diamond" />
+            {!simple && <Line type="monotone" dataKey="cleaned" stroke={c.warning} strokeWidth={0} dot={{ r: 3.5, fill: c.warning }} />}
+            {!simple && <Line type="monotone" dataKey="fitted" stroke={c.muted} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />}
+            <Line type="monotone" dataKey="forecast" stroke={c.accent} strokeWidth={2.6} strokeDasharray={simple ? "6 4" : undefined} dot={{ r: 3, fill: c.accent }} />
+            {!simple && <Scatter dataKey="stockout" fill={c.danger} />}
+            {!simple && <Scatter dataKey="outlier" fill={c.warning} shape="diamond" />}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

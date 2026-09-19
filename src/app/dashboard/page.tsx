@@ -24,7 +24,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
 import { DataState } from "@/components/ui/DataState";
 import { ChartTooltip, LegendChip } from "@/components/ftgm/ChartTooltip";
-import { dateLabel, horizonLabel, num, runStatusMeta } from "@/components/ftgm/labels";
+import { dateLabel, horizonLabel, num, runStatusMeta, forWhen } from "@/components/ftgm/labels";
 import { cn } from "@/lib/utils";
 import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
@@ -498,7 +498,7 @@ function FtgmCard({
               ) : (
                 <div className="mt-4 space-y-2.5">
                   <Stat
-                    label={`Venderías en los próximos ${horizonLabel(latest.horizon_days)}`}
+                    label={`Venderías ${forWhen(latest.horizon_days)}`}
                     value={`${num(latest.summary.total_forecast_units)} unidades`}
                   />
                   {latest.summary.median_accuracy_pct != null && (
