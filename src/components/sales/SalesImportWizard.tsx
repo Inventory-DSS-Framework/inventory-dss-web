@@ -15,19 +15,27 @@ const TARGETS: ImportTargetField[] = [
   { key: "seller_name", label: "Vendedor", synonyms: ["vendedor", "cajero", "cajera", "atendido por", "usuario", "vendedora"] },
 ];
 
+export type SalesImportMode = "history" | "stock";
+
 interface Props {
   open: boolean;
   onClose: () => void;
   companyId: string | null;
   onFinished: () => void;
+  /**
+   * "history": past sales from another system — no stock movement (Ventas › Historial).
+   * "stock": bulk sales of real operations — each line takes stock out (Nueva venta).
+   */
+  mode?: SalesImportMode;
 }
 
 /**
- * "Importar ventas": brings a business's past sales (Excel/CSV export of its old system)
- * in as history. Matches each row to a product by code, barcode or name; columns like
- * comprobante, cliente or medio de pago are simply not imported.
+ * Bulk sales from an Excel/CSV (one row per product sold). Matches each row to a product by
+ * code, barcode or name; columns like comprobante, cliente or medio de pago are not imported.
  */
-export function SalesImportWizard({ open, onClose, companyId, onFinished }: Props) {
+export function SalesImportWizard({ open, onClose, companyId, onFinished, mode = "history" }: Props) {
+  const affectStock = mode === "stock";
+
   const onImport = async (rows: ImportRow[]): Promise<ImportResult> => {
     if (!companyId) throw new Error("Sesión no disponible");
     const res = await salesHistoryApi.import(
@@ -42,6 +50,7 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished }: Prop
         unit_price: r.values.unit_price,
         seller_name: r.values.seller_name,
       })),
+      { affectStock },
     );
     const notes: string[] = [];
     if (res.created > 0) {
@@ -49,7 +58,11 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished }: Prop
         `${res.units.toLocaleString("es-PE")} unidades · ${soles(res.revenue)} · ${res.products} productos` +
           (res.period_start && res.period_end ? ` · del ${fmt(res.period_start)} al ${fmt(res.period_end)}` : ""),
       );
-      notes.push("Son historial: no descuentan stock y ya alimentan tus reportes y el Motor FTGM.");
+      notes.push(
+        affectStock
+          ? "Se descontó el stock de cada producto al costo promedio."
+          : "Son historial: no descuentan stock y ya alimentan tus reportes y el Motor FTGM.",
+      );
     }
     return { created: res.created, errors: res.errors, notes };
   };
@@ -58,19 +71,28 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished }: Prop
     <SmartImportWizard
       open={open}
       onClose={onClose}
-      title="Importar ventas"
+      title={affectStock ? "Carga masiva de ventas" : "Importar historial de ventas"}
       entityLabel="ventas"
       targetFields={TARGETS}
       allowNewColumns={false}
       onImport={onImport}
       onFinished={onFinished}
       uploadHint={
-        <p>
-          Sube el reporte de ventas de tu sistema anterior o tu Excel (una fila por producto vendido). Necesitamos la
-          <strong> fecha</strong>, la <strong>cantidad</strong> y cómo reconocer el producto: código, código de barras o
-          nombre exacto. Importa primero tu inventario. Columnas como comprobante, cliente o medio de pago no se
-          importan. Las ventas quedan como historial: <strong>no descuentan stock</strong>.
-        </p>
+        affectStock ? (
+          <p>
+            Registra de una vez las ventas de otro canal (Instagram, WhatsApp, feria, tienda online): una fila por
+            producto vendido con <strong>fecha</strong>, <strong>cantidad</strong> y código, código de barras o nombre
+            exacto. Cada venta <strong>descuenta stock</strong>; si una fila pide más de lo que hay, se rechaza y te
+            decimos cuánto queda. Comprobante, cliente o medio de pago no se importan.
+          </p>
+        ) : (
+          <p>
+            Sube el reporte de ventas de tu sistema anterior o tu Excel (una fila por producto vendido). Necesitamos la
+            <strong> fecha</strong>, la <strong>cantidad</strong> y cómo reconocer el producto: código, código de barras o
+            nombre exacto. Importa primero tu inventario. Quedan como historial: <strong>no descuentan stock</strong>,
+            porque tu stock actual ya las refleja.
+          </p>
+        )
       }
     />
   );

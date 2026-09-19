@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, CheckCircle2, ListOrdered, Loader2, PackageSearch, UserRound, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, FileSpreadsheet, ListOrdered, Loader2, PackageSearch, UserRound, X } from "lucide-react";
+import { useRole } from "@/hooks/useRole";
+import { SalesImportWizard } from "@/components/sales/SalesImportWizard";
 import { cn } from "@/lib/utils";
 import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
@@ -49,6 +51,8 @@ export default function NewSalePage() {
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<SalesOrder | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const { isAdmin } = useRole();
 
   const fields = useApi(
     () => (companyId ? customFieldsApi.list(companyId, "product") : Promise.resolve([])),
@@ -266,6 +270,11 @@ export default function NewSalePage() {
             <CalendarClock className="h-4 w-4 text-primary" />
             {dateLabel} · <span className="font-semibold tabular-nums text-text-primary">{timeLabel}</span>
           </span>
+          {isAdmin && (
+            <button type="button" onClick={() => setBulkOpen(true)} className="btn btn-secondary gap-1.5 px-3 py-2 text-sm">
+              <FileSpreadsheet className="h-4 w-4 text-primary" /> Carga masiva
+            </button>
+          )}
           <Link href="/sales" className="btn btn-ghost gap-1.5 px-3 py-2 text-sm">
             <ListOrdered className="h-4 w-4" /> Ventas
           </Link>
@@ -379,6 +388,15 @@ export default function NewSalePage() {
       </div>
 
       <CameraScannerModal open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={onCameraDetected} />
+      {isAdmin && (
+        <SalesImportWizard
+          open={bulkOpen}
+          onClose={() => setBulkOpen(false)}
+          companyId={companyId}
+          mode="stock"
+          onFinished={() => setBulkOpen(false)}
+        />
+      )}
       <ReceiptPreview order={receipt} company={company} open={!!receipt} onClose={resetTill} onNewSale={resetTill} />
     </div>
   );

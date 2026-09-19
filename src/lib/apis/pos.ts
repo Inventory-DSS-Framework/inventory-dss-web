@@ -105,10 +105,17 @@ export interface SalesImportResult {
   errors: { row: number; message: string }[];
 }
 
-/** Past sales loaded from a spreadsheet as history (no ticket, no stock movement). */
+/**
+ * Sales from a spreadsheet. `affectStock=false` loads past sales as history (no stock
+ * movement); `true` registers bulk sales that take stock out (rows over stock are rejected).
+ */
 export const salesHistoryApi = {
-  import: (companyId: string, rows: SalesImportRowBody[], allowDuplicates = false) =>
-    apiClient.post<SalesImportResult>(`${base(companyId)}/sales/import`, { rows, allow_duplicates: allowDuplicates }),
+  import: (companyId: string, rows: SalesImportRowBody[], opts: { affectStock?: boolean; allowDuplicates?: boolean } = {}) =>
+    apiClient.post<SalesImportResult>(`${base(companyId)}/sales/import`, {
+      rows,
+      affect_stock: opts.affectStock ?? false,
+      allow_duplicates: opts.allowDuplicates ?? false,
+    }),
 };
 
 export const lostSalesApi = {
