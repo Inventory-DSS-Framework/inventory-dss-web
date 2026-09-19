@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, ArrowRight, Rocket, PartyPopper } from "lucide-react";
+import { Check, ArrowRight, Rocket, PartyPopper, Building2, BrainCircuit } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import type { OnboardingState, OnboardingStep } from "@/hooks/useOnboarding";
@@ -41,6 +41,9 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
   }
 
   const pct = Math.round((completed / total) * 100);
+  const erpSteps = steps.filter((s) => s.phase === "erp");
+  const ftgmSteps = steps.filter((s) => s.phase === "ftgm");
+  const erpDone = erpSteps.every((s) => s.done);
 
   return (
     <Card particle className="overflow-hidden">
@@ -52,7 +55,7 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
           <div>
             <h3 className="font-display font-semibold text-text-primary">Primeros pasos</h3>
             <p className="text-xs text-text-secondary">
-              Completa el flujo para obtener tu primer pronóstico.
+              Dos fases: carga tus datos (ERP) y luego pronostica con el motor FTGM.
             </p>
           </div>
         </div>
@@ -69,58 +72,135 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {steps.map((s) => (
-          <StepRow key={s.key} step={s} isNext={s.key === next?.key} />
-        ))}
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PhaseGroup
+          label="Fase 1 · ERP"
+          icon={Building2}
+          caption="Tus datos base."
+          steps={erpSteps}
+          next={next}
+          tone="neutral"
+        />
+        <PhaseGroup
+          label="Fase 2 · Motor FTGM"
+          icon={BrainCircuit}
+          caption={erpDone ? "Listo para pronosticar." : "Se activa cuando termines la Fase 1."}
+          steps={ftgmSteps}
+          next={next}
+          tone="brand"
+          locked={!erpDone}
+        />
       </div>
     </Card>
   );
 }
 
-function StepRow({ step, isNext }: { step: OnboardingStep; isNext: boolean }) {
+function PhaseGroup({
+  label,
+  icon: Icon,
+  caption,
+  steps,
+  next,
+  tone,
+  locked,
+}: {
+  label: string;
+  icon: typeof Rocket;
+  caption: string;
+  steps: OnboardingStep[];
+  next: OnboardingStep | null;
+  tone: "neutral" | "brand";
+  locked?: boolean;
+}) {
+  const brand = tone === "brand";
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border p-3.5",
+        brand ? "border-accent-violet/20 bg-accent-violet-soft/25" : "border-border-soft bg-surface-soft/40",
+      )}
+    >
+      <div className="flex items-center gap-1.5 px-0.5 mb-0.5">
+        <Icon className={cn("h-3.5 w-3.5", brand ? "text-accent-violet" : "text-text-muted")} />
+        <p className={cn("text-[11px] font-bold uppercase tracking-wide", brand ? "text-accent-violet" : "text-text-muted")}>
+          {label}
+        </p>
+      </div>
+      <p className="px-0.5 mb-2.5 text-[11px] text-text-muted">{caption}</p>
+      <div className="space-y-2">
+        {steps.map((s) => (
+          <StepRow key={s.key} step={s} isNext={s.key === next?.key} tone={tone} disabled={locked} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StepRow({
+  step,
+  isNext,
+  tone,
+  disabled,
+}: {
+  step: OnboardingStep;
+  isNext: boolean;
+  tone: "neutral" | "brand";
+  disabled?: boolean;
+}) {
+  const brand = tone === "brand";
   return (
     <Link
       href={step.href}
+      aria-disabled={disabled}
       className={cn(
-        "group flex items-center gap-3 rounded-2xl border px-4 py-3 transition-colors",
+        "group flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition-colors",
+        disabled && "pointer-events-none opacity-50",
         step.done
-          ? "border-border-soft bg-surface-soft/50"
+          ? "border-border-soft bg-surface/70"
           : isNext
-            ? "border-primary/40 bg-primary-soft/40 hover:border-primary"
-            : "border-border bg-surface-soft hover:border-primary/30",
+            ? brand
+              ? "border-accent-violet/40 bg-surface hover:border-accent-violet"
+              : "border-primary/40 bg-primary-soft/40 hover:border-primary"
+            : "border-border bg-surface/70 hover:border-primary/30",
       )}
     >
       <div
         className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-bold tabular-nums transition-colors",
+          "grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-bold tabular-nums transition-colors",
           step.done
             ? "bg-success text-white"
             : isNext
-              ? "bg-primary text-white"
+              ? brand
+                ? "bg-accent-violet text-white"
+                : "bg-primary text-white"
               : "bg-surface-muted text-text-muted",
         )}
       >
-        {step.done ? <Check className="h-4 w-4" /> : step.step}
+        {step.done ? <Check className="h-3.5 w-3.5" /> : step.step}
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p
             className={cn(
-              "truncate text-sm font-semibold",
+              "truncate text-[13px] font-semibold",
               step.done ? "text-text-secondary" : "text-text-primary",
             )}
           >
             {step.title}
           </p>
           {isNext && !step.done && (
-            <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
+                brand ? "bg-accent-violet" : "bg-primary",
+              )}
+            >
               Sigue
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-text-muted">
+        <p className="truncate text-[11px] text-text-muted">
           {step.done ? (step.detail ?? "Completado") : step.description}
         </p>
       </div>
@@ -129,7 +209,7 @@ function StepRow({ step, isNext }: { step: OnboardingStep; isNext: boolean }) {
         <ArrowRight
           className={cn(
             "h-4 w-4 shrink-0 transition-colors",
-            isNext ? "text-primary" : "text-text-muted group-hover:text-text-secondary",
+            isNext ? (brand ? "text-accent-violet" : "text-primary") : "text-text-muted group-hover:text-text-secondary",
           )}
         />
       )}

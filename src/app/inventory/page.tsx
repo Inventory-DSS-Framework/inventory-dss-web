@@ -1,245 +1,459 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Boxes, ClipboardCheck, Columns3, PackagePlus,
+  PackageX, Search, Upload, Wallet, TrendingUp,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Table, Badge } from "@/components/ui/Table";
-import { Tabs } from "@/components/ui/Tabs";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Table";
+import { Select } from "@/components/ui/Select";
 import { DataState } from "@/components/ui/DataState";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ScanSearch, Boxes } from "lucide-react";
+import { ColumnsManager, type BuiltinColumn } from "@/components/custom-fields/ColumnsManager";
+import { formatCustomValue } from "@/components/custom-fields/CustomFieldInput";
+import { ProductFormModal } from "@/components/products/ProductFormModal";
+import { ProductThumb } from "@/components/products/ProductThumb";
+import { categoryOptions, descendantIds } from "@/components/products/categoryTree";
+import { StockAdjustmentModal } from "@/components/inventory/StockAdjustmentModal";
+import { ProductImportWizard } from "@/components/inventory/ProductImportWizard";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
-import { inventoryApi, productsApi } from "@/lib/api";
-import type { ProductDTO } from "@/types/api";
+import { useColumnConfig } from "@/hooks/useColumnConfig";
+import { ancestorIds, fieldAppliesTo, isGlobalField } from "@/lib/custom-fields/scope";
+import { categoriesApi } from "@/lib/api";
+import { stockApi } from "@/lib/apis/inventory";
+import { cn } from "@/lib/utils";
+import { inputClass, soles } from "@/lib/ui";
+import { STOCK_STATUS_LABEL, type InventoryOverviewItem, type StockStatus } from "@/types/inventory";
 
-const typeLabel: Record<string, string> = {
-  inbound: "Entrada",
-  outbound: "Salida",
-  adjustment: "Ajuste",
+const BUILTINS: BuiltinColumn[] = [
+  { key: "product", label: "Producto", locked: true },
+  { key: "sku", label: "SKU" },
+  { key: "barcode", label: "Código de barras" },
+  { key: "category", label: "Categoría" },
+  { key: "stock", label: "Stock actual" },
+  { key: "safety", label: "Stock de seguridad" },
+  { key: "reorder", label: "Punto de reorden" },
+  { key: "cost", label: "Costo prom." },
+  { key: "price", label: "Precio" },
+  { key: "value", label: "Valor en stock" },
+  { key: "coverage", label: "Cobertura" },
+  { key: "status", label: "Estado" },
+  { key: "last_movement", label: "Últ. movimiento" },
+];
+
+const STATUS_VARIANT: Record<StockStatus, "danger" | "warning" | "success"> = {
+  sin_stock: "danger",
+  critico: "danger",
+  reordenar: "warning",
+  ok: "success",
 };
+const STATUS_RANK: Record<StockStatus, number> = { sin_stock: 0, critico: 1, reordenar: 2, ok: 3 };
 
-type StockStatus = { label: string; variant: "success" | "warning" | "danger" };
-function stockStatus(onHand: number, reorder: number, safety: number): StockStatus {
-  if (onHand <= 0) return { label: "Sin stock", variant: "danger" };
-  if (onHand <= safety) return { label: "Crítico", variant: "danger" };
-  if (onHand <= reorder) return { label: "Bajo reorden", variant: "warning" };
-  return { label: "OK", variant: "success" };
+type SortDir = "asc" | "desc";
+type Row = InventoryOverviewItem;
+
+const num = (v: unknown) => Number(v ?? 0);
+
+function relativeDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  if (days <= 0) return "Hoy";
+  if (days === 1) return "Ayer";
+  if (days < 30) return `Hace ${days} días`;
+  return d.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function InventoryPage() {
+  const router = useRouter();
   const companyId = useCompanyId();
-  const [tab, setTab] = useState("stock");
-  const [working, setWorking] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const overview = useApi(() => (companyId ? stockApi.overview(companyId) : Promise.resolve(null)), [companyId]);
+  const categories = useApi(() => (companyId ? categoriesApi.list(companyId) : Promise.resolve([])), [companyId]);
+  const columns = useColumnConfig(companyId, "product");
 
-  const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
-  const stock = useApi(() => (companyId ? inventoryApi.currentStockAll(companyId) : Promise.resolve([])), [companyId]);
-  const movements = useApi(() => (companyId ? inventoryApi.listMovements(companyId) : Promise.resolve([])), [companyId]);
-  const replenishments = useApi(() => (companyId ? inventoryApi.listReplenishments(companyId) : Promise.resolve([])), [companyId]);
-  const stockouts = useApi(() => (companyId ? inventoryApi.listStockouts(companyId) : Promise.resolve([])), [companyId]);
+  const [query, setQuery] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [status, setStatus] = useState<StockStatus | "all">("all");
+  const [sort, setSort] = useState<{ key: string; dir: SortDir }>({ key: "status", dir: "asc" });
+  const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
 
-  const skuOf = useMemo(() => {
-    const map = new Map((products.data ?? []).map((p) => [p.id, p.sku]));
-    return (id: string) => map.get(id) ?? id.slice(0, 8);
-  }, [products.data]);
+  const cats = categories.data ?? [];
+  const items = overview.data?.items ?? [];
+  const totals = overview.data?.totals;
+  const show = columns.isBuiltinVisible;
 
-  // Join current stock with the product catalog (name, reorder, safety) for the table.
-  const stockRows = useMemo(() => {
-    const onHand = new Map((stock.data ?? []).map((s) => [s.product_id, s.quantity_on_hand]));
-    return (products.data ?? [])
-      .filter((p) => p.is_active)
-      .map((p: ProductDTO) => ({
-        product: p,
-        onHand: onHand.get(p.id) ?? 0,
-      }))
-      .sort((a, b) => a.onHand - b.onHand);
-  }, [products.data, stock.data]);
-
-  const detect = async () => {
-    if (!companyId) return;
-    setWorking(true);
-    setActionError(null);
-    try {
-      await inventoryApi.detectStockouts(companyId);
-      stockouts.reload();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "No se pudo detectar quiebres");
-    } finally {
-      setWorking(false);
-    }
+  const reload = () => {
+    overview.reload();
+    categories.reload();
   };
 
-  const tabs = [
-    { id: "stock", label: "Stock actual", count: stockRows.length },
-    { id: "movements", label: "Movimientos", count: (movements.data ?? []).length },
-    { id: "replenishments", label: "Reabastecimientos", count: (replenishments.data ?? []).length },
-    { id: "stockouts", label: "Quiebres", count: (stockouts.data ?? []).length },
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const allowed = categoryId ? descendantIds(cats, categoryId) : null;
+    const rows = items.filter((r) => {
+      if (status !== "all" && r.status !== status) return false;
+      if (allowed && !(r.category_id && allowed.has(r.category_id))) return false;
+      if (!q) return true;
+      return [r.name, r.sku, r.barcode ?? "", r.category_path.join(" ")].some((s) => s.toLowerCase().includes(q));
+    });
+    const val = (r: Row): number | string => {
+      switch (sort.key) {
+        case "product": return r.name.toLowerCase();
+        case "sku": return r.sku;
+        case "barcode": return r.barcode ?? "";
+        case "category": return r.category_path.join(" › ").toLowerCase();
+        case "stock": return r.stock_on_hand;
+        case "safety": return r.safety_stock;
+        case "reorder": return r.reorder_point;
+        case "cost": return num(r.unit_cost);
+        case "price": return num(r.unit_price);
+        case "value": return num(r.stock_value);
+        case "coverage": return r.coverage_days ?? Number.POSITIVE_INFINITY;
+        case "last_movement": return r.last_movement_at ?? "";
+        case "status": return STATUS_RANK[r.status] * 1e9 + r.stock_on_hand;
+        default: {
+          const v = r.custom_attributes?.[sort.key.replace(/^custom:/, "")];
+          return typeof v === "number" ? v : String(v ?? "").toLowerCase();
+        }
+      }
+    };
+    return [...rows].sort((a, b) => {
+      const x = val(a);
+      const y = val(b);
+      const cmp = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "es");
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+  }, [items, query, categoryId, status, sort, cats]);
+
+  const toggleSort = (key: string) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+  const catOptions = useMemo(() => categoryOptions(cats, "Todas las categorías"), [cats]);
+
+  type Col = { key: string; header: string; align?: "right"; cell: (r: Row) => React.ReactNode };
+  const tableColumns: Col[] = [
+    {
+      key: "product",
+      header: "Producto",
+      cell: (r) => (
+        <div className="flex min-w-0 items-center gap-3">
+          <ProductThumb src={r.image_url} name={r.name} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-text-primary">{r.name}</p>
+            {!show("sku") && <p className="font-mono text-[11px] text-text-muted">{r.sku}</p>}
+          </div>
+        </div>
+      ),
+    },
+    { key: "sku", header: "SKU", cell: (r) => <span className="font-mono text-xs text-text-secondary">{r.sku}</span> },
+    { key: "barcode", header: "Código de barras", cell: (r) => <span className="font-mono text-xs text-text-secondary">{r.barcode ?? "—"}</span> },
+    {
+      key: "category",
+      header: "Categoría",
+      cell: (r) =>
+        r.category_path.length ? (
+          <span className="break-words text-xs text-text-secondary">
+            {r.category_path.slice(0, -1).map((p) => `${p} › `)}
+            <span className="font-medium text-text-primary">{r.category_path[r.category_path.length - 1]}</span>
+          </span>
+        ) : (
+          <span className="text-text-muted">—</span>
+        ),
+    },
+    {
+      key: "stock",
+      header: "Stock actual",
+      align: "right",
+      cell: (r) => (
+        <span className={cn("font-display font-semibold tabular-nums", r.stock_on_hand <= 0 ? "text-danger" : "text-text-primary")}>
+          {r.stock_on_hand.toLocaleString("es-PE")}
+          <span className="ml-1 text-[11px] font-normal text-text-muted">{r.unit_of_measure === "unit" ? "u." : r.unit_of_measure}</span>
+        </span>
+      ),
+    },
+    { key: "safety", header: "Stock de seguridad", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.safety_stock}</span> },
+    { key: "reorder", header: "Punto de reorden", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.reorder_point}</span> },
+    { key: "cost", header: "Costo prom.", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{soles(r.unit_cost)}</span> },
+    { key: "price", header: "Precio", align: "right", cell: (r) => <span className="tabular-nums font-medium">{soles(r.unit_price)}</span> },
+    { key: "value", header: "Valor en stock", align: "right", cell: (r) => <span className="tabular-nums font-semibold">{soles(r.stock_value)}</span> },
+    {
+      key: "coverage",
+      header: "Cobertura",
+      align: "right",
+      cell: (r) =>
+        r.coverage_days == null ? (
+          <span className="text-xs text-text-muted">Sin ventas</span>
+        ) : (
+          <span className={cn("tabular-nums", r.coverage_days < 7 ? "font-semibold text-danger" : r.coverage_days < 15 ? "text-warning" : "text-text-secondary")}>
+            {r.coverage_days >= 365 ? "+1 año" : `${Math.round(r.coverage_days)} días`}
+          </span>
+        ),
+    },
+    {
+      key: "status",
+      header: "Estado",
+      cell: (r) => (
+        <span className="inline-flex items-center gap-1.5">
+          <Badge variant={STATUS_VARIANT[r.status]} dot>{STATUS_LABEL(r.status)}</Badge>
+          {r.lost_sales_30d > 0 && (
+            <span title={`${r.lost_sales_30d} ventas perdidas en 30 días`} className="text-danger">
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </span>
+      ),
+    },
+    { key: "last_movement", header: "Últ. movimiento", cell: (r) => <span className="text-xs text-text-secondary">{relativeDate(r.last_movement_at)}</span> },
+  ];
+  // With a category filter, only the columns that belong to that product type (or any of
+  // its subtypes) are shown — so "Talla" disappears when you look at Electro.
+  const filterScope = categoryId ? new Set([...ancestorIds(cats, categoryId), ...descendantIds(cats, categoryId)]) : null;
+  const customForView = columns.visibleFields.filter(
+    (f) => !filterScope || isGlobalField(f) || f.category_ids.some((id) => filterScope.has(id)),
+  );
+  const visibleColumns: Col[] = [
+    ...tableColumns.filter((c) => c.key === "product" || show(c.key)),
+    ...customForView.map((f) => ({
+      key: `custom:${f.key}`,
+      header: f.label,
+      align: f.field_type === "number" || f.field_type === "currency" ? ("right" as const) : undefined,
+      cell: (r: Row) =>
+        fieldAppliesTo(f, r.category_id, cats) ? (
+          <span className="break-words text-text-secondary">{formatCustomValue(f, r.custom_attributes?.[f.key])}</span>
+        ) : (
+          <span title="No aplica a este tipo de producto" className="text-text-muted/40">·</span>
+        ),
+    })),
+  ];
+
+  const counts = totals?.status_counts;
+  const chips: { id: StockStatus | "all"; label: string; count?: number }[] = [
+    { id: "all", label: "Todos", count: items.length },
+    { id: "sin_stock", label: "Sin stock", count: counts?.sin_stock },
+    { id: "critico", label: "Crítico", count: counts?.critico },
+    { id: "reordenar", label: "Reordenar", count: counts?.reordenar },
+    { id: "ok", label: "OK", count: counts?.ok },
   ];
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Datos"
+        eyebrow="ERP · Inventario"
         title="Inventario"
-        description="Movimientos del libro, reabastecimientos sugeridos y quiebres de stock detectados."
+        description="Stock, valorización al costo promedio y estado de reposición de cada producto."
         action={
-          tab === "stockouts" ? (
-            <Button variant="violet" onClick={detect} disabled={working || !companyId}>
-              <ScanSearch className="w-4 h-4" />
-              {working ? "Detectando…" : "Detectar quiebres"}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" onClick={() => setColumnsOpen(true)} disabled={!companyId}>
+              <Columns3 className="h-4 w-4" /> Columnas
             </Button>
-          ) : undefined
+            <Button variant="secondary" onClick={() => setAdjustOpen(true)} disabled={!companyId || items.length === 0}>
+              <ClipboardCheck className="h-4 w-4" /> Ajuste de stock
+            </Button>
+            <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={!companyId}>
+              <Upload className="h-4 w-4" /> Importar
+            </Button>
+            <Button onClick={() => setFormOpen(true)} disabled={!companyId}>
+              <PackagePlus className="h-4 w-4" /> Nuevo producto
+            </Button>
+          </div>
         }
       />
 
-      {actionError && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-          {actionError}
+      {flash && (
+        <div className="flex items-center justify-between rounded-xl border border-success/30 bg-success-soft px-4 py-3 text-sm text-success">
+          {flash}
+          <button className="text-xs font-semibold hover:underline" onClick={() => setFlash(null)}>Cerrar</button>
         </div>
       )}
 
-      <Tabs tabs={tabs} value={tab} onChange={setTab} />
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <SummaryTile icon={Wallet} label="Valor del inventario (costo)" value={totals ? soles(totals.inventory_value_cost) : "—"} sub={totals ? `${totals.units_on_hand.toLocaleString("es-PE")} unidades` : undefined} />
+        <SummaryTile icon={TrendingUp} label="Valor a precio de venta" value={totals ? soles(totals.inventory_value_retail) : "—"} sub={totals ? `Margen potencial ${soles(totals.potential_margin)}` : undefined} />
+        <SummaryTile icon={PackageX} tone="danger" label="Productos sin stock" value={counts ? String(counts.sin_stock) : "—"} sub="Requieren compra urgente" onClick={() => setStatus("sin_stock")} />
+        <SummaryTile icon={AlertTriangle} tone="warning" label="Por reordenar" value={counts ? String(counts.reordenar + counts.critico) : "—"} sub={counts ? `${counts.critico} en nivel crítico` : undefined} onClick={() => setStatus("reordenar")} />
+      </div>
 
-      {tab === "stock" && (
-        <DataState
-          loading={products.loading || stock.loading}
-          error={products.error || stock.error}
-          empty={stockRows.length === 0}
-          onRetry={() => { products.reload(); stock.reload(); }}
-          emptyState={
-            <EmptyState
-              icon={Boxes}
-              title="Aún no hay stock registrado"
-              description="El stock inicial se siembra al preparar un dataset desde tus ventas. Sube tu CSV y pulsa «Preparar dataset» para ver aquí el stock de cada producto."
-              action={{ label: "Ir a Ventas", href: "/ingestion" }}
-            />
-          }
-        >
-          <Table
-            title="Stock actual por producto"
-            data={stockRows}
-            keyExtractor={(r) => r.product.id}
-            columns={[
-              {
-                header: "Producto",
-                accessor: (r) => (
-                  <div className="min-w-0">
-                    <span className="font-medium text-text-primary block truncate">{r.product.name}</span>
-                    <span className="font-mono text-[11px] text-text-muted">{r.product.sku}</span>
-                  </div>
-                ),
-              },
-              { header: "Stock actual", accessor: (r) => <span className="font-semibold text-text-primary tabular-nums">{r.onHand}</span> },
-              { header: "Punto reorden", accessor: (r) => <span className="text-text-secondary tabular-nums">{r.product.reorder_point}</span> },
-              { header: "Stock seguridad", accessor: (r) => <span className="text-text-secondary tabular-nums">{r.product.safety_stock}</span> },
-              {
-                header: "Estado",
-                accessor: (r) => {
-                  const st = stockStatus(r.onHand, r.product.reorder_point, r.product.safety_stock);
-                  return <Badge variant={st.variant} dot>{st.label}</Badge>;
-                },
-              },
-            ]}
+      <DataState
+        loading={overview.loading && !overview.data}
+        error={overview.error}
+        onRetry={reload}
+        empty={items.length === 0}
+        emptyState={
+          <EmptyState
+            icon={Boxes}
+            title="Tu inventario está vacío"
+            description="Crea tu primer producto o importa tu Excel de inventario: detectamos las columnas por ti."
+            action={{ label: "Importar inventario", onClick: () => setImportOpen(true) }}
+            hint="También puedes crear productos uno por uno con “Nuevo producto”."
           />
-        </DataState>
-      )}
+        }
+      >
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <input className={inputClass(false, "pl-10")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, SKU, código de barras o categoría" />
+            </div>
+            <div className="w-full lg:w-64">
+              <Select value={categoryId} options={catOptions} onChange={setCategoryId} searchable placeholder="Todas las categorías" />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border-soft px-5 py-3">
+            {chips.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setStatus(c.id)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                  status === c.id ? "border-primary/30 bg-primary-soft text-primary" : "border-border bg-surface text-text-secondary hover:bg-surface-soft",
+                )}
+              >
+                {c.label}
+                {c.count != null && <span className="tabular-nums opacity-70">{c.count}</span>}
+              </button>
+            ))}
+            <span className="ml-auto text-xs text-text-muted">{filtered.length} de {items.length} productos</span>
+          </div>
+          <div>
+            <table className="w-full table-fixed border-collapse text-left">
+              <colgroup>
+                {visibleColumns.map((c) => (
+                  <col key={c.key} style={c.key === "product" ? { width: "18%" } : undefined} />
+                ))}
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border bg-surface-soft/60">
+                  {visibleColumns.map((c) => (
+                    <th key={c.key} className={cn("px-2 py-3 first:pl-5", c.align === "right" && "text-right")}>
+                      <button
+                        onClick={() => toggleSort(c.key)}
+                        className={cn(
+                          "flex w-full min-w-0 items-center gap-0.5 text-[10.5px] font-semibold uppercase leading-tight tracking-[0.02em] transition-colors hover:text-text-primary",
+                          c.align === "right" ? "justify-end" : "justify-start",
+                          sort.key === c.key ? "text-text-primary" : "text-text-muted",
+                        )}
+                      >
+                        <span className="min-w-0 break-words text-left">{c.header}</span>
+                        <span className="mt-px shrink-0">
+                          {sort.key === c.key ? (sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                        </span>
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-soft">
+                {filtered.map((r) => (
+                  <tr key={r.id} onClick={() => router.push(`/inventory/${r.id}`)} className="cursor-pointer transition-colors hover:bg-primary-softer/60">
+                    {visibleColumns.map((c) => (
+                      <td key={c.key} className={cn("px-2 py-3 text-sm text-text-primary first:pl-5", c.align === "right" && "text-right")}>
+                        {c.cell(r)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={visibleColumns.length} className="px-6 py-14 text-center text-sm text-text-muted">
+                      Ningún producto coincide con los filtros.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </DataState>
 
-      {tab === "movements" && (
-        <DataState
-          loading={movements.loading}
-          error={movements.error}
-          empty={(movements.data ?? []).length === 0}
-          emptyMessage="Aún no hay movimientos de inventario."
-          onRetry={movements.reload}
-        >
-          <Table
-            title="Movimientos de inventario"
-            data={movements.data ?? []}
-            keyExtractor={(m) => m.id}
-            columns={[
-              { header: "Fecha", accessor: (m) => m.occurred_at.slice(0, 10) },
-              { header: "Producto", accessor: (m) => <span className="font-mono text-text-secondary">{skuOf(m.product_id)}</span> },
-              {
-                header: "Tipo",
-                accessor: (m) => (
-                  <Badge variant={m.movement_type === "inbound" ? "success" : m.movement_type === "outbound" ? "primary" : "warning"} dot>
-                    {typeLabel[m.movement_type] ?? m.movement_type}
-                  </Badge>
-                ),
-              },
-              {
-                header: "Cantidad",
-                accessor: (m) => (
-                  <span className={m.movement_type === "outbound" ? "font-semibold text-danger" : "font-semibold text-success"}>
-                    {m.movement_type === "outbound" ? "-" : "+"}
-                    {m.quantity}
-                  </span>
-                ),
-              },
-              { header: "Motivo", accessor: (m) => <span className="text-text-secondary">{m.reason || "—"}</span> },
-            ]}
-          />
-        </DataState>
-      )}
-
-      {tab === "replenishments" && (
-        <DataState
-          loading={replenishments.loading}
-          error={replenishments.error}
-          empty={(replenishments.data ?? []).length === 0}
-          emptyMessage="No hay reabastecimientos sugeridos."
-          onRetry={replenishments.reload}
-        >
-          <Table
-            title="Reabastecimientos sugeridos"
-            data={replenishments.data ?? []}
-            keyExtractor={(r) => r.id}
-            columns={[
-              { header: "Producto", accessor: (r) => <span className="font-mono text-text-secondary">{skuOf(r.product_id)}</span> },
-              { header: "Cantidad sugerida", accessor: (r) => <span className="font-semibold text-text-primary">{r.quantity} uds.</span> },
-              {
-                header: "Estado",
-                accessor: (r) => (
-                  <Badge variant={r.status === "completed" ? "success" : r.status === "pending" ? "warning" : "default"} dot>
-                    {r.status}
-                  </Badge>
-                ),
-              },
-            ]}
-          />
-        </DataState>
-      )}
-
-      {tab === "stockouts" && (
-        <DataState
-          loading={stockouts.loading}
-          error={stockouts.error}
-          empty={(stockouts.data ?? []).length === 0}
-          emptyMessage="No se han detectado quiebres de stock."
-          onRetry={stockouts.reload}
-        >
-          <Table
-            title="Quiebres de stock"
-            data={stockouts.data ?? []}
-            keyExtractor={(s) => s.id}
-            columns={[
-              { header: "Producto", accessor: (s) => <span className="font-mono text-text-secondary">{skuOf(s.product_id)}</span> },
-              { header: "Inicio", accessor: (s) => s.started_at.slice(0, 10) },
-              { header: "Fin", accessor: (s) => (s.ended_at ? s.ended_at.slice(0, 10) : "—") },
-              { header: "Duración", accessor: (s) => (s.duration_days != null ? `${s.duration_days} días` : "—") },
-              {
-                header: "Estado",
-                accessor: (s) => (
-                  <Badge variant={s.ended_at ? "success" : "danger"} dot>
-                    {s.ended_at ? "Resuelto" : "En curso"}
-                  </Badge>
-                ),
-              },
-            ]}
-          />
-        </DataState>
-      )}
+      <ProductFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        companyId={companyId}
+        product={null}
+        categories={cats}
+        fields={columns.fields}
+        onSaved={(p) => {
+          reload();
+          if (p) setFlash(`Producto “${p.name}” creado con el código ${p.sku}.`);
+        }}
+      />
+      <ProductImportWizard open={importOpen} onClose={() => setImportOpen(false)} companyId={companyId} fields={columns.fields} onFinished={() => { reload(); columns.reloadFields(); }} />
+      <ColumnsManager
+        open={columnsOpen}
+        onClose={() => setColumnsOpen(false)}
+        companyId={companyId}
+        entity="product"
+        entityLabel="el inventario"
+        builtinColumns={BUILTINS}
+        hiddenBuiltins={columns.hiddenBuiltins}
+        onHiddenBuiltinsChange={columns.setHiddenBuiltins}
+        fields={columns.fields}
+        onFieldsChanged={columns.reloadFields}
+        categories={cats}
+        onCategoriesChanged={categories.reload}
+      />
+      <StockAdjustmentModal
+        open={adjustOpen}
+        onClose={() => setAdjustOpen(false)}
+        companyId={companyId}
+        products={items}
+        onDone={(res) => {
+          overview.reload();
+          const name = items.find((i) => i.id === res.product_id)?.name ?? "Producto";
+          setFlash(res.delta === 0 ? `${name}: el stock ya estaba en ${res.new_stock}.` : `${name}: stock ${res.previous_stock} → ${res.new_stock}.`);
+        }}
+      />
     </div>
+  );
+}
+
+function STATUS_LABEL(s: StockStatus) {
+  return STOCK_STATUS_LABEL[s];
+}
+
+function SummaryTile({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone = "primary",
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: "primary" | "danger" | "warning";
+  onClick?: () => void;
+}) {
+  return (
+    <Card
+      className={cn("p-5", onClick && "cursor-pointer")}
+      interactive={!!onClick}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-text-muted">{label}</p>
+        <span
+          className={cn(
+            "grid h-8 w-8 shrink-0 place-items-center rounded-xl",
+            tone === "danger" ? "bg-danger-soft text-danger" : tone === "warning" ? "bg-warning-soft text-warning" : "bg-primary-soft text-primary",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+      <p className="mt-2 font-display text-2xl font-bold tabular-nums tracking-tight text-text-primary">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-text-secondary">{sub}</p>}
+    </Card>
   );
 }

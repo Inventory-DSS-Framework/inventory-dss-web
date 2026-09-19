@@ -18,19 +18,29 @@ const jetbrainsMono = JetBrains_Mono({
 
 const fontVars = `${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`;
 
-// Set the saved theme + light/dark mode before paint to avoid a flash.
-const themeBootstrap = `(function(){try{var d=document.documentElement;d.setAttribute("data-theme",localStorage.getItem("dss-theme")||"teal-coral");d.setAttribute("data-mode",localStorage.getItem("dss-mode")||"light");}catch(e){}})();`;
+// Restore mode / tier / palette / motion and the FTGM stage before first paint so
+// nothing flashes. Tier is a cached hint; the ExperienceProvider confirms it.
+const experienceBootstrap = `(function(){try{var d=document.documentElement,s=localStorage,m=s.getItem("dss-mode")||"light";if(m==="system"){m=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}d.setAttribute("data-mode",m);d.setAttribute("data-tier",s.getItem("dss-tier")||"base");d.setAttribute("data-palette",s.getItem("dss-palette")||"emerald");d.setAttribute("data-motion",s.getItem("dss-motion")||"full");d.setAttribute("data-stage",location.pathname.indexOf("/forecasting")===0?"ftgm":"none")}catch(e){}})();`;
 
 export const metadata = {
-  title: "Inventory DSS Platform",
+  title: "InventoryDSS",
   description: "Decision Support System for inventory optimization in retail MSEs.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" data-theme="teal-coral" data-mode="light" className={fontVars} suppressHydrationWarning>
+    <html
+      lang="es"
+      data-mode="light"
+      data-tier="base"
+      data-palette="emerald"
+      data-stage="none"
+      data-motion="full"
+      className={fontVars}
+      suppressHydrationWarning
+    >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: experienceBootstrap }} />
       </head>
       <body>
         <AppShell>{children}</AppShell>

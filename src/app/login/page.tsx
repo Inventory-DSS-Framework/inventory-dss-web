@@ -1,11 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, TrendingUp, ShieldCheck, Sparkles, Loader2 } from "lucide-react";
-import { login, register } from "@/lib/auth";
+import {
+  ArrowRight, Building2, Check, Eye, EyeOff, Hash, Loader2, Lock, Mail, User, type LucideIcon,
+} from "lucide-react";
+import { getRole, login, register } from "@/lib/auth";
+import { markOnboardingPending } from "@/lib/onboarding";
+import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/ui/ModeToggle";
+import { DotField } from "@/components/login/DotField";
+import { ForecastPreview } from "@/components/login/ForecastPreview";
 
 type Mode = "login" | "register";
+
+const COPY: Record<Mode, { eyebrow: string; title: string; subtitle: string; cta: string }> = {
+  login: {
+    eyebrow: "Acceso seguro",
+    title: "Bienvenido de nuevo",
+    subtitle: "Ingresa tus credenciales para acceder a la plataforma.",
+    cta: "Ingresar al sistema",
+  },
+  register: {
+    eyebrow: "Nueva empresa",
+    title: "Crea tu cuenta",
+    subtitle: "Registra tu empresa y tu usuario administrador.",
+    cta: "Crear cuenta",
+  },
+};
 
 export default function Login() {
   const router = useRouter();
@@ -17,6 +39,12 @@ export default function Login() {
   const [taxId, setTaxId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const copy = COPY[mode];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,135 +62,271 @@ export default function Login() {
           tax_id: taxId,
         });
       }
-      router.push("/dashboard");
+      // A brand-new account starts with the full-screen welcome flow.
+      if (mode === "register") markOnboardingPending();
+      // Success: a check on the button, then the page settles out quietly into the app.
+      setSuccess(true);
+      const reduced =
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        document.documentElement.getAttribute("data-motion") === "reduced";
+      window.setTimeout(() => setLeaving(true), reduced ? 0 : 420);
+      // Sellers (cashiers) land straight on the till.
+      const home = mode === "register" ? "/welcome" : getRole() === "seller" ? "/sales/new" : "/dashboard";
+      window.setTimeout(() => router.push(home), reduced ? 0 : 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo completar la operación");
-    } finally {
       setLoading(false);
     }
   };
 
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    setMode(next);
+    setError(null);
+  };
+
+  const detectCaps = (e: React.KeyboardEvent) => setCapsLock(e.getModifierState?.("CapsLock") ?? false);
+
   return (
-    <div className="min-h-screen bg-background flex">
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md">
-          <div className="mb-10">
-            <span className="font-display text-xl font-bold tracking-tight text-text-primary block leading-tight">
-              Inventory<span className="text-primary">DSS</span>
-            </span>
-            <span className="text-xs text-text-muted">Soporte de decisiones · Retail</span>
+    <div
+      className="relative min-h-screen overflow-hidden bg-background text-text-primary"
+      style={{
+        // A tinted ground instead of flat white: soft brand light top-right, mint bottom-left.
+        background:
+          "radial-gradient(70% 55% at 90% 8%, rgb(var(--c-primary) / 0.12), transparent 62%)," +
+          "radial-gradient(60% 55% at 4% 100%, rgb(var(--c-accent-2) / 0.16), transparent 60%)," +
+          "linear-gradient(165deg, rgb(var(--c-bg)) 0%, rgb(var(--c-bg-deep)) 100%)",
+      }}
+    >
+      <DotField className="absolute inset-0" />
+      {/* A calm pocket behind the form so the field never fights the inputs. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(42% 62% at 19% 55%, rgb(var(--c-bg) / 0.7) 20%, rgb(var(--c-bg) / 0.3) 55%, transparent 80%)",
+        }}
+      />
+
+      <header
+        className={cn(
+          "relative z-10 flex items-center justify-between px-6 pt-6 transition-all duration-500 sm:px-10",
+          leaving && "opacity-0",
+        )}
+        style={{ animation: "fade-in 0.8s ease-out both" }}
+      >
+        <span className="font-display text-lg font-bold tracking-[-0.03em]">
+          Inventory<span className="text-primary">DSS</span>
+        </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-text-muted sm:inline">Soporte de decisiones · Retail</span>
+          <ModeToggle />
+        </div>
+      </header>
+
+      <main
+        className={cn(
+          "relative z-10 mx-auto grid min-h-[calc(100vh-66px)] max-w-[1320px] items-center gap-14 px-6 py-10 transition-all duration-500 [transition-timing-function:var(--ease-out)] sm:px-10 lg:grid-cols-[450px_1fr] lg:gap-20",
+          leaving && "-translate-y-3 opacity-0 blur-[6px]",
+        )}
+      >
+        {/* ── Form ─────────────────────────────────────────────── */}
+        <section
+          className={cn(
+            "glass relative rounded-[30px] p-8 shadow-soft-xl transition-transform duration-500 sm:p-10",
+            success && "scale-[0.985]",
+          )}
+          style={{ animation: "rise 0.9s var(--ease-out) both" }}
+        >
+          <div className="badge inline-flex items-center gap-2 rounded-full bg-primary-softer px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_10px_currentColor]" />
+            {copy.eyebrow}
           </div>
 
-          <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary mb-2">
-            {mode === "login" ? "Bienvenido de nuevo" : "Crea tu cuenta"}
+          <h1 key={mode} className="mt-4 font-display text-[36px] font-semibold leading-[1.05] tracking-[-0.04em]">
+            {copy.title.split(" ").map((word, i) => (
+              <span
+                key={`${word}-${i}`}
+                className="mr-[0.25em] inline-block"
+                style={{ animation: `word-in 0.7s var(--ease-out) ${0.08 + i * 0.07}s both` }}
+              >
+                {word}
+              </span>
+            ))}
           </h1>
-          <p className="text-text-secondary mb-8 text-sm">
-            {mode === "login"
-              ? "Ingresa tus credenciales para acceder a la plataforma."
-              : "Registra tu empresa y tu usuario administrador."}
+          <p key={`${mode}-sub`} className="mt-3 text-[15px] text-text-secondary" style={{ animation: "fade-in 0.6s ease-out 0.25s both" }}>
+            {copy.subtitle}
           </p>
 
+          {/* Segmented switch with a gliding pill */}
+          <div className="relative mt-7 grid grid-cols-2 rounded-2xl bg-surface-muted/70 p-1">
+            <span
+              aria-hidden
+              className="absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-xl bg-surface shadow-soft transition-transform duration-500 [transition-timing-function:var(--ease-spring)]"
+              style={{ transform: mode === "login" ? "translateX(4px)" : "translateX(calc(100% + 4px))", left: 0 }}
+            />
+            {(["login", "register"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => switchMode(m)}
+                className={cn(
+                  "relative z-10 h-9 rounded-xl text-sm font-medium transition-colors",
+                  mode === m ? "text-text-primary" : "text-text-muted hover:text-text-secondary",
+                )}
+              >
+                {m === "login" ? "Iniciar sesión" : "Registrarse"}
+              </button>
+            ))}
+          </div>
+
           {error && (
-            <div className="mb-5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
+            <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger animate-fade-up">
+              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-3.5">
             {mode === "register" && (
-              <>
-                <Field label="Nombre completo" value={fullName} onChange={setFullName} />
-                <Field label="Nombre de la empresa" value={companyName} onChange={setCompanyName} />
-                <Field label="RUC" value={taxId} onChange={setTaxId} />
-              </>
+              <div className="space-y-3.5 animate-fade-up">
+                <FloatingField icon={User} label="Nombre completo" value={fullName} onChange={setFullName} autoComplete="name" />
+                <FloatingField icon={Building2} label="Nombre de la empresa" value={companyName} onChange={setCompanyName} autoComplete="organization" />
+                <FloatingField icon={Hash} label="RUC" value={taxId} onChange={setTaxId} inputMode="numeric" />
+              </div>
             )}
-            <Field label="Correo electrónico" type="email" value={email} onChange={setEmail} />
-            <Field label="Contraseña" type="password" value={password} onChange={setPassword} />
+            {mode === "login" ? (
+              <FloatingField icon={User} label="Correo o usuario" value={email} onChange={setEmail} autoComplete="username" />
+            ) : (
+              <FloatingField icon={Mail} label="Correo electrónico" type="email" value={email} onChange={setEmail} autoComplete="email" />
+            )}
+            <FloatingField
+              icon={Lock}
+              label="Contraseña"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={setPassword}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              onKeyUp={detectCaps}
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="grid h-8 w-8 place-items-center rounded-lg text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              }
+            />
+            {capsLock && <p className="pl-1 text-xs font-medium text-warning animate-fade-in">Bloq Mayús está activado</p>}
 
-            <button type="submit" disabled={loading} className="btn btn-primary w-full py-3 group disabled:opacity-60">
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <button
+              type="submit"
+              disabled={loading}
+              className={cn(
+                "btn btn-primary group mt-2 h-12 w-full gap-2 rounded-2xl text-[15px] disabled:opacity-100",
+                success && "bg-success",
+              )}
+            >
+              {success ? (
+                <Check className="h-5 w-5 animate-scale-in" strokeWidth={3} />
+              ) : loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  {mode === "login" ? "Ingresar al sistema" : "Crear cuenta"}
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  {copy.cta}
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </>
               )}
             </button>
           </form>
 
-          <p className="mt-6 text-sm text-text-secondary">
+          <p className="mt-6 text-center text-sm text-text-secondary">
             {mode === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}
             <button
               type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setError(null);
-              }}
-              className="font-medium text-primary hover:text-primary-hover"
+              onClick={() => switchMode(mode === "login" ? "register" : "login")}
+              className="font-semibold text-primary transition-colors hover:text-primary-hover"
             >
               {mode === "login" ? "Regístrate" : "Inicia sesión"}
             </button>
           </p>
-        </div>
-      </div>
+        </section>
 
-      <div className="hidden lg:flex flex-1 items-center justify-center p-12 relative overflow-hidden bg-[#1B1F3B]">
-        <div className="absolute inset-0 bg-dots opacity-40" />
-        <div className="absolute -top-24 -right-24 w-[26rem] h-[26rem] rounded-full bg-primary/25 blur-[120px]" />
-        <div className="absolute -bottom-32 -left-20 w-[26rem] h-[26rem] rounded-full bg-accent-violet/20 blur-[120px]" />
-
-        <div className="relative z-10 max-w-lg text-white">
-          <div className="inline-flex items-center gap-1.5 rounded-full glass-dark px-3 py-1.5 text-xs font-semibold mb-6">
-            <Sparkles className="w-3.5 h-3.5" />
-            Modelo FTGM
+        {/* ── Story ────────────────────────────────────────────── */}
+        <section className="hidden lg:block" style={{ animation: "rise 1s var(--ease-out) 0.15s both" }}>
+          <div className="badge inline-flex items-center gap-2 rounded-full bg-surface/70 px-3 py-1 text-[11px] font-semibold text-text-secondary backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgb(var(--c-primary))]" />
+            ERP + Motor FTGM de pronóstico
           </div>
-          <h2 className="font-display text-4xl font-bold leading-tight mb-6">
-            Optimización inteligente para tu inventario
+          <h2 className="mt-5 max-w-[640px] font-display text-[58px] font-semibold leading-[1] tracking-[-0.05em]">
+            Decide tu inventario <span className="text-gradient-brand">con datos</span>, no con intuición.
           </h2>
-          <p className="text-white/70 text-lg mb-10 leading-relaxed">
-            Plataforma web de soporte de decisiones para MYPEs retail. Reduce quiebres de stock,
-            optimiza coberturas y genera pronósticos precisos.
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-text-secondary">
+            Vende, compra y controla tu stock — y deja que el motor te diga qué reponer, cuánto y cuándo.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="glass-dark rounded-2xl p-5">
-              <TrendingUp className="w-6 h-6 mb-3 text-white/90" />
-              <p className="text-3xl font-bold mb-1">+32%</p>
-              <p className="text-white/60 text-sm">Precisión en forecast</p>
-            </div>
-            <div className="glass-dark rounded-2xl p-5">
-              <ShieldCheck className="w-6 h-6 mb-3 text-white/90" />
-              <p className="text-3xl font-bold mb-1">-15%</p>
-              <p className="text-white/60 text-sm">Riesgo de stockout</p>
-            </div>
-          </div>
-        </div>
-      </div>
+          <ForecastPreview className="mt-10" />
+        </section>
+      </main>
+
+      {/* Quiet hand-off: the content lifts away and the ground settles to the app's background. */}
+      {leaving && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-50 bg-background"
+          style={{ animation: "fade-in 0.45s ease-out 0.15s both" }}
+        />
+      )}
     </div>
   );
 }
 
-function Field({
+function FloatingField({
+  icon: Icon,
   label,
   value,
   onChange,
   type = "text",
+  autoComplete,
+  inputMode,
+  trailing,
+  onKeyUp,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  autoComplete?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  trailing?: React.ReactNode;
+  onKeyUp?: (e: React.KeyboardEvent) => void;
 }) {
+  const id = useId();
   return (
-    <div>
-      <label className="block text-sm font-medium text-text-primary mb-1.5">{label}</label>
+    <div className="group relative">
+      <Icon className="pointer-events-none absolute left-4 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-text-muted transition-colors group-focus-within:text-primary" />
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-all"
+        onKeyUp={onKeyUp}
+        placeholder=" "
+        autoComplete={autoComplete}
+        inputMode={inputMode}
         required
+        className="peer h-[58px] w-full rounded-2xl border border-border bg-surface/80 pb-2 pl-11 pr-12 pt-6 text-[15px] text-text-primary outline-none transition-all hover:border-text-muted/40 focus:border-primary/60 focus:bg-surface focus:shadow-[0_0_0_4px_rgb(var(--c-primary)/0.12)]"
       />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-11 top-1/2 -translate-y-1/2 text-[15px] text-text-muted transition-all duration-200 peer-focus:top-[17px] peer-focus:text-[11px] peer-focus:font-medium peer-focus:text-primary peer-[:not(:placeholder-shown)]:top-[17px] peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-medium peer-autofill:top-[17px] peer-autofill:text-[11px]"
+      >
+        {label}
+      </label>
+      {trailing && <div className="absolute right-2.5 top-1/2 -translate-y-1/2">{trailing}</div>}
     </div>
   );
 }

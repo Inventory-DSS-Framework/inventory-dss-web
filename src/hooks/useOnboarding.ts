@@ -2,15 +2,13 @@
 
 import { useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
-import {
-  dataPreparationApi,
-  forecastingApi,
-  ingestionApi,
-  productsApi,
-} from "@/lib/api";
+import { forecastingApi, productsApi, salesApi } from "@/lib/api";
 
 export interface OnboardingStep {
-  key: "catalog" | "sales" | "prepare" | "forecast";
+  key: "catalog" | "sales" | "forecast";
+  /** Which phase this step belongs to — the two halves of the product. */
+  phase: "erp" | "ftgm";
+  /** Step number *within its phase* (both phases restart at 1) — mirrors the sidebar. */
   step: number;
   title: string;
   description: string;
@@ -33,21 +31,18 @@ export interface OnboardingState {
 }
 
 /**
- * Derives the four-step start-up progress from real backend state, so the Panel can
- * always tell the user where they are and what to do next. The step numbers mirror the
- * "Flujo de datos" group in the sidebar.
+ * Derives start-up progress from real backend state: two ERP milestones (catalog, a
+ * first sale) plus one Motor FTGM milestone (a completed run) — mirrors the sidebar's
+ * "ERP" / "Motor FTGM" split so the Panel and the nav always tell the same story.
  */
 export function useOnboarding(companyId: string | null): OnboardingState {
   const products = useApi(
     () => (companyId ? productsApi.list(companyId) : Promise.resolve([])),
     [companyId],
   );
-  const uploads = useApi(
-    () => (companyId ? ingestionApi.listUploads(companyId) : Promise.resolve([])),
-    [companyId],
-  );
-  const datasets = useApi(
-    () => (companyId ? dataPreparationApi.listDatasets(companyId) : Promise.resolve([])),
+  // A "first sale" counts whether it came from Nueva Venta or a bulk CSV import.
+  const sales = useApi(
+    () => (companyId ? salesApi.list(companyId, 1, 1) : Promise.resolve([])),
     [companyId],
   );
   const runs = useApi(
@@ -55,21 +50,20 @@ export function useOnboarding(companyId: string | null): OnboardingState {
     [companyId],
   );
 
-  const loading =
-    products.loading || uploads.loading || datasets.loading || runs.loading;
+  const loading = products.loading || sales.loading || runs.loading;
 
   const state = useMemo<Omit<OnboardingState, "loading" | "reload">>(() => {
     const nProducts = (products.data ?? []).length;
-    const nUploads = (uploads.data ?? []).length;
-    const readyDatasets = (datasets.data ?? []).filter((d) => d.status === "ready").length;
+    const hasSales = (sales.data ?? []).length > 0;
     const okRuns = (runs.data ?? []).filter((r) => r.status === "success").length;
 
     const steps: OnboardingStep[] = [
       {
         key: "catalog",
+        phase: "erp",
         step: 1,
-        title: "Crea tu catálogo de productos",
-        description: "Registra tus productos (SKU, costo, precio). Las ventas se cruzan contra este catálogo.",
+        title: "Registra tu catálogo",
+        description: "Tus productos: SKU, costo, precio. Es la base contra la que se cruzan las ventas.",
         href: "/products",
         cta: "Ir a Catálogo",
         done: nProducts > 0,
@@ -77,29 +71,21 @@ export function useOnboarding(companyId: string | null): OnboardingState {
       },
       {
         key: "sales",
+        phase: "erp",
         step: 2,
-        title: "Sube tu historial de ventas",
-        description: "Carga un CSV de ventas, mapea las columnas y valídalo.",
-        href: "/ingestion",
-        cta: "Ir a Ventas",
-        done: nUploads > 0,
-        detail: nUploads > 0 ? `${nUploads} carga(s)` : undefined,
-      },
-      {
-        key: "prepare",
-        step: 3,
-        title: "Prepara el dataset",
-        description: "Convierte tus ventas en series de demanda mensuales listas para el modelo.",
-        href: "/data-preparation",
-        cta: "Ir a Preparación",
-        done: readyDatasets > 0,
-        detail: readyDatasets > 0 ? `${readyDatasets} dataset(s) listo(s)` : undefined,
+        title: "Registra tu primera venta",
+        description: "Anota una venta a mano en Nueva venta, o importa un historial completo por CSV.",
+        href: "/sales/new",
+        cta: "Ir a Nueva venta",
+        done: hasSales,
+        detail: hasSales ? "Ventas registradas" : undefined,
       },
       {
         key: "forecast",
-        step: 4,
-        title: "Ejecuta el pronóstico FTGM",
-        description: "Corre el motor sobre tu dataset y explora la demanda pronosticada.",
+        phase: "ftgm",
+        step: 1,
+        title: "Ejecuta el motor FTGM",
+        description: "Analiza tus datos por producto y corre el pronóstico de demanda.",
         href: "/forecasting",
         cta: "Ir a Pronóstico",
         done: okRuns > 0,
@@ -111,12 +97,11 @@ export function useOnboarding(companyId: string | null): OnboardingState {
     // The next action is the first incomplete step (steps are inherently ordered).
     const next = steps.find((s) => !s.done) ?? null;
     return { steps, completed, total: steps.length, allDone: completed === steps.length, next };
-  }, [products.data, uploads.data, datasets.data, runs.data]);
+  }, [products.data, sales.data, runs.data]);
 
   const reload = () => {
     products.reload();
-    uploads.reload();
-    datasets.reload();
+    sales.reload();
     runs.reload();
   };
 

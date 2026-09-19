@@ -1,40 +1,34 @@
 "use client";
 
 import { useState } from "react";
+import { BarChart2, Download, FileText, Lightbulb, Loader2, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Table, Badge } from "@/components/ui/Table";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ReportFormModal } from "@/components/reports/ReportFormModal";
-import { FileText, Download, Loader2 } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { reportsApi } from "@/lib/api";
 import { triggerDownload } from "@/lib/utils";
 import type { ReportStatus, ReportType } from "@/types/api";
 
-const typeLabel: Record<ReportType, string> = {
-  forecast: "Pronóstico",
-  kpi: "KPIs",
-  recommendation: "Recomendaciones",
+const typeMeta: Record<ReportType, { label: string; icon: typeof TrendingUp }> = {
+  forecast: { label: "Pronóstico", icon: TrendingUp },
+  kpi: { label: "KPIs", icon: BarChart2 },
+  recommendation: { label: "Recomendaciones", icon: Lightbulb },
 };
-const statusLabel: Record<ReportStatus, string> = {
-  pending: "Generando",
-  ready: "Listo",
-  failed: "Fallido",
-};
-const statusVariant: Record<ReportStatus, "default" | "success" | "warning" | "danger"> = {
-  pending: "warning",
-  ready: "success",
-  failed: "danger",
+const statusMeta: Record<ReportStatus, { label: string; tone: "warning" | "success" | "danger" }> = {
+  pending: { label: "Generando", tone: "warning" },
+  ready: { label: "Listo", tone: "success" },
+  failed: { label: "Fallido", tone: "danger" },
 };
 
 export default function ReportsPage() {
   const companyId = useCompanyId();
-  const reports = useApi(
-    () => (companyId ? reportsApi.list(companyId) : Promise.resolve(null)),
-    [companyId],
-  );
+  const reports = useApi(() => (companyId ? reportsApi.list(companyId) : Promise.resolve(null)), [companyId]);
   const items = reports.data?.items ?? [];
 
   const [formOpen, setFormOpen] = useState(false);
@@ -56,73 +50,72 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Salida"
+        eyebrow="Motor FTGM"
+        eyebrowTone="violet"
         title="Reportes"
-        description="Genera reportes de pronósticos, KPIs y recomendaciones, y descárgalos cuando los necesites."
+        description="Exporta el último pronóstico FTGM, los KPIs de inventario y las recomendaciones de compra."
         action={
-          <Button onClick={() => setFormOpen(true)} disabled={!companyId}>
-            <FileText className="w-4 h-4" />
-            Generar reporte
+          <Button variant="violet" onClick={() => setFormOpen(true)} disabled={!companyId}>
+            <FileText className="h-4 w-4" /> Generar reporte
           </Button>
         }
       />
 
-      {actionError && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-          {actionError}
-        </div>
-      )}
+      {actionError && <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{actionError}</div>}
 
       <DataState
         loading={reports.loading}
         error={reports.error}
         empty={items.length === 0}
-        emptyMessage="Aún no has generado reportes. Crea el primero con “Generar reporte”."
         onRetry={reports.reload}
+        emptyState={
+          <EmptyState
+            icon={FileText}
+            title="Aún no has generado reportes"
+            description="Crea tu primer reporte: se genera al instante con los datos del motor FTGM y queda listo para descargar."
+            action={{ label: "Generar reporte", onClick: () => setFormOpen(true) }}
+          />
+        }
       >
-        <Table
-          title="Reportes generados"
-          data={items}
-          keyExtractor={(r) => r.id}
-          columns={[
-            { header: "Título", accessor: (r) => <span className="font-medium text-text-primary">{r.title}</span> },
-            { header: "Tipo", accessor: (r) => <Badge variant="default">{typeLabel[r.report_type] ?? r.report_type}</Badge> },
-            {
-              header: "Estado",
-              accessor: (r) => (
-                <Badge variant={statusVariant[r.status] ?? "default"} dot>
-                  {statusLabel[r.status] ?? r.status}
-                </Badge>
-              ),
-            },
-            {
-              header: "",
-              accessor: (r) =>
-                r.status === "ready" ? (
-                  <button
-                    onClick={() => download(r.id)}
-                    disabled={downloadingId === r.id}
-                    className="inline-flex items-center gap-1.5 text-primary hover:text-primary-hover text-sm font-semibold disabled:opacity-50"
-                  >
-                    {downloadingId === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    Descargar
-                  </button>
-                ) : (
-                  <span className="text-xs text-text-muted">—</span>
-                ),
-            },
-          ]}
-        />
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-border px-6 py-4">
+            <h3 className="font-display text-[15px] font-semibold text-text-primary">Reportes generados</h3>
+          </div>
+          <div className="divide-y divide-border-soft">
+            {items.map((r) => {
+              const t = typeMeta[r.report_type] ?? typeMeta.forecast;
+              const s = statusMeta[r.status] ?? statusMeta.pending;
+              const Icon = t.icon;
+              return (
+                <div key={r.id} className="flex flex-wrap items-center gap-4 px-6 py-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-violet-soft text-accent-violet">
+                    <Icon className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-text-primary">{r.title}</p>
+                    <p className="text-xs text-text-muted">{t.label}</p>
+                  </div>
+                  <Badge variant={s.tone} dot>
+                    {s.label}
+                  </Badge>
+                  {r.status === "ready" ? (
+                    <Button variant="secondary" size="sm" onClick={() => download(r.id)} disabled={downloadingId === r.id}>
+                      {downloadingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      Descargar
+                    </Button>
+                  ) : (
+                    <span className="w-[104px]" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </DataState>
 
-      <ReportFormModal
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        companyId={companyId}
-        onSaved={reports.reload}
-      />
+      <ReportFormModal open={formOpen} onClose={() => setFormOpen(false)} companyId={companyId} onSaved={reports.reload} />
     </div>
   );
 }

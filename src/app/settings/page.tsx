@@ -5,7 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { DataState } from "@/components/ui/DataState";
-import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { AppearanceSettings } from "@/components/experience/AppearanceSettings";
+import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
+import { HelpTourCard } from "@/components/settings/HelpTourCard";
 import { LogOut, User, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
@@ -103,13 +105,11 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <Card className="space-y-4">
-        <div>
-          <h3 className="font-display font-semibold text-text-primary">Apariencia</h3>
-          <p className="text-sm text-text-secondary mt-1">Elige el tema de color de la plataforma.</p>
-        </div>
-        <ThemeSwitcher />
-      </Card>
+      <PlanBillingCard />
+
+      <AppearanceSettings />
+
+      <HelpTourCard />
     </div>
   );
 }

@@ -1,288 +1,419 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Boxes,
+  Lightbulb,
+  Minus,
+  PackageSearch,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { Table, Badge } from "@/components/ui/Table";
-import { CircularGauge } from "@/components/ui/CircularGauge";
-import { LineChartCard } from "@/components/charts/LineChartCard";
+import { Badge } from "@/components/ui/Table";
+import { Tabs } from "@/components/ui/Tabs";
+import { Select } from "@/components/ui/Select";
 import { DataState } from "@/components/ui/DataState";
+import { DiagnosticsPanel } from "@/components/ftgm/DiagnosticsPanel";
+import { EngineProgress } from "@/components/ftgm/EngineProgress";
+import { ForecastDrilldownChart } from "@/components/ftgm/ForecastDrilldownChart";
+import { TrackingPanel } from "@/components/ftgm/TrackingPanel";
+import {
+  dateLabel,
+  frequencyLabel,
+  horizonLabel,
+  modelLabel,
+  num,
+  pct,
+  periodLabel,
+  riskMeta,
+  runStatusMeta,
+  units,
+} from "@/components/ftgm/labels";
 import { cn } from "@/lib/utils";
+import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
-import { forecastingApi, productsApi } from "@/lib/api";
-import type { ChartDataPoint } from "@/types";
-import type { RunStatus } from "@/types/api";
-
-const fmtUnits = (v: number) => `${v.toFixed(0)} und`;
-
-const statusVariant: Record<RunStatus, "default" | "success" | "warning" | "danger" | "primary"> = {
-  pending: "default",
-  running: "primary",
-  success: "success",
-  failed: "danger",
-  cancelled: "warning",
-};
-const statusLabel: Record<RunStatus, string> = {
-  pending: "Pendiente",
-  running: "En curso",
-  success: "Completado",
-  failed: "Fallido",
-  cancelled: "Cancelado",
-};
+import { forecastingApi } from "@/lib/api";
+import { ftgmApi } from "@/lib/apis/ftgm";
+import type { OverviewProduct, RunTracking } from "@/types/ftgm";
 
 export default function ForecastRunDetailPage() {
-  const params = useParams<{ runId: string }>();
-  const runId = String(params.runId);
+  const { runId } = useParams<{ runId: string }>();
   const companyId = useCompanyId();
 
-  const run = useApi(
-    () => (companyId ? forecastingApi.getRun(companyId, runId) : Promise.resolve(null)),
-    [companyId, runId],
+  const run = useApi(() => (companyId ? ftgmApi.getRun(companyId, runId) : Promise.resolve(null)), [companyId, runId]);
+  const active = run.data?.status === "pending" || run.data?.status === "running";
+  const done = run.data?.status === "success";
+
+  const reloadRun = useRef(run.reload);
+  reloadRun.current = run.reload;
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => reloadRun.current(), 2000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  const overview = useApi(
+    () => (companyId && done ? ftgmApi.overview(companyId, runId) : Promise.resolve(null)),
+    [companyId, runId, done],
   );
   const results = useApi(
-    () => (companyId ? forecastingApi.runResults(companyId, runId) : Promise.resolve([])),
-    [companyId, runId],
-  );
-  const metrics = useApi(
-    () => (companyId ? forecastingApi.runMetrics(companyId, runId) : Promise.resolve([])),
-    [companyId, runId],
-  );
-  const products = useApi(
-    () => (companyId ? productsApi.list(companyId) : Promise.resolve([])),
-    [companyId],
+    () => (companyId && done ? forecastingApi.runResults(companyId, runId) : Promise.resolve([])),
+    [companyId, runId, done],
   );
 
-  // Live view: while the run is pending/running, poll status + results.
-  const isActive = run.data?.status === "pending" || run.data?.status === "running";
-  const reloadAll = useRef(() => {});
-  reloadAll.current = () => {
-    run.reload();
-    results.reload();
-    metrics.reload();
-  };
-  useEffect(() => {
-    if (!isActive) return;
-    const t = setInterval(() => reloadAll.current(), 2500);
-    return () => clearInterval(t);
-  }, [isActive]);
-
-  const productName = useMemo(() => {
-    const map = new Map<string, { sku: string; name: string }>();
-    for (const p of products.data ?? []) map.set(p.id, { sku: p.sku, name: p.name });
-    return (id: string) => map.get(id) ?? { sku: id.slice(0, 8), name: "" };
-  }, [products.data]);
-
-  const items = results.data ?? [];
+  const [tab, setTab] = useState("resumen");
   const [selected, setSelected] = useState<string | null>(null);
-  const activeId = selected ?? items[0]?.product_id ?? null;
-  const activeResult = items.find((p) => p.product_id === activeId);
-  const activeMetrics = (metrics.data ?? []).find((m) => m.product_id === activeId);
+  const [tracking, setTracking] = useState<RunTracking | null>(null);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
 
-  // Chart: in-sample history (real + model fit) followed by the forecast with its band.
-  const chartData = useMemo<ChartDataPoint[]>(() => {
-    const rows: ChartDataPoint[] = [];
-    for (const h of activeResult?.history ?? []) {
-      const row: ChartDataPoint = { name: h.period_date.slice(0, 7), real: Number(h.cleaned) };
-      if (h.fitted != null) row.fitted = Number(h.fitted);
-      rows.push(row);
-    }
-    for (const p of activeResult?.points ?? []) {
-      const row: ChartDataPoint = { name: p.period_date.slice(0, 7), pred: Number(p.predicted_demand) };
-      if (p.lower_bound != null) row.lower = Number(p.lower_bound);
-      if (p.upper_bound != null) row.upper = Number(p.upper_bound);
-      rows.push(row);
-    }
-    return rows;
-  }, [activeResult]);
+  useEffect(() => {
+    if (tab !== "seguimiento" || !companyId || tracking) return;
+    ftgmApi
+      .tracking(companyId, runId)
+      .then(setTracking)
+      .catch((e) => setTrackingError(e instanceof Error ? e.message : "No se pudo cargar el seguimiento"));
+  }, [tab, companyId, runId, tracking]);
 
-  const mape = activeMetrics && activeMetrics.mape != null ? Number(activeMetrics.mape) : null;
-  const precision = mape != null ? Math.max(0, Math.min(100, 100 - mape)) : null;
-  const usedFallback = activeMetrics?.status === "fallback";
-  const skipped = activeMetrics?.status === "skipped";
+  const ov = overview.data;
+  const rows = ov?.products ?? [];
+  const activeId = selected ?? rows[0]?.product_id ?? null;
+  const activeRow = rows.find((r) => r.product_id === activeId);
+  const activeResult = (results.data ?? []).find((r) => r.product_id === activeId);
+  const diag = activeId ? ov?.diagnostics[activeId] : undefined;
 
-  const runInfo = run.data
-    ? `${run.data.model_name} · ${run.data.horizon_days} días · dataset ${run.data.dataset_id?.slice(0, 8) ?? "—"}`
-    : "Cargando ejecución…";
+  const status = run.data ? runStatusMeta[run.data.status] : null;
+  const r = run.data;
+
+  const productOptions = useMemo(
+    () => rows.map((p) => ({ value: p.product_id, label: p.name, description: `${p.sku} · ${modelLabel[p.model_used] ?? p.model_used}` })),
+    [rows],
+  );
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6">
-      <Link
-        href="/forecasting"
-        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Volver a pronósticos
+    <div className="mx-auto max-w-[1400px] space-y-6">
+      <Link href="/forecasting" className="inline-flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-text-primary">
+        <ArrowLeft className="h-4 w-4" /> Volver al motor FTGM
       </Link>
 
       <PageHeader
-        eyebrow="Pronóstico"
-        title="Detalle de la ejecución"
-        description={runInfo}
-        action={
-          run.data ? (
-            <Badge variant={statusVariant[run.data.status]} dot>
-              {statusLabel[run.data.status]}
-            </Badge>
-          ) : undefined
+        eyebrow="Motor FTGM · Resultado"
+        eyebrowTone="violet"
+        title={r?.scope_description ?? "Resultado del pronóstico"}
+        description={
+          r
+            ? `Ejecutado el ${dateLabel(r.created_at ?? r.started_at)} · horizonte ${horizonLabel(r.horizon_days)} · frecuencia ${
+                frequencyLabel[r.frequency ?? ""] ?? "mensual"
+              } · ${r.product_count} producto(s)${r.as_of ? ` · historia hasta ${dateLabel(r.as_of)}` : ""}`
+            : "Cargando ejecución…"
         }
+        action={status ? <Badge variant={status.tone} dot>{status.label}</Badge> : undefined}
       />
 
-      {isActive && (
-        <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-primary">
-          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-          El motor FTGM está procesando… esta vista se actualiza sola.
-        </div>
+      {r && (active || r.status === "failed" || r.status === "cancelled") && (
+        <Card className="mx-auto max-w-2xl">
+          <EngineProgress status={r.status} productCount={r.product_count} error={r.error_message} />
+        </Card>
       )}
 
-      {run.data?.status === "failed" && run.data.error_message && (
-        <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
-          <p className="font-semibold mb-0.5">La ejecución falló</p>
-          {run.data.error_message}
-        </div>
-      )}
+      {done && (
+        <DataState loading={overview.loading && !ov} error={overview.error} onRetry={overview.reload}>
+          {ov && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Kpi icon={TrendingUp} label="Demanda proyectada" value={units(ov.summary.total_forecast_units)} hint={`${units(ov.summary.next_period_units)} el próximo periodo`} />
+                <Kpi icon={Boxes} label="Necesitan reabastecerse" value={`${ov.summary.products_need_restock}`} hint={`de ${ov.summary.products} producto(s)`} tone={ov.summary.products_need_restock ? "warning" : undefined} />
+                <Kpi icon={AlertTriangle} label="Riesgo de quiebre" value={`${ov.summary.risk_high}`} hint={`alto · ${ov.summary.risk_medium} medio`} tone={ov.summary.risk_high ? "danger" : undefined} />
+                <Kpi icon={Wallet} label="Inversión sugerida" value={soles(ov.summary.suggested_investment)} hint="cantidad sugerida × costo promedio" />
+              </div>
 
-      <DataState
-        loading={run.loading || results.loading}
-        error={run.error || results.error}
-        empty={items.length === 0}
-        emptyMessage={
-          isActive
-            ? "Los resultados aparecerán aquí cuando el motor termine."
-            : "Esta ejecución todavía no tiene resultados de pronóstico."
-        }
-        onRetry={() => reloadAll.current()}
-      >
-        {items.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {items.map((p) => {
-              const info = productName(p.product_id);
-              return (
-                <button
-                  key={p.product_id}
-                  onClick={() => setSelected(p.product_id)}
-                  title={info.name}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-                    p.product_id === activeId
-                      ? "bg-primary text-white"
-                      : "bg-surface-muted text-text-secondary hover:text-text-primary",
+              <Tabs
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  { id: "resumen", label: "Resumen" },
+                  { id: "productos", label: "Productos", count: rows.length },
+                  { id: "diagnostico", label: "Diagnóstico" },
+                  { id: "seguimiento", label: "Seguimiento" },
+                ]}
+              />
+
+              {tab === "resumen" && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <Card>
+                      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-display text-base font-semibold text-text-primary">{activeRow?.name ?? "Producto"}</h3>
+                          <p className="text-xs text-text-muted">Historia observada, reparada y ajustada + pronóstico con intervalo del 90%.</p>
+                        </div>
+                        <div className="w-72 max-w-full">
+                          <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
+                        </div>
+                      </div>
+                      {activeResult && activeRow ? (
+                        <ForecastDrilldownChart result={activeResult} frequency={activeRow.frequency} />
+                      ) : (
+                        <p className="py-16 text-center text-sm text-text-muted">Sin historia para este producto.</p>
+                      )}
+                    </Card>
+                    {activeRow && <ProductCard p={activeRow} />}
+                  </div>
+                  <ProductsTable rows={rows} activeId={activeId} onSelect={setSelected} compact />
+                  <Card className="flex flex-wrap items-center justify-between gap-4 border-accent-violet/25 bg-accent-violet-soft/15">
+                    <div className="flex items-center gap-3">
+                      <Lightbulb className="h-5 w-5 text-accent-violet" />
+                      <div>
+                        <p className="font-display font-semibold text-text-primary">Recomendaciones de reabastecimiento generadas</p>
+                        <p className="text-sm text-text-secondary">El motor cruzó este pronóstico con tu stock y lead time.</p>
+                      </div>
+                    </div>
+                    <Link href="/recommendations" className="btn btn-violet h-10 gap-2 px-4 text-sm">
+                      Ver recomendaciones <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Card>
+                </div>
+              )}
+
+              {tab === "productos" && (
+                <ProductsTable
+                  rows={rows}
+                  activeId={activeId}
+                  onSelect={(id) => {
+                    setSelected(id);
+                    setTab("resumen");
+                  }}
+                />
+              )}
+
+              {tab === "diagnostico" && (
+                <Card className="space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-base font-semibold text-text-primary">Qué decidió el motor y por qué</h3>
+                      <p className="text-xs text-text-muted">Explicado en simple, con la evidencia numérica al lado.</p>
+                    </div>
+                    <div className="w-72 max-w-full">
+                      <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
+                    </div>
+                  </div>
+                  {activeRow?.fallback_reason && (
+                    <p className="rounded-2xl border border-warning/25 bg-warning-soft/50 px-4 py-3 text-sm text-warning">
+                      <strong>{modelLabel[activeRow.model_used] ?? activeRow.model_used}:</strong> {activeRow.fallback_reason}
+                    </p>
                   )}
-                >
-                  {info.sku}
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  <DiagnosticsPanel diag={diag} orderSelected={activeRow?.order_selected ?? 0} />
+                  {ov.preview?.excluded && ov.preview.excluded.length > 0 && (
+                    <div className="rounded-2xl border border-border-soft p-4 text-xs text-text-muted">
+                      <p className="mb-1 font-semibold text-text-secondary">Productos excluidos del alcance</p>
+                      {ov.preview.excluded.map((x) => (
+                        <p key={x.product_id}>
+                          {x.name}: {x.reason}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              )}
 
-        {/* Product headline: which model actually ran, and why (provenance). */}
-        {activeMetrics && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-text-primary mr-1">
-              {productName(activeId ?? "").name || productName(activeId ?? "").sku}
-            </span>
-            {skipped ? (
-              <Badge variant="danger" dot>Omitido</Badge>
-            ) : usedFallback ? (
-              <Badge variant="warning" dot>Baseline estacional (fallback)</Badge>
-            ) : (
-              <>
-                <Badge variant="violet" dot>FTGM</Badge>
-                <Badge variant="primary">Orden Fourier N = {activeMetrics.order_selected}</Badge>
-              </>
-            )}
-            {activeMetrics.validation_rmse != null && (
-              <span className="text-xs text-text-muted">
-                RMSE validación: {Number(activeMetrics.validation_rmse).toFixed(2)}
-              </span>
-            )}
-          </div>
-        )}
-
-        {(usedFallback || skipped) && activeMetrics?.fallback_reason && (
-          <div className="rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-xs text-warning">
-            <strong>{skipped ? "Producto omitido:" : "Por qué se usó el baseline:"}</strong>{" "}
-            {activeMetrics.fallback_reason}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <LineChartCard
-              title="Demanda real vs. modelo"
-              subtitle="Historia mensual (con quiebres imputados), ajuste in-sample y pronóstico con banda."
-              data={chartData}
-              labelPrefix=""
-              valueFormatter={fmtUnits}
-              lines={[
-                { dataKey: "real", name: "Demanda real", stroke: "#0FB3A6" },
-                { dataKey: "fitted", name: "Ajuste del modelo", stroke: "#8B5CF6", dashed: true, fill: false },
-                { dataKey: "pred", name: "Pronóstico", stroke: "#5B6CD6" },
-                { dataKey: "upper", name: "Límite superior", stroke: "#9AA1B9", dashed: true, fill: false },
-                { dataKey: "lower", name: "Límite inferior", stroke: "#9AA1B9", dashed: true, fill: false },
-              ]}
-            />
-          </div>
-
-          <Card className="flex flex-col items-center justify-center text-center gap-4">
-            {precision != null ? (
-              <CircularGauge
-                value={precision}
-                size={150}
-                label={`${precision.toFixed(1)}%`}
-                caption="precisión (100 − MAPE)"
-                color="#0FB3A6"
-                trackColor="#D7F2EF"
-              />
-            ) : (
-              <p className="text-sm text-text-muted py-10">Sin métricas para este producto.</p>
-            )}
-            <div className="grid grid-cols-3 gap-3 w-full">
-              <Metric label="MAPE" value={mape != null ? `${mape.toFixed(1)}%` : "—"} />
-              <Metric label="MAE" value={activeMetrics ? Number(activeMetrics.mae).toFixed(1) : "—"} />
-              <Metric label="RMSE" value={activeMetrics ? Number(activeMetrics.rmse).toFixed(1) : "—"} />
-            </div>
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <Metric
-                label="MASE"
-                value={activeMetrics?.mase != null ? Number(activeMetrics.mase).toFixed(2) : "—"}
-                hint="< 1 supera al naive"
-              />
-              <Metric
-                label="RMSSE"
-                value={activeMetrics?.rmsse != null ? Number(activeMetrics.rmsse).toFixed(2) : "—"}
-                hint="métrica M5 del paper"
-              />
-            </div>
-          </Card>
-        </div>
-
-        <Table
-          title="Pronóstico por período"
-          data={activeResult?.points ?? []}
-          keyExtractor={(p) => p.period_date}
-          columns={[
-            { header: "Período", accessor: (p) => <span className="font-medium text-text-primary">{p.period_date.slice(0, 7)}</span> },
-            { header: "Demanda pronosticada", accessor: (p) => <span className="font-semibold">{fmtUnits(Number(p.predicted_demand))}</span> },
-            { header: "Límite inferior", accessor: (p) => <span className="text-text-secondary">{p.lower_bound != null ? fmtUnits(Number(p.lower_bound)) : "—"}</span> },
-            { header: "Límite superior", accessor: (p) => <span className="text-text-secondary">{p.upper_bound != null ? fmtUnits(Number(p.upper_bound)) : "—"}</span> },
-          ]}
-        />
-      </DataState>
+              {tab === "seguimiento" &&
+                (trackingError ? (
+                  <Card className="text-sm text-danger">{trackingError}</Card>
+                ) : tracking ? (
+                  <TrackingPanel tracking={tracking} />
+                ) : (
+                  <DataState loading error={null}>
+                    {null}
+                  </DataState>
+                ))}
+            </>
+          )}
+        </DataState>
+      )}
     </div>
   );
 }
 
-function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  icon: typeof TrendingUp;
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "warning" | "danger";
+}) {
   return (
-    <div className="rounded-xl bg-surface-soft py-2.5 px-1">
-      <p className="text-[11px] text-text-muted">{label}</p>
+    <Card interactive className="flex flex-col gap-4">
+      <div className="flex items-start justify-between">
+        <p className="text-[13px] font-medium text-text-secondary">{label}</p>
+        <span
+          className={cn(
+            "rounded-xl p-2.5",
+            tone === "danger" ? "bg-danger-soft text-danger" : tone === "warning" ? "bg-warning-soft text-warning" : "bg-accent-violet-soft text-accent-violet",
+          )}
+        >
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+      </div>
+      <div>
+        <p className="font-display text-[28px] font-semibold leading-none tracking-tight text-text-primary tabular-nums">{value}</p>
+        {hint && <p className="mt-2 text-xs text-text-muted">{hint}</p>}
+      </div>
+    </Card>
+  );
+}
+
+function Trend({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-text-muted">—</span>;
+  const Icon = Math.abs(value) < 3 ? Minus : value > 0 ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className={cn("inline-flex items-center gap-0.5 font-semibold tabular-nums", Math.abs(value) < 3 ? "text-text-secondary" : value > 0 ? "text-success" : "text-danger")}>
+      <Icon className="h-3.5 w-3.5" />
+      {Math.abs(value).toFixed(0)}%
+    </span>
+  );
+}
+
+function accuracy(p: OverviewProduct) {
+  const mape = p.holdout?.mape ?? (p.metrics ? Number(p.metrics.mape) : null);
+  const mase = p.holdout?.mase ?? (p.metrics?.mase != null ? Number(p.metrics.mase) : null);
+  return { mape, mase, holdout: !!p.holdout };
+}
+
+function ProductCard({ p }: { p: OverviewProduct }) {
+  const acc = accuracy(p);
+  const risk = riskMeta[p.stockout_risk];
+  return (
+    <Card className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={p.status === "ok" ? "violet" : p.status === "fallback" ? "warning" : "danger"} dot>
+          {modelLabel[p.model_used] ?? p.model_used}
+        </Badge>
+        {p.order_selected > 0 && <Badge variant="primary">Orden N = {p.order_selected}</Badge>}
+        <Badge variant={risk.tone}>{risk.label}</Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        <Mini label={`Próximo (${periodLabel(p.next_period, p.frequency)})`} value={units(p.next_period_units, 1)} />
+        <Mini label="Total horizonte" value={units(p.total_forecast_units)} />
+        <Mini label="Stock actual" value={units(p.on_hand)} />
+        <Mini label="Cobertura" value={p.coverage_days != null ? `${num(p.coverage_days)} días` : "—"} />
+        <Mini label={acc.holdout ? "MAPE validación" : "MAPE ajuste"} value={pct(acc.mape)} />
+        <Mini label="MASE" value={acc.mase != null ? acc.mase.toFixed(2) : "—"} />
+      </div>
+      {p.suggested_qty > 0 ? (
+        <div className="rounded-2xl border border-accent-violet/25 bg-accent-violet-soft/25 p-4">
+          <p className="text-xs text-text-secondary">Sugerencia de compra</p>
+          <p className="font-display text-lg font-semibold text-text-primary">
+            {num(p.suggested_qty)} u · {soles(p.suggested_investment)}
+          </p>
+          <p className="text-[11px] text-text-muted">Lead time {p.lead_time_days} días · stock de seguridad {p.safety_stock}</p>
+        </div>
+      ) : (
+        <p className="rounded-2xl bg-success-soft/60 px-4 py-3 text-xs text-success">Stock suficiente para el horizonte cercano.</p>
+      )}
+      <Link href={`/inventory/${p.product_id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-violet hover:opacity-80">
+        <PackageSearch className="h-4 w-4" /> Ver ficha del producto
+      </Link>
+    </Card>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-surface-soft px-3 py-2">
+      <p className="truncate text-[10.5px] text-text-muted">{label}</p>
       <p className="font-display text-sm font-semibold text-text-primary tabular-nums">{value}</p>
-      {hint && <p className="text-[10px] text-text-muted mt-0.5">{hint}</p>}
     </div>
+  );
+}
+
+function ProductsTable({
+  rows,
+  activeId,
+  onSelect,
+  compact,
+}: {
+  rows: OverviewProduct[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  compact?: boolean;
+}) {
+  const shown = compact ? rows.slice(0, 8) : rows;
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h3 className="font-display text-[15px] font-semibold text-text-primary">Pronóstico por producto</h3>
+        {compact && rows.length > shown.length && <span className="text-xs text-text-muted">Mostrando {shown.length} de {rows.length}</span>}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-soft/60 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+              <th className="px-6 py-3">Producto</th>
+              <th className="px-4 py-3">Modelo</th>
+              <th className="px-4 py-3">MAPE</th>
+              <th className="px-4 py-3">MASE</th>
+              <th className="px-4 py-3">Tendencia</th>
+              <th className="px-4 py-3">Próximo periodo</th>
+              <th className="px-4 py-3">Stock</th>
+              <th className="px-4 py-3">Riesgo</th>
+              <th className="px-4 py-3">Comprar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-soft">
+            {shown.map((p) => {
+              const acc = accuracy(p);
+              const risk = riskMeta[p.stockout_risk];
+              return (
+                <tr
+                  key={p.product_id}
+                  onClick={() => onSelect(p.product_id)}
+                  className={cn("cursor-pointer transition-colors hover:bg-accent-violet-soft/15", activeId === p.product_id && "bg-accent-violet-soft/25")}
+                >
+                  <td className="px-6 py-3">
+                    <Link href={`/inventory/${p.product_id}`} onClick={(e) => e.stopPropagation()} className="block max-w-[260px] truncate font-medium text-text-primary hover:text-accent-violet">
+                      {p.name}
+                    </Link>
+                    <span className="font-mono text-[11px] text-text-muted">{p.sku}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-text-primary">{modelLabel[p.model_used] ?? p.model_used}</span>
+                    {p.order_selected > 0 && <span className="ml-1 text-xs text-text-muted">N={p.order_selected}</span>}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{pct(acc.mape)}</td>
+                  <td className="px-4 py-3 tabular-nums">{acc.mase != null ? acc.mase.toFixed(2) : "—"}</td>
+                  <td className="px-4 py-3">
+                    <Trend value={p.trend_pct} />
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {units(p.next_period_units, 1)}
+                    <span className="block text-[11px] text-text-muted">{periodLabel(p.next_period, p.frequency)}</span>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{num(p.on_hand)}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={risk.tone}>{risk.label.replace("Riesgo ", "")}</Badge>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{p.suggested_qty > 0 ? `${num(p.suggested_qty)} u` : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }

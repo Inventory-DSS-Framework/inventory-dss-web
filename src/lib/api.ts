@@ -2,12 +2,14 @@
 import { apiClient } from "./api-client";
 import type {
   CategoryDTO,
+  ClientDocType,
   CompanyDTO,
-  FileDTO,
+  DocumentType,
   ForecastRunDTO,
   ForecastMetricsDTO,
   ForecastResultDTO,
   IngestionBatchDTO,
+  InvoiceDTO,
   KpiDTO,
   MessageResponse,
   MovementDTO,
@@ -15,6 +17,7 @@ import type {
   PaginatedResponse,
   PreparedDatasetDTO,
   ProductDTO,
+  PurchaseDTO,
   RecommendationDTO,
   ReportDTO,
   ReportType,
@@ -24,9 +27,9 @@ import type {
   StockLevelDTO,
   StockoutDTO,
   SubscriptionDTO,
+  SupplierDTO,
   SystemSettingDTO,
   UserDTO,
-  ValidationRuleDTO,
 } from "@/types/api";
 
 const base = (companyId: string) => `/companies/${companyId}`;
@@ -37,6 +40,8 @@ export const authApi = {
 
 export const companiesApi = {
   get: (companyId: string) => apiClient.get<CompanyDTO>(`/companies/${companyId}`),
+  update: (companyId: string, body: Partial<Pick<CompanyDTO, "name" | "business_type" | "email" | "phone" | "address">>) =>
+    apiClient.patch<CompanyDTO>(`/companies/${companyId}`, body),
 };
 
 export const productsApi = {
@@ -44,7 +49,7 @@ export const productsApi = {
     apiClient.get<ProductDTO[]>(`${base(companyId)}/products`),
   get: (companyId: string, id: string) =>
     apiClient.get<ProductDTO>(`${base(companyId)}/products/${id}`),
-  create: (companyId: string, body: Partial<ProductDTO>) =>
+  create: (companyId: string, body: Partial<ProductDTO> & { initial_stock?: number }) =>
     apiClient.post<ProductDTO>(`${base(companyId)}/products`, body),
   update: (companyId: string, id: string, body: Partial<ProductDTO>) =>
     apiClient.patch<ProductDTO>(`${base(companyId)}/products/${id}`, body),
@@ -55,17 +60,30 @@ export const productsApi = {
 export const categoriesApi = {
   list: (companyId: string) =>
     apiClient.get<CategoryDTO[]>(`${base(companyId)}/product-categories`),
+  create: (companyId: string, body: { name: string; description?: string; parent_id?: string | null }) =>
+    apiClient.post<CategoryDTO>(`${base(companyId)}/product-categories`, body),
+  update: (companyId: string, id: string, body: { name?: string; description?: string }) =>
+    apiClient.patch<CategoryDTO>(`${base(companyId)}/product-categories/${id}`, body),
+  remove: (companyId: string, id: string) =>
+    apiClient.del<MessageResponse>(`${base(companyId)}/product-categories/${id}`),
 };
 
 export const salesApi = {
-  list: (companyId: string, page = 1, size = 50) =>
-    apiClient.get<SaleDTO[]>(`${base(companyId)}/sales?page=${page}&size=${size}`),
+  /** origin: "imported" = history without a POS ticket, "pos" = ticket lines. */
+  list: (companyId: string, page = 1, size = 50, origin?: "pos" | "imported") =>
+    apiClient.get<SaleDTO[]>(
+      `${base(companyId)}/sales?page=${page}&size=${size}${origin ? `&origin=${origin}` : ""}`,
+    ),
   listByProduct: (companyId: string, productId: string, start: string, end: string) =>
     apiClient.get<SaleDTO[]>(
       `${base(companyId)}/sales/by-product/${productId}?start=${start}&end=${end}`,
     ),
   listBatches: (companyId: string) =>
     apiClient.get<SalesBatchDTO[]>(`${base(companyId)}/sales/batches`),
+  create: (
+    companyId: string,
+    body: { product_id: string; sale_date: string; quantity: number; unit_price: number; currency?: string },
+  ) => apiClient.post<SaleDTO>(`${base(companyId)}/sales`, body),
 };
 
 export const inventoryApi = {
@@ -87,6 +105,10 @@ export const inventoryApi = {
     apiClient.post<StockoutDTO[]>(
       `${base(companyId)}/inventory/stockouts/detect`,
     ),
+  createMovement: (
+    companyId: string,
+    body: { product_id: string; movement_type: "inbound" | "outbound" | "adjustment"; quantity: number; reason?: string; occurred_at?: string },
+  ) => apiClient.post<MovementDTO>(`${base(companyId)}/inventory/movements`, body),
 };
 
 export const forecastingApi = {
@@ -181,11 +203,6 @@ export const notificationsApi = {
     ),
 };
 
-export const filesApi = {
-  list: (companyId: string) =>
-    apiClient.get<PaginatedResponse<FileDTO>>(`${base(companyId)}/files`),
-};
-
 export const reportsApi = {
   list: (companyId: string) =>
     apiClient.get<PaginatedResponse<ReportDTO>>(`${base(companyId)}/reports`),
@@ -197,25 +214,73 @@ export const reportsApi = {
     apiClient.getBlob(`${base(companyId)}/reports/${id}/download`),
 };
 
-export const validationApi = {
-  listRules: (companyId: string) =>
-    apiClient.get<ValidationRuleDTO[]>(`${base(companyId)}/validation/rules`),
-  createRule: (
-    companyId: string,
-    body: { rule_name: string; rule_type: string; is_active?: boolean },
-  ) => apiClient.post<ValidationRuleDTO>(`${base(companyId)}/validation/rules`, body),
-  updateRule: (
-    companyId: string,
-    ruleId: string,
-    body: { is_active?: boolean; rule_name?: string; rule_type?: string },
-  ) => apiClient.patch<ValidationRuleDTO>(`${base(companyId)}/validation/rules/${ruleId}`, body),
-};
-
 export const billingApi = {
   subscription: (companyId: string) =>
     apiClient.get<SubscriptionDTO>(
       `${base(companyId)}/billing/subscription`,
     ),
+  /** Demo-only: simulates the payment provider's webhook to flip a company's plan. */
+  simulateUpgrade: (companyId: string, planId: string) =>
+    apiClient.post<SubscriptionDTO>(`/billing/webhooks/simulate/${companyId}`, {
+      status: "active",
+      plan_id: planId,
+    }),
+};
+
+export const suppliersApi = {
+  list: (companyId: string) =>
+    apiClient.get<SupplierDTO[]>(`${base(companyId)}/suppliers`),
+  get: (companyId: string, id: string) =>
+    apiClient.get<SupplierDTO>(`${base(companyId)}/suppliers/${id}`),
+  create: (
+    companyId: string,
+    body: {
+      ruc: string;
+      business_name: string;
+      contact_name?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      custom_attributes?: SupplierDTO["custom_attributes"];
+    },
+  ) => apiClient.post<SupplierDTO>(`${base(companyId)}/suppliers`, body),
+  update: (
+    companyId: string,
+    id: string,
+    body: Partial<Pick<SupplierDTO, "business_name" | "contact_name" | "phone" | "email" | "address" | "is_active" | "custom_attributes">>,
+  ) => apiClient.patch<SupplierDTO>(`${base(companyId)}/suppliers/${id}`, body),
+  remove: (companyId: string, id: string) =>
+    apiClient.del<MessageResponse>(`${base(companyId)}/suppliers/${id}`),
+};
+
+export const purchasesApi = {
+  list: (companyId: string, page = 1, size = 50) =>
+    apiClient.get<PurchaseDTO[]>(`${base(companyId)}/purchases?page=${page}&size=${size}`),
+  create: (
+    companyId: string,
+    body: { supplier_id: string; product_id: string; purchase_date: string; quantity: number; unit_cost: number; currency?: string },
+  ) => apiClient.post<PurchaseDTO>(`${base(companyId)}/purchases`, body),
+};
+
+export const invoicingApi = {
+  list: (companyId: string) =>
+    apiClient.get<InvoiceDTO[]>(`${base(companyId)}/invoices`),
+  create: (
+    companyId: string,
+    body: {
+      document_type: DocumentType;
+      client_doc_type: ClientDocType;
+      client_doc_number?: string;
+      client_name?: string;
+      client_address?: string;
+      items: { description: string; quantity: number; unit_price: number; discount?: number; product_id?: string | null }[];
+      currency?: string;
+      /** true = unit prices already include IGV (retail). Default false adds 18% on top. */
+      prices_include_igv?: boolean;
+    },
+  ) => apiClient.post<InvoiceDTO>(`${base(companyId)}/invoices`, body),
+  void: (companyId: string, id: string) =>
+    apiClient.post<InvoiceDTO>(`${base(companyId)}/invoices/${id}/void`),
 };
 
 export const adminApi = {

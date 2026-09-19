@@ -2,34 +2,46 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { resolveMode, setModePref } from "@/lib/appearance";
 
-/** Toggles light/dark mode (combines with the active color theme). Persisted. */
-export function ModeToggle() {
+/** Light/dark switch with a rotating sun ⇄ moon. Persisted; works with or without the app shell. */
+export function ModeToggle({ className }: { className?: string }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    setDark(document.documentElement.getAttribute("data-mode") === "dark");
+    const el = document.documentElement;
+    const sync = () => setDark(el.getAttribute("data-mode") === "dark");
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(el, { attributes: true, attributeFilter: ["data-mode"] });
+    return () => observer.disconnect();
   }, []);
 
-  const toggle = () => {
-    const next = dark ? "light" : "dark";
-    document.documentElement.setAttribute("data-mode", next);
-    try {
-      localStorage.setItem("dss-mode", next);
-    } catch {
-      /* ignore storage errors */
-    }
-    setDark(!dark);
-  };
+  const toggle = () => setModePref(resolveMode(dark ? "light" : "dark"));
 
   return (
     <button
       onClick={toggle}
       aria-label={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
       title={dark ? "Modo claro" : "Modo oscuro"}
-      className="p-2.5 rounded-xl text-text-secondary hover:bg-surface-soft hover:text-text-primary transition-colors"
+      className={cn(
+        "relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl text-text-secondary transition-colors hover:bg-surface-muted/80 hover:text-text-primary",
+        className,
+      )}
     >
-      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+      <Sun
+        className={cn(
+          "absolute h-[18px] w-[18px] transition-all duration-500 [transition-timing-function:var(--ease-spring)]",
+          dark ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0",
+        )}
+      />
+      <Moon
+        className={cn(
+          "absolute h-[18px] w-[18px] transition-all duration-500 [transition-timing-function:var(--ease-spring)]",
+          dark ? "rotate-90 scale-50 opacity-0" : "rotate-0 scale-100 opacity-100",
+        )}
+      />
     </button>
   );
 }

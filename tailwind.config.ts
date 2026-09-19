@@ -1,8 +1,8 @@
 import type { Config } from "tailwindcss";
 
 // Colors are driven by CSS variables (RGB channel triplets) defined in globals.css,
-// so the whole palette can be swapped at runtime via `data-theme` on <html>.
-// The `<alpha-value>` placeholder keeps Tailwind's opacity modifiers (e.g. bg-primary/20).
+// so mode / premium palette / FTGM stage swap the whole palette at runtime via
+// attributes on <html>. `<alpha-value>` keeps opacity modifiers (bg-primary/20).
 const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
 
 const config: Config = {
@@ -29,9 +29,11 @@ const config: Config = {
           soft: v("--c-primary-soft"),
           softer: v("--c-primary-softer"),
         },
+        "on-primary": v("--c-on-primary"),
+        glow: v("--c-glow"),
 
-        // Secondary accent (role kept under the `accent.violet*` names so existing
-        // component classes don't change; the hue follows the active theme).
+        // Secondary accent (kept under the `accent.violet*` names so existing
+        // component classes don't churn; the hue follows mode/palette/stage).
         accent: {
           violet: v("--c-accent"),
           "violet-soft": v("--c-accent-soft"),
@@ -56,19 +58,19 @@ const config: Config = {
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       borderRadius: {
-        xl: "0.875rem",
-        "2xl": "1.125rem",
-        "3xl": "1.5rem",
-        "4xl": "2rem",
+        xl: "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.25rem",
+        "4xl": "1.75rem",
       },
       boxShadow: {
-        soft: "0 2px 8px -2px rgba(22, 26, 46, 0.04), 0 4px 16px -4px rgba(22, 26, 46, 0.04)",
-        "soft-lg": "0 6px 24px -6px rgba(22, 26, 46, 0.08), 0 2px 8px -2px rgba(22, 26, 46, 0.04)",
-        "soft-xl": "0 16px 40px -12px rgba(22, 26, 46, 0.12)",
-        button: "0 1px 2px rgba(22, 26, 46, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+        soft: "0 1px 2px rgb(var(--shadow-color) / 0.04), 0 4px 18px -8px rgb(var(--shadow-color) / 0.07)",
+        "soft-lg": "0 2px 6px -2px rgb(var(--shadow-color) / 0.06), 0 16px 36px -14px rgb(var(--shadow-color) / 0.14)",
+        "soft-xl": "0 4px 12px -4px rgb(var(--shadow-color) / 0.08), 0 32px 64px -24px rgb(var(--shadow-color) / 0.26)",
+        button: "0 1px 2px rgb(var(--shadow-color) / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.12)",
+        glow: "0 0 32px -6px rgb(var(--c-glow) / 0.5)",
       },
       backgroundImage: {
-        // Themed soft pastel (the Ticket medio card). Reads flat, not as a saturated gradient.
         "gradient-lavender":
           "linear-gradient(160deg, rgb(var(--c-grad-from)) 0%, rgb(var(--c-grad-to)) 100%)",
       },

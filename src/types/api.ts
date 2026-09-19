@@ -10,12 +10,14 @@ export interface TokenDTO {
   token_type: string;
 }
 
-export type UserRole = "owner" | "admin" | "analyst" | "viewer";
+export type UserRole = "owner" | "admin" | "analyst" | "viewer" | "seller";
 
 export interface UserDTO {
   id: string;
   company_id: string;
-  email: string;
+  /** Null for users that sign in with a username (sellers). */
+  email: string | null;
+  username: string | null;
   full_name: string;
   role: UserRole;
   status: string;
@@ -57,6 +59,12 @@ export interface ProductDTO {
   safety_stock: number;
   reorder_point: number;
   is_active: boolean;
+  barcode?: string | null;
+  /** Data URL (compressed JPEG) or http(s) URL. */
+  image_url?: string | null;
+  custom_attributes?: Record<string, string | number | boolean | null>;
+  /** Cost of the latest receipt; unit_cost is the weighted-average cost. */
+  last_cost?: Numeric | null;
 }
 
 export interface SaleDTO {
@@ -69,6 +77,12 @@ export interface SaleDTO {
   unit_price: Numeric;
   total_amount: Numeric;
   currency: string;
+  /** POS ticket the line belongs to (null for imported history). */
+  order_id?: string | null;
+  seller_id?: string | null;
+  seller_name?: string;
+  /** Weighted-average cost at the moment of the sale. */
+  unit_cost?: Numeric | null;
 }
 
 export interface SalesBatchDTO {
@@ -89,8 +103,13 @@ export interface MovementDTO {
   product_id: string;
   movement_type: MovementType;
   quantity: number;
+  /** Outbound movements are negative. */
+  signed_quantity?: number;
   reason: string;
   occurred_at: string;
+  unit_cost?: Numeric | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
 }
 
 export interface StockLevelDTO {
@@ -227,7 +246,7 @@ export interface PreparedDatasetDTO {
   product_count: number;
   period_start: string | null;
   period_end: string | null;
-  series: { product_id: string; point_count: number }[];
+  series: { product_id: string; point_count: number; has_stockout_flags: boolean; outliers_treated: boolean }[];
 }
 
 export interface MessageResponse {
@@ -292,10 +311,85 @@ export interface SystemSettingDTO {
 }
 
 export interface SubscriptionDTO {
-  id: string;
+  /** null for the implicit free plan (no subscription stored yet). */
+  id: string | null;
   company_id: string;
   plan_id: string;
   status: string;
   current_period_start: string;
   current_period_end: string;
+  /** Premium access right now (active, or canceled but not expired). */
+  is_premium?: boolean;
+  /** Renews automatically at period end. */
+  auto_renew?: boolean;
+}
+
+export interface SupplierDTO {
+  id: string;
+  company_id: string;
+  ruc: string;
+  business_name: string;
+  contact_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  is_active: boolean;
+  /** Values for the company's custom supplier columns, keyed by field key. */
+  custom_attributes: Record<string, string | number | boolean | null>;
+  /** Purchase figures (filled by the list endpoint). */
+  total_purchased: Numeric;
+  purchase_lines: number;
+  last_purchase_date: string | null;
+}
+
+export interface PurchaseDTO {
+  id: string;
+  company_id: string;
+  supplier_id: string;
+  product_id: string;
+  purchase_date: string;
+  quantity: number;
+  /** Net of IGV. */
+  unit_cost: Numeric;
+  total_amount: Numeric;
+  currency: string;
+  /** Supplier's comprobante (e.g. F001-000123). */
+  document_number: string;
+  notes: string;
+  /** Document id the line belongs to. */
+  import_batch_id: string | null;
+}
+
+export type DocumentType = "boleta" | "factura";
+export type ClientDocType = "dni" | "ruc" | "none";
+export type InvoiceStatus = "emitida" | "anulada";
+
+export interface InvoiceItemDTO {
+  product_id: string | null;
+  description: string;
+  quantity: number;
+  unit_price: Numeric;
+  discount?: Numeric;
+  subtotal: Numeric;
+}
+
+export interface InvoiceDTO {
+  id: string;
+  company_id: string;
+  document_type: DocumentType;
+  series: string;
+  correlativo: number;
+  document_number: string;
+  client_doc_type: ClientDocType;
+  client_doc_number: string;
+  client_name: string;
+  client_address?: string;
+  items: InvoiceItemDTO[];
+  subtotal: Numeric;
+  igv: Numeric;
+  total: Numeric;
+  currency: string;
+  status: InvoiceStatus;
+  issued_at: string;
+  sale_id: string | null;
 }

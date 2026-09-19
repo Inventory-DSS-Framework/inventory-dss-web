@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./Card";
 
@@ -22,23 +23,23 @@ interface TableProps<T> {
 
 export function Table<T>({ columns, data, keyExtractor, title, action, onRowClick }: TableProps<T>) {
   return (
-    <Card className="p-0 overflow-hidden">
+    <Card className="overflow-hidden p-0">
       {(title || action) && (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          {title && <h3 className="font-display text-base font-semibold text-text-primary">{title}</h3>}
-          {action && <div>{action}</div>}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+          {title && <h3 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-text-primary">{title}</h3>}
+          {action && <div className="flex items-center gap-2">{action}</div>}
         </div>
       )}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="border-b border-border bg-surface-soft/60">
               {columns.map((col, i) => (
                 <th
                   key={i}
                   className={cn(
-                    "px-6 py-3.5 text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap",
-                    col.className
+                    "whitespace-nowrap px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted",
+                    col.className,
                   )}
                 >
                   {col.header}
@@ -52,12 +53,12 @@ export function Table<T>({ columns, data, keyExtractor, title, action, onRowClic
                 key={keyExtractor(item)}
                 onClick={onRowClick ? () => onRowClick(item) : undefined}
                 className={cn(
-                  "hover:bg-surface-soft/70 transition-colors",
-                  onRowClick && "cursor-pointer"
+                  "transition-colors duration-150 hover:bg-primary-softer/60",
+                  onRowClick && "cursor-pointer",
                 )}
               >
                 {columns.map((col, j) => (
-                  <td key={j} className={cn("px-6 py-4 text-sm text-text-primary", col.className)}>
+                  <td key={j} className={cn("px-6 py-3.5 text-sm text-text-primary", col.className)}>
                     {col.accessor(item)}
                   </td>
                 ))}
@@ -65,8 +66,11 @@ export function Table<T>({ columns, data, keyExtractor, title, action, onRowClic
             ))}
             {data.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center text-text-secondary">
-                  No hay datos disponibles
+                <td colSpan={columns.length} className="px-6 py-14 text-center">
+                  <div className="flex flex-col items-center gap-2 text-text-muted">
+                    <Inbox className="h-6 w-6" />
+                    <span className="text-sm">No hay datos disponibles</span>
+                  </div>
                 </td>
               </tr>
             )}
@@ -98,11 +102,11 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
-        badgeVariants[variant]
+        "badge inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-[11px] font-semibold",
+        badgeVariants[variant],
       )}
     >
-      {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+      {dot && <span className="h-1.5 w-1.5 rounded-full bg-current shadow-[0_0_8px_currentColor]" />}
       {children}
     </span>
   );
