@@ -151,10 +151,10 @@ export default function InventoryPage() {
       key: "product",
       header: "Producto",
       cell: (r) => (
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex w-[300px] min-w-0 items-center gap-3">
           <ProductThumb src={r.image_url} name={r.name} />
           <div className="min-w-0">
-            <p className="truncate font-medium text-text-primary">{r.name}</p>
+            <p className="truncate font-medium text-text-primary" title={r.name}>{r.name}</p>
             {expert && !show("sku") && <p className="font-mono text-[11px] text-text-muted">{r.sku}</p>}
           </div>
         </div>
@@ -167,7 +167,7 @@ export default function InventoryPage() {
       header: "Categoría",
       cell: (r) =>
         r.category_path.length ? (
-          <span className="break-words text-xs text-text-secondary">
+          <span className="text-xs text-text-secondary">
             {r.category_path.slice(0, -1).map((p) => `${p} › `)}
             <span className="font-medium text-text-primary">{r.category_path[r.category_path.length - 1]}</span>
           </span>
@@ -234,7 +234,7 @@ export default function InventoryPage() {
       align: f.field_type === "number" || f.field_type === "currency" ? ("right" as const) : undefined,
       cell: (r: Row) =>
         fieldAppliesTo(f, r.category_id, cats) ? (
-          <span className="break-words text-text-secondary">{formatCustomValue(f, r.custom_attributes?.[f.key])}</span>
+          <span className="text-text-secondary">{formatCustomValue(f, r.custom_attributes?.[f.key])}</span>
         ) : (
           <span title="No aplica a este tipo de producto" className="text-text-muted/40">·</span>
         ),
@@ -336,17 +336,12 @@ export default function InventoryPage() {
             ))}
             <span className="ml-auto text-xs text-text-muted">{filtered.length} de {items.length} productos</span>
           </div>
-          <div>
-            <table className="w-full table-fixed border-collapse text-left">
-              <colgroup>
-                {visibleColumns.map((c) => (
-                  <col key={c.key} style={c.key === "product" ? { width: "18%" } : undefined} />
-                ))}
-              </colgroup>
+          <div className="overflow-x-auto">
+            <table className="w-max min-w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-border bg-surface-soft/60">
                   {visibleColumns.map((c) => (
-                    <th key={c.key} className={cn("px-2 py-3 first:pl-5", c.align === "right" && "text-right")}>
+                    <th key={c.key} className={cn("whitespace-nowrap px-3 py-3 first:pl-5", c.align === "right" && "text-right")}>
                       <button
                         onClick={() => toggleSort(c.key)}
                         className={cn(
@@ -355,7 +350,7 @@ export default function InventoryPage() {
                           sort.key === c.key ? "text-text-primary" : "text-text-muted",
                         )}
                       >
-                        <span className="min-w-0 break-words text-left">{c.header}</span>
+                        <span className="whitespace-nowrap text-left">{c.header}</span>
                         <span className="mt-px shrink-0">
                           {sort.key === c.key ? (sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-40" />}
                         </span>
@@ -368,7 +363,7 @@ export default function InventoryPage() {
                 {filtered.map((r) => (
                   <tr key={r.id} onClick={() => router.push(`/inventory/${r.id}`)} className="cursor-pointer transition-colors hover:bg-primary-softer/60">
                     {visibleColumns.map((c) => (
-                      <td key={c.key} className={cn("px-2 py-3 text-sm text-text-primary first:pl-5", c.align === "right" && "text-right")}>
+                      <td key={c.key} className={cn("whitespace-nowrap px-3 py-3 text-sm text-text-primary first:pl-5", c.align === "right" && "text-right")}>
                         {c.cell(r)}
                       </td>
                     ))}

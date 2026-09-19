@@ -267,7 +267,7 @@ function ForecastingFlow() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-8">
       <PageHeader
-        eyebrow="Motor FTGM"
+        eyebrow="Planifica tus compras"
         eyebrowTone="violet"
         title={expert ? "Pronóstico de demanda" : "¿Cuánto venderé?"}
         description={

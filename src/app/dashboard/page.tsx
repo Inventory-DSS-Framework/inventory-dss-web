@@ -501,7 +501,12 @@ function FtgmCard({
                     label={`Venderías en los próximos ${horizonLabel(latest.horizon_days)}`}
                     value={`${num(latest.summary.total_forecast_units)} unidades`}
                   />
-                  <Stat label="Solo en el próximo mes (o semana)" value={`${num(latest.summary.next_period_units)} unidades`} />
+                  {latest.summary.median_accuracy_pct != null && (
+                    <Stat
+                      label="Qué tan seguro es"
+                      value={`Acierta ~${Math.round(latest.summary.median_accuracy_pct)}% con tus ventas pasadas`}
+                    />
+                  )}
                 </div>
               )
             ) : (

@@ -52,7 +52,7 @@ export default function ReportsPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Motor FTGM"
+        eyebrow="Planifica tus compras"
         eyebrowTone="violet"
         title="Reportes"
         description="Descarga en un archivo cuánto venderás, tus números y la lista de qué comprar, para revisarlos o compartirlos."

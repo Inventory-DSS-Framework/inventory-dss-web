@@ -30,6 +30,7 @@ import { ForecastDrilldownChart } from "@/components/ftgm/ForecastDrilldownChart
 import { TrackingPanel } from "@/components/ftgm/TrackingPanel";
 import {
   dateLabel,
+  forWhen,
   frequencyLabel,
   horizonLabel,
   modelLabel,
@@ -108,7 +109,7 @@ export default function ForecastRunDetailPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <Link href="/forecasting" className="inline-flex items-center gap-1.5 text-sm text-text-secondary transition-colors hover:text-text-primary">
-        <ArrowLeft className="h-4 w-4" /> Volver al motor FTGM
+        <ArrowLeft className="h-4 w-4" /> Volver
       </Link>
 
       <PageHeader
@@ -121,7 +122,7 @@ export default function ForecastRunDetailPage() {
               ? `Ejecutado el ${dateLabel(r.created_at ?? r.started_at)} · horizonte ${horizonLabel(r.horizon_days)} · frecuencia ${
                   frequencyLabel[r.frequency ?? ""] ?? "mensual"
                 } · ${r.product_count} producto(s)${r.as_of ? ` · historia hasta ${dateLabel(r.as_of)}` : ""}`
-              : `Calculado el ${dateLabel(r.created_at ?? r.started_at)} para los próximos ${horizonLabel(r.horizon_days)} · ${r.product_count} producto(s)`
+              : `Calculado el ${dateLabel(r.created_at ?? r.started_at)} · ${forWhen(r.horizon_days)} · ${r.product_count} ${r.product_count === 1 ? "producto" : "productos"}`
             : "Cargando…"
         }
         action={status ? <Badge variant={status.tone} dot>{status.label}</Badge> : undefined}
@@ -480,3 +481,4 @@ function ProductsTable({
     </Card>
   );
 }
+

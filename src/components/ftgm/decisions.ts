@@ -17,8 +17,8 @@ export const ACTIONS: Record<ActionId, { title: string; short: string; tone: Ton
   reponer: { title: "Repón pronto", short: "Reponer", tone: "warning", icon: ShoppingCart, order: 1 },
   descontinuar: { title: "Descontinúa", short: "Descontinuar", tone: "default", icon: PackageMinus, order: 2 },
   no_comprar: { title: "No compres por ahora", short: "Sin comprar", tone: "violet", icon: Timer, order: 3 },
-  baja: { title: "Se vende menos", short: "Vende menos", tone: "warning", icon: ArrowDownRight, order: 4 },
-  crece: { title: "Está creciendo", short: "Creciendo", tone: "success", icon: ArrowUpRight, order: 5 },
+  baja: { title: "Pide menos", short: "Pedir menos", tone: "warning", icon: ArrowDownRight, order: 4 },
+  crece: { title: "Pide más", short: "Pedir más", tone: "success", icon: ArrowUpRight, order: 5 },
   mantener: { title: "Todo en orden", short: "En orden", tone: "success", icon: CheckCircle2, order: 6 },
 };
 
@@ -42,7 +42,7 @@ export function decide(p: OverviewProduct): Decision {
   const rateN = Math.max(0, p.next_period_units);
   const rate = rateN < 0.5 ? "casi nada" : `≈ ${round(rateN)} por ${unit}`;
   const daily = rateN / periodDays;
-  const cover = p.coverage_days ?? (daily > 0 ? Math.round(p.on_hand / daily) : null);
+  const cover = p.coverage_days != null ? Math.round(p.coverage_days) : daily > 0 ? Math.round(p.on_hand / daily) : null;
   const buy = p.suggested_qty > 0 ? `Compra ${Math.ceil(p.suggested_qty)} u (≈ ${money(p.suggested_investment)})` : "Haz un pedido";
   const confidence = confidenceOf(p.accuracy_pct ?? null);
   const base = { rate, coverDays: cover, confidence };
@@ -69,7 +69,16 @@ export function decide(p: OverviewProduct): Decision {
     };
   }
   if (p.needs_restock || p.suggested_qty > 0) {
-    return { ...base, action: "reponer", sentence: `Pronto te faltará: tienes para unos ${cover ?? "pocos"} días. ${buy} esta semana.` };
+    // Same rule as the API: buy when stock won't cover the supplier's wait + 2 weeks + minimum.
+    const window = p.lead_time_days + 14;
+    const byMinimum = cover != null && cover >= window && p.safety_stock > 0;
+    return {
+      ...base,
+      action: "reponer",
+      sentence: byMinimum
+        ? `Tienes para unos ${cover} días, pero antes de que llegue un pedido bajarías de tu stock mínimo (${p.safety_stock} u). ${buy} en tu próximo pedido.`
+        : `Pronto te faltará: tienes para unos ${cover ?? "pocos"} días y tu proveedor demora ${p.lead_time_days}. ${buy} esta semana.`,
+    };
   }
   if (cover != null && cover > 120) {
     return {
@@ -79,10 +88,10 @@ export function decide(p: OverviewProduct): Decision {
     };
   }
   if (trend <= -25) {
-    return { ...base, action: "baja", sentence: `Se vende ${Math.abs(Math.round(trend))}% menos que antes. En tu próxima compra pide menos.` };
+    return { ...base, action: "baja", sentence: `Se está vendiendo menos (${Math.abs(Math.round(trend))}% menos que en los últimos meses). Tienes para ${cover ?? "varios"} días: en tu próxima compra pide menos cantidad.` };
   }
   if (trend >= 25) {
-    return { ...base, action: "crece", sentence: `Se vende ${Math.round(trend)}% más que antes. Ponlo a la vista y no dejes que se agote.` };
+    return { ...base, action: "crece", sentence: `Se está vendiendo más (${Math.round(trend)}% más que en los últimos meses). En tu próxima compra pide más y ponlo a la vista.` };
   }
   return {
     ...base,

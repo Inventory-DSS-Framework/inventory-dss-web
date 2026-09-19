@@ -40,8 +40,8 @@ const ORDER: Record<RecommendationPriority, number> = { high: 0, medium: 1, low:
  * Rebuild it as one plain sentence from its numbers; fall back to a priority-based sentence.
  */
 function plainReason(rec: RecommendationDTO): string {
-  const stock = /Stock actual (-?[\d.]+)/i.exec(rec.reason)?.[1];
-  const lead = /lead time \((\d+)d\)\s*(-?[\d.]+)?/i.exec(rec.reason);
+  const stock = /Stock actual (-?\d+(?:\.\d+)?)/i.exec(rec.reason)?.[1];
+  const lead = /lead time \((\d+)d\)\s*(-?\d+(?:\.\d+)?)?/i.exec(rec.reason);
   const days = lead?.[1];
   const demand = lead?.[2] != null ? Math.round(Number(lead[2])) : null;
   const qty = rec.recommended_quantity;
@@ -50,8 +50,11 @@ function plainReason(rec: RecommendationDTO): string {
     const n = Math.round(Number(stock));
     parts.push(n <= 0 ? "Ya no te quedan unidades." : `Te quedan ${n} unidad${n === 1 ? "" : "es"}.`);
   }
-  if (days && demand != null) parts.push(`Tu proveedor demora unos ${days} días y en ese tiempo venderías unas ${demand}.`);
-  parts.push(`Compra ${qty} para no quedarte sin stock.`);
+  if (days && demand != null && Number.isFinite(demand))
+    parts.push(
+      `Tu proveedor demora unos ${days} días y en ese tiempo venderías ${demand < 1 ? "menos de 1" : `unas ${demand}`}.`,
+    );
+  parts.push(`Compra ${qty} para cubrir lo que viene y no quedarte sin stock.`);
   if (stock == null && !days) {
     return rec.priority === "high"
       ? `Se te está acabando. Compra ${qty} cuanto antes.`
@@ -99,7 +102,7 @@ export default function RecommendationsPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Motor FTGM"
+        eyebrow="Planifica tus compras"
         eyebrowTone="violet"
         title={expert ? "Recomendaciones de compra" : "Qué comprar"}
         description={

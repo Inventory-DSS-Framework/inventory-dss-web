@@ -38,8 +38,13 @@ const level = (v: number | undefined): Level | null => (v == null ? null : v >= 
 
 /** One plain action per product, worded like the forecast result screen. */
 function actionFor(r: Row): ActionId {
-  if ((r.values.stockout_risk ?? 0) >= 50) return "reponer";
-  if ((r.values.overstock_risk ?? 0) >= 50) return "no_comprar";
+  const out = r.values.stockout_risk ?? 0;
+  // stockout_risk is the shortfall over (supplier wait + 2 weeks): any shortfall means buy;
+  // above ~2/3 the stock won't even last the supplier's wait.
+  if ((r.values.coverage_days ?? 1) <= 0 || out >= 65) return "reponer_ya";
+  if (out > 0) return "reponer";
+  // The API only flags stock beyond ~4 months of sales, so any overstock means "don't buy".
+  if ((r.values.overstock_risk ?? 0) > 0) return "no_comprar";
   return "mantener";
 }
 
@@ -79,12 +84,16 @@ export default function KPIsPage() {
     const v = rows.map((r) => r.values[t]).filter((x): x is number => x != null);
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
   };
-  const running = rows.filter((r) => (r.values.stockout_risk ?? 0) >= 50).length;
-  const surplus = rows.filter((r) => (r.values.overstock_risk ?? 0) >= 50).length;
+  const running = rows.filter((r) => ["reponer_ya", "reponer"].includes(actionFor(r))).length;
+  const surplus = rows.filter((r) => actionFor(r) === "no_comprar").length;
   const avgCover = Math.round(avg("coverage_days"));
 
   const shown = rows.filter((r) =>
-    filter === "risk" ? (r.values.stockout_risk ?? 0) >= 50 : filter === "overstock" ? (r.values.overstock_risk ?? 0) >= 50 : true,
+    filter === "risk"
+      ? ["reponer_ya", "reponer"].includes(actionFor(r))
+      : filter === "overstock"
+        ? actionFor(r) === "no_comprar"
+        : true,
   );
 
   const handleCalculate = async () => {
@@ -104,7 +113,7 @@ export default function KPIsPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Motor FTGM"
+        eyebrow="Planifica tus compras"
         eyebrowTone="violet"
         title={expert ? "Indicadores de inventario" : "Mis números"}
         description={

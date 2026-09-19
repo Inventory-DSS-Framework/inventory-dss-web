@@ -78,3 +78,13 @@ export const horizonLabel = (days: number) => {
   const months = Math.round(days / 30);
   return months >= 1 ? `${months} mes${months > 1 ? "es" : ""}` : `${days} días`;
 };
+
+/** "para el próximo mes" / "para los próximos 3 meses" / "para las próximas 2 semanas". */
+export function forWhen(days: number): string {
+  if (days % 30 === 0 || days >= 28) {
+    const m = Math.max(1, Math.round(days / 30));
+    return m === 1 ? "para el próximo mes" : `para los próximos ${m} meses`;
+  }
+  const w = Math.max(1, Math.round(days / 7));
+  return w === 1 ? "para la próxima semana" : `para las próximas ${w} semanas`;
+}

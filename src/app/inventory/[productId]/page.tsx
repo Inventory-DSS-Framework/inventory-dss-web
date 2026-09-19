@@ -30,6 +30,7 @@ import { STOCK_STATUS_LABEL, type StockStatus, type TimelineEvent, type Timeline
 import type { CustomAttributes } from "@/types/custom-fields";
 import { fieldsForCategory } from "@/lib/custom-fields/scope";
 import { useExpertMode } from "@/hooks/useExpertMode";
+import { ProductAdvice } from "@/components/ftgm/ProductAdvice";
 
 type Filter = "all" | TimelineKind;
 const FILTERS: { id: Filter; label: string }[] = [
@@ -197,6 +198,8 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </Card>
+
+      <ProductAdvice companyId={companyId} productId={productId} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

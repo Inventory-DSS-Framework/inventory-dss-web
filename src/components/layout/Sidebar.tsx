@@ -61,15 +61,15 @@ export const adminNav: NavGroup[] = [
     icon: Boxes,
     items: [
       { name: "Inventario", href: "/inventory", icon: Archive },
-      { name: "Catálogo", href: "/products", icon: Package },
+      { name: "Productos", href: "/products", icon: Package },
     ],
   },
   {
     key: "ftgm",
-    label: "Motor FTGM",
+    label: "Planifica tus compras",
     icon: BrainCircuit,
     tone: "brand",
-    hint: "Te ayuda a saber cuánto venderás y qué comprar",
+    hint: "Con el Motor FTGM: cuánto venderás y qué comprar",
     items: [
       { name: "¿Cuánto venderé?", href: "/forecasting", icon: Activity },
       { name: "Qué comprar", href: "/recommendations", icon: Lightbulb },
@@ -244,7 +244,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                     <BrainCircuit className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold text-text-primary">Explorar el Motor FTGM</span>
+                    <span className="block text-[13px] font-semibold text-text-primary">Planifica tus compras</span>
                     <span className="block text-[11px] leading-snug text-text-muted">Cuánto venderás y qué comprar</span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-accent-violet transition-transform group-hover:translate-x-0.5" />
