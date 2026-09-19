@@ -141,7 +141,7 @@ export function DocumentClientForm({
             </p>
           )}
           {doc === "nota_venta" && (
-            <p className="col-span-2 text-xs text-text-muted">Ticket interno: no genera comprobante electrónico.</p>
+            <p className="col-span-2 text-xs text-text-muted">Nota de venta: es solo para tu control, no se envía a SUNAT.</p>
           )}
         </div>
       )}

@@ -137,7 +137,7 @@ export function ProductSearch({ companyId, inputRef, onPick, onOpenCamera }: Pro
             }}
             onFocus={() => results.length && setOpen(true)}
             onKeyDown={onKeyDown}
-            placeholder="Escanea o escribe código, SKU o nombre"
+            placeholder="Escanea o escribe el nombre o código"
             aria-label="Buscar producto"
             autoComplete="off"
             spellCheck={false}

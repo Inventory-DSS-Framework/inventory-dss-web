@@ -20,6 +20,8 @@ import { ProductThumb } from "@/components/products/ProductThumb";
 import { categoryOptions, descendantIds } from "@/components/products/categoryTree";
 import { StockAdjustmentModal } from "@/components/inventory/StockAdjustmentModal";
 import { ProductImportWizard } from "@/components/inventory/ProductImportWizard";
+import { MoreMenu } from "@/components/simple/MoreMenu";
+import { useExpertMode } from "@/hooks/useExpertMode";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { useColumnConfig } from "@/hooks/useColumnConfig";
@@ -32,19 +34,22 @@ import { STOCK_STATUS_LABEL, type InventoryOverviewItem, type StockStatus } from
 
 const BUILTINS: BuiltinColumn[] = [
   { key: "product", label: "Producto", locked: true },
-  { key: "sku", label: "SKU" },
+  { key: "sku", label: "Código" },
   { key: "barcode", label: "Código de barras" },
   { key: "category", label: "Categoría" },
   { key: "stock", label: "Stock actual" },
-  { key: "safety", label: "Stock de seguridad" },
-  { key: "reorder", label: "Punto de reorden" },
-  { key: "cost", label: "Costo prom." },
+  { key: "safety", label: "Stock mínimo" },
+  { key: "reorder", label: "Comprar cuando queden" },
+  { key: "cost", label: "Costo promedio" },
   { key: "price", label: "Precio" },
   { key: "value", label: "Valor en stock" },
-  { key: "coverage", label: "Cobertura" },
+  { key: "coverage", label: "Te alcanza para" },
   { key: "status", label: "Estado" },
-  { key: "last_movement", label: "Últ. movimiento" },
+  { key: "last_movement", label: "Última entrada o salida" },
 ];
+
+/** Columns only shown in "Modo experto": the simple view keeps what the owner needs day to day. */
+const EXPERT_ONLY = new Set(["sku", "barcode", "safety", "reorder", "cost", "value", "last_movement"]);
 
 const STATUS_VARIANT: Record<StockStatus, "danger" | "warning" | "success"> = {
   sin_stock: "danger",
@@ -75,6 +80,7 @@ export default function InventoryPage() {
   const overview = useApi(() => (companyId ? stockApi.overview(companyId) : Promise.resolve(null)), [companyId]);
   const categories = useApi(() => (companyId ? categoriesApi.list(companyId) : Promise.resolve([])), [companyId]);
   const columns = useColumnConfig(companyId, "product");
+  const [expert] = useExpertMode();
 
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -89,7 +95,7 @@ export default function InventoryPage() {
   const cats = categories.data ?? [];
   const items = overview.data?.items ?? [];
   const totals = overview.data?.totals;
-  const show = columns.isBuiltinVisible;
+  const show = (key: string) => columns.isBuiltinVisible(key) && (expert || !EXPERT_ONLY.has(key));
 
   const reload = () => {
     overview.reload();
@@ -149,12 +155,12 @@ export default function InventoryPage() {
           <ProductThumb src={r.image_url} name={r.name} />
           <div className="min-w-0">
             <p className="truncate font-medium text-text-primary">{r.name}</p>
-            {!show("sku") && <p className="font-mono text-[11px] text-text-muted">{r.sku}</p>}
+            {expert && !show("sku") && <p className="font-mono text-[11px] text-text-muted">{r.sku}</p>}
           </div>
         </div>
       ),
     },
-    { key: "sku", header: "SKU", cell: (r) => <span className="font-mono text-xs text-text-secondary">{r.sku}</span> },
+    { key: "sku", header: "Código", cell: (r) => <span className="font-mono text-xs text-text-secondary">{r.sku}</span> },
     { key: "barcode", header: "Código de barras", cell: (r) => <span className="font-mono text-xs text-text-secondary">{r.barcode ?? "—"}</span> },
     {
       key: "category",
@@ -180,18 +186,18 @@ export default function InventoryPage() {
         </span>
       ),
     },
-    { key: "safety", header: "Stock de seguridad", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.safety_stock}</span> },
-    { key: "reorder", header: "Punto de reorden", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.reorder_point}</span> },
-    { key: "cost", header: "Costo prom.", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{soles(r.unit_cost)}</span> },
+    { key: "safety", header: "Stock mínimo", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.safety_stock}</span> },
+    { key: "reorder", header: "Comprar cuando queden", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{r.reorder_point}</span> },
+    { key: "cost", header: "Costo promedio", align: "right", cell: (r) => <span className="tabular-nums text-text-secondary">{soles(r.unit_cost)}</span> },
     { key: "price", header: "Precio", align: "right", cell: (r) => <span className="tabular-nums font-medium">{soles(r.unit_price)}</span> },
     { key: "value", header: "Valor en stock", align: "right", cell: (r) => <span className="tabular-nums font-semibold">{soles(r.stock_value)}</span> },
     {
       key: "coverage",
-      header: "Cobertura",
+      header: "Te alcanza para",
       align: "right",
       cell: (r) =>
         r.coverage_days == null ? (
-          <span className="text-xs text-text-muted">Sin ventas</span>
+          <span className="text-xs text-text-muted">Aún sin ventas</span>
         ) : (
           <span className={cn("tabular-nums", r.coverage_days < 7 ? "font-semibold text-danger" : r.coverage_days < 15 ? "text-warning" : "text-text-secondary")}>
             {r.coverage_days >= 365 ? "+1 año" : `${Math.round(r.coverage_days)} días`}
@@ -205,14 +211,14 @@ export default function InventoryPage() {
         <span className="inline-flex items-center gap-1.5">
           <Badge variant={STATUS_VARIANT[r.status]} dot>{STATUS_LABEL(r.status)}</Badge>
           {r.lost_sales_30d > 0 && (
-            <span title={`${r.lost_sales_30d} ventas perdidas en 30 días`} className="text-danger">
+            <span title={`${r.lost_sales_30d} veces te pidieron este producto y no había (últimos 30 días)`} className="text-danger">
               <AlertTriangle className="h-3.5 w-3.5" />
             </span>
           )}
         </span>
       ),
     },
-    { key: "last_movement", header: "Últ. movimiento", cell: (r) => <span className="text-xs text-text-secondary">{relativeDate(r.last_movement_at)}</span> },
+    { key: "last_movement", header: "Última entrada o salida", cell: (r) => <span className="text-xs text-text-secondary">{relativeDate(r.last_movement_at)}</span> },
   ];
   // With a category filter, only the columns that belong to that product type (or any of
   // its subtypes) are shown — so "Talla" disappears when you look at Electro.
@@ -239,28 +245,25 @@ export default function InventoryPage() {
   const chips: { id: StockStatus | "all"; label: string; count?: number }[] = [
     { id: "all", label: "Todos", count: items.length },
     { id: "sin_stock", label: "Sin stock", count: counts?.sin_stock },
-    { id: "critico", label: "Crítico", count: counts?.critico },
-    { id: "reordenar", label: "Reordenar", count: counts?.reordenar },
-    { id: "ok", label: "OK", count: counts?.ok },
+    { id: "critico", label: "Por acabarse", count: counts?.critico },
+    { id: "reordenar", label: "Hay que comprar", count: counts?.reordenar },
+    { id: "ok", label: "Bien", count: counts?.ok },
   ];
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Inventario"
         title="Inventario"
-        description="Stock, valorización al costo promedio y estado de reposición de cada producto."
+        description="Mira cuánto te queda de cada producto y qué se está acabando."
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={() => setColumnsOpen(true)} disabled={!companyId}>
-              <Columns3 className="h-4 w-4" /> Columnas
-            </Button>
-            <Button variant="secondary" onClick={() => setAdjustOpen(true)} disabled={!companyId || items.length === 0}>
-              <ClipboardCheck className="h-4 w-4" /> Ajuste de stock
-            </Button>
-            <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={!companyId}>
-              <Upload className="h-4 w-4" /> Importar
-            </Button>
+            <MoreMenu
+              items={[
+                { label: "Corregir stock", hint: "Si contaste y no cuadra", icon: ClipboardCheck, onClick: () => setAdjustOpen(true), disabled: !companyId || items.length === 0 },
+                { label: "Importar Excel", hint: "Carga muchos productos de golpe", icon: Upload, onClick: () => setImportOpen(true), disabled: !companyId },
+                { label: "Columnas", hint: "Elige qué ver y crea columnas propias", icon: Columns3, onClick: () => setColumnsOpen(true), disabled: !companyId },
+              ]}
+            />
             <Button onClick={() => setFormOpen(true)} disabled={!companyId}>
               <PackagePlus className="h-4 w-4" /> Nuevo producto
             </Button>
@@ -275,12 +278,22 @@ export default function InventoryPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryTile icon={Wallet} label="Valor del inventario (costo)" value={totals ? soles(totals.inventory_value_cost) : "—"} sub={totals ? `${totals.units_on_hand.toLocaleString("es-PE")} unidades` : undefined} />
-        <SummaryTile icon={TrendingUp} label="Valor a precio de venta" value={totals ? soles(totals.inventory_value_retail) : "—"} sub={totals ? `Margen potencial ${soles(totals.potential_margin)}` : undefined} />
-        <SummaryTile icon={PackageX} tone="danger" label="Productos sin stock" value={counts ? String(counts.sin_stock) : "—"} sub="Requieren compra urgente" onClick={() => setStatus("sin_stock")} />
-        <SummaryTile icon={AlertTriangle} tone="warning" label="Por reordenar" value={counts ? String(counts.reordenar + counts.critico) : "—"} sub={counts ? `${counts.critico} en nivel crítico` : undefined} onClick={() => setStatus("reordenar")} />
+      <div className={cn("grid grid-cols-2 gap-4", expert ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+        <SummaryTile icon={PackageX} tone="danger" label="Se acabaron" value={counts ? String(counts.sin_stock) : "—"} sub="Productos en cero. Toca para verlos" onClick={() => setStatus("sin_stock")} />
+        <SummaryTile icon={AlertTriangle} tone="warning" label="Hay que comprar" value={counts ? String(counts.reordenar + counts.critico) : "—"} sub={counts ? `${counts.critico} están por acabarse` : undefined} onClick={() => setStatus("reordenar")} />
+        <SummaryTile icon={Wallet} label="Lo que tienes en tienda" value={totals ? soles(totals.inventory_value_cost) : "—"} sub={totals ? `${totals.units_on_hand.toLocaleString("es-PE")} unidades, a lo que te costaron` : undefined} />
+        {expert && (
+          <SummaryTile icon={TrendingUp} label="Valor a precio de venta" value={totals ? soles(totals.inventory_value_retail) : "—"} sub={totals ? `Ganancia posible ${soles(totals.potential_margin)}` : undefined} />
+        )}
       </div>
+      {counts && counts.sin_stock + counts.reordenar + counts.critico > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-text-primary">
+          <span>Tienes {counts.sin_stock + counts.reordenar + counts.critico} productos que necesitan compra.</span>
+          <button className="text-sm font-semibold text-primary hover:underline" onClick={() => router.push("/recommendations")}>
+            Ver qué comprar →
+          </button>
+        </div>
+      )}
 
       <DataState
         loading={overview.loading && !overview.data}
@@ -290,10 +303,10 @@ export default function InventoryPage() {
         emptyState={
           <EmptyState
             icon={Boxes}
-            title="Tu inventario está vacío"
-            description="Crea tu primer producto o importa tu Excel de inventario: detectamos las columnas por ti."
-            action={{ label: "Importar inventario", onClick: () => setImportOpen(true) }}
-            hint="También puedes crear productos uno por uno con “Nuevo producto”."
+            title="Aún no tienes productos"
+            description="Importa tu Excel o crea el primero. Si usas Excel, nosotros reconocemos las columnas por ti."
+            action={{ label: "Importar mi Excel", onClick: () => setImportOpen(true) }}
+            hint="¿Pocos productos? Usa “Nuevo producto” y agrégalos uno por uno."
           />
         }
       >
@@ -301,7 +314,7 @@ export default function InventoryPage() {
           <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-              <input className={inputClass(false, "pl-10")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, SKU, código de barras o categoría" />
+              <input className={inputClass(false, "pl-10")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busca por nombre, código o categoría" />
             </div>
             <div className="w-full lg:w-64">
               <Select value={categoryId} options={catOptions} onChange={setCategoryId} searchable placeholder="Todas las categorías" />
@@ -383,7 +396,7 @@ export default function InventoryPage() {
         fields={columns.fields}
         onSaved={(p) => {
           reload();
-          if (p) setFlash(`Producto “${p.name}” creado con el código ${p.sku}.`);
+          if (p) setFlash(`Listo, guardamos “${p.name}”.`);
         }}
       />
       <ProductImportWizard open={importOpen} onClose={() => setImportOpen(false)} companyId={companyId} fields={columns.fields} onFinished={() => { reload(); columns.reloadFields(); }} />
@@ -393,7 +406,7 @@ export default function InventoryPage() {
         companyId={companyId}
         entity="product"
         entityLabel="el inventario"
-        builtinColumns={BUILTINS}
+        builtinColumns={expert ? BUILTINS : BUILTINS.filter((b) => !EXPERT_ONLY.has(b.key))}
         hiddenBuiltins={columns.hiddenBuiltins}
         onHiddenBuiltinsChange={columns.setHiddenBuiltins}
         fields={columns.fields}
@@ -409,7 +422,7 @@ export default function InventoryPage() {
         onDone={(res) => {
           overview.reload();
           const name = items.find((i) => i.id === res.product_id)?.name ?? "Producto";
-          setFlash(res.delta === 0 ? `${name}: el stock ya estaba en ${res.new_stock}.` : `${name}: stock ${res.previous_stock} → ${res.new_stock}.`);
+          setFlash(res.delta === 0 ? `${name}: el stock ya estaba en ${res.new_stock}.` : `${name}: ahora tienes ${res.new_stock} (antes ${res.previous_stock}).`);
         }}
       />
     </div>

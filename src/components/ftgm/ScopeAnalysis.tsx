@@ -222,7 +222,7 @@ function ProductDetail({ companyId, product: p }: { companyId: string; product: 
                 {trackingMeta[lastTracked.tracking.status].label}
               </Badge>
               <span className="text-xs text-text-secondary">
-                Error a la fecha: MAPE {pct(lastTracked.tracking.mape)} · sesgo {pct(lastTracked.tracking.bias_pct)}
+                Diferencia promedio con lo que vendiste de verdad: {pct(lastTracked.tracking.mape)}
               </span>
             </div>
           </div>

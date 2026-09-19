@@ -17,6 +17,8 @@ import type { CustomAttributes, CustomFieldDTO } from "@/types/custom-fields";
 import { ProductImagePicker } from "./ProductImagePicker";
 import { categoryOptions } from "./categoryTree";
 import { fieldsForCategory } from "@/lib/custom-fields/scope";
+import { MoreDetails } from "@/components/simple/MoreMenu";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 interface ProductFormModalProps {
   open: boolean;
@@ -116,11 +118,11 @@ function validate(f: FormState, isEdit: boolean, fields: CustomFieldDTO[]): Erro
   if (f.unit_price === "" || Number.isNaN(price) || price < 0) e.unit_price = "Indica el precio de venta";
   (["lead_time_days", "safety_stock", "reorder_point"] as const).forEach((k) => {
     const n = Number(f[k] || 0);
-    if (Number.isNaN(n) || n < 0 || !Number.isInteger(n)) e[k] = "Entero ≥ 0";
+    if (Number.isNaN(n) || n < 0 || !Number.isInteger(n)) e[k] = "Escribe un número entero (0 o más)";
   });
   if (!isEdit && f.initial_stock !== "") {
     const n = Number(f.initial_stock);
-    if (Number.isNaN(n) || n < 0 || !Number.isInteger(n)) e.initial_stock = "Entero ≥ 0";
+    if (Number.isNaN(n) || n < 0 || !Number.isInteger(n)) e.initial_stock = "Escribe un número entero (0 o más)";
   }
   for (const field of fields) {
     const v = f.custom[field.key];
@@ -140,6 +142,7 @@ export function ProductFormModal({
   fields: fieldsProp,
 }: ProductFormModalProps) {
   const isEdit = product !== null;
+  const [expert] = useExpertMode();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -167,7 +170,7 @@ export function ProductFormModal({
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  const catOptions = useMemo(() => categoryOptions(categories, "Sin categoría"), [categories]);
+  const catOptions = useMemo(() => categoryOptions(categories, "Sin marca"), [categories]);
   const uomOptions = useMemo(
     () =>
       UOM_OPTIONS.some((o) => o.value === form.unit_of_measure)
@@ -237,7 +240,7 @@ export function ProductFormModal({
       setApiError(
         err instanceof Error
           ? err.message
-          : "No se pudo eliminar el producto. Si ya tiene ventas, desactívalo en lugar de eliminarlo.",
+          : "No se pudo eliminar el producto. Si ya tiene ventas, mejor páusalo en vez de eliminarlo.",
       );
     } finally {
       setDeleting(false);
@@ -245,6 +248,8 @@ export function ProductFormModal({
   };
 
   const busy = saving || deleting;
+  // Fields tucked under "Más opciones": open it when one of them has an error.
+  const hiddenError = !!(errors.sku || errors.lead_time_days || errors.reorder_point);
 
   return (
     <Modal
@@ -252,7 +257,7 @@ export function ProductFormModal({
       onClose={onClose}
       size="lg"
       title={isEdit ? "Editar producto" : "Nuevo producto"}
-      description={isEdit ? `${product?.name} · ${product?.sku}` : "Registra un producto con su foto, precios y stock inicial."}
+      description={isEdit ? (expert ? `${product?.name} · ${product?.sku}` : product?.name) : "Solo el nombre y el precio son obligatorios. Lo demás lo puedes completar después."}
       footer={
         <>
           {isEdit &&
@@ -305,19 +310,17 @@ export function ProductFormModal({
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Código (SKU)"
-                hint={isEdit ? undefined : "Si lo dejas vacío se genera P-000123"}
-                error={errors.sku}
-              >
-                <input
-                  className={inputClass(errors.sku, "font-mono uppercase placeholder:normal-case placeholder:font-sans")}
-                  value={form.sku}
-                  onChange={(e) => set("sku", e.target.value)}
-                  placeholder={isEdit ? "" : "Automático"}
+              <Field label="Marca / tipo" hint="Para ordenar tus productos">
+                <Select
+                  value={form.category_id}
+                  options={catOptions}
+                  onChange={(v) => set("category_id", v)}
+                  searchable
+                  placeholder="Sin marca"
+                  emptyText="No hay marcas con ese nombre"
                 />
               </Field>
-              <Field label="Código de barras" error={errors.barcode}>
+              <Field label="Código de barras" hint="Opcional" error={errors.barcode}>
                 <div className="relative">
                   <ScanBarcode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                   <input
@@ -326,22 +329,12 @@ export function ProductFormModal({
                     onChange={(e) => set("barcode", e.target.value)}
                     // Barcode scanners type the code and press Enter: don't submit the form.
                     onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
-                    placeholder="Escanea o escribe (EAN-13)"
+                    placeholder="Escanéalo o escríbelo"
                     inputMode="numeric"
                   />
                 </div>
               </Field>
             </div>
-            <Field label="Categoría" hint="Marca › Tipo">
-              <Select
-                value={form.category_id}
-                options={catOptions}
-                onChange={(v) => set("category_id", v)}
-                searchable
-                placeholder="Sin categoría"
-                emptyText="No hay categorías con ese nombre"
-              />
-            </Field>
           </div>
         </div>
 
@@ -351,7 +344,7 @@ export function ProductFormModal({
               <MoneyInput value={form.unit_price} onChange={(v) => set("unit_price", v)} error={errors.unit_price} currency={form.currency} />
             </Field>
             <Field
-              label={isEdit ? "Costo promedio" : "Costo unitario"}
+              label={isEdit ? "Costo promedio" : "¿Cuánto te cuesta?"}
               error={errors.unit_cost}
               hint={isEdit && product?.last_cost != null ? `Último costo: ${soles(product.last_cost)}` : undefined}
             >
@@ -360,53 +353,79 @@ export function ProductFormModal({
             {isEdit ? (
               <MarginTile margin={margin} />
             ) : (
-              <Field label="Moneda">
-                <Select value={form.currency} options={CURRENCY_OPTIONS} onChange={(v) => set("currency", v)} />
-              </Field>
+              expert ? (
+                <Field label="Moneda">
+                  <Select value={form.currency} options={CURRENCY_OPTIONS} onChange={(v) => set("currency", v)} />
+                </Field>
+              ) : (
+                <div />
+              )
             )}
           </div>
           {!isEdit && margin !== null && (
             <p className="mt-2 text-xs text-text-secondary">
-              Margen bruto estimado: <strong className={margin < 0 ? "text-danger" : "text-success"}>{margin.toFixed(1)}%</strong>
+              Ganas aproximadamente: <strong className={margin < 0 ? "text-danger" : "text-success"}>{margin.toFixed(1)}%</strong>
             </p>
           )}
           {isEdit && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
               <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-              El costo promedio se recalcula solo con cada compra. Edítalo aquí únicamente para corregirlo.
+              El costo promedio se actualiza solo con cada compra. Cámbialo aquí solo si está mal.
             </p>
           )}
         </Section>
 
         <Section title="Stock">
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             {!isEdit && (
-              <Field label="Stock inicial" error={errors.initial_stock} hint="Se registra al costo unitario">
+              <Field label="¿Cuántos tienes hoy?" error={errors.initial_stock} hint="Lo que hay en tu tienda ahora">
                 <input type="number" min="0" step="1" className={inputClass(errors.initial_stock)} value={form.initial_stock} onChange={(e) => set("initial_stock", e.target.value)} placeholder="0" />
               </Field>
             )}
-            <Field label="Stock de seguridad" error={errors.safety_stock}>
+            <Field label="Stock mínimo" error={errors.safety_stock} hint="Te avisamos si baja de aquí">
               <input type="number" min="0" step="1" className={inputClass(errors.safety_stock)} value={form.safety_stock} onChange={(e) => set("safety_stock", e.target.value)} />
             </Field>
-            <Field label="Punto de reorden" error={errors.reorder_point}>
-              <input type="number" min="0" step="1" className={inputClass(errors.reorder_point)} value={form.reorder_point} onChange={(e) => set("reorder_point", e.target.value)} />
-            </Field>
-            <Field label="Reposición (días)" error={errors.lead_time_days}>
-              <input type="number" min="0" step="1" className={inputClass(errors.lead_time_days)} value={form.lead_time_days} onChange={(e) => set("lead_time_days", e.target.value)} />
-            </Field>
-            <Field label="Unidad de medida">
+            <Field label="Unidad">
               <Select value={form.unit_of_measure} options={uomOptions} onChange={(v) => set("unit_of_measure", v)} />
             </Field>
           </div>
         </Section>
 
+        <MoreDetails summary="Más opciones (código, cuándo comprar, días del proveedor…)" defaultOpen={expert || hiddenError}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field
+              label="Código"
+              hint={isEdit ? undefined : "Si lo dejas vacío, te ponemos uno automático"}
+              error={errors.sku}
+            >
+              <input
+                className={inputClass(errors.sku, "font-mono uppercase placeholder:normal-case placeholder:font-sans")}
+                value={form.sku}
+                onChange={(e) => set("sku", e.target.value)}
+                placeholder={isEdit ? "" : "Automático"}
+              />
+            </Field>
+            <Field label="Comprar cuando queden" error={errors.reorder_point} hint="Aquí te sugerimos volver a comprar">
+              <input type="number" min="0" step="1" className={inputClass(errors.reorder_point)} value={form.reorder_point} onChange={(e) => set("reorder_point", e.target.value)} />
+            </Field>
+            <Field label="Días que tarda el proveedor" error={errors.lead_time_days} hint="Desde que pides hasta que llega">
+              <input type="number" min="0" step="1" className={inputClass(errors.lead_time_days)} value={form.lead_time_days} onChange={(e) => set("lead_time_days", e.target.value)} />
+            </Field>
+            {!isEdit && !expert && (
+              <Field label="Moneda">
+                <Select value={form.currency} options={CURRENCY_OPTIONS} onChange={(v) => set("currency", v)} />
+              </Field>
+            )}
+          </div>
+        </MoreDetails>
+
         {(fields.length > 0 || otherTypeFields > 0) && (
-          <Section title="Tus columnas">
+          <Section title="Columnas propias">
             <p className="-mt-1 mb-3 flex items-start gap-1.5 text-xs text-text-muted">
               <Info className="mt-px h-3.5 w-3.5 shrink-0" />
               {categoryName
                 ? `Columnas para productos de tipo «${categoryName}».`
-                : "Columnas para todos los productos. Elige una categoría para ver las de ese tipo."}
+                : "Columnas para todos los productos. Elige una marca o tipo para ver las suyas."}
               {otherTypeFields > 0 && ` Hay ${otherTypeFields} más para otros tipos.`}
             </p>
             {fields.length === 0 && (
@@ -474,7 +493,7 @@ function MoneyInput({ value, onChange, error, currency }: { value: string; onCha
 function MarginTile({ margin }: { margin: number | null }) {
   return (
     <div className="block">
-      <span className="mb-1.5 block text-sm font-medium text-text-primary">Margen bruto</span>
+      <span className="mb-1.5 block text-sm font-medium text-text-primary">Ganancia</span>
       <div
         className={cn(
           "flex h-[42px] items-center rounded-xl border px-3.5 font-display text-base font-semibold tabular-nums",

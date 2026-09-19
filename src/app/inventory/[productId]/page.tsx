@@ -29,14 +29,15 @@ import { soles } from "@/lib/ui";
 import { STOCK_STATUS_LABEL, type StockStatus, type TimelineEvent, type TimelineKind } from "@/types/inventory";
 import type { CustomAttributes } from "@/types/custom-fields";
 import { fieldsForCategory } from "@/lib/custom-fields/scope";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 type Filter = "all" | TimelineKind;
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "Todo" },
   { id: "sale", label: "Ventas" },
-  { id: "restock", label: "Reabastecimientos" },
-  { id: "adjustment", label: "Ajustes" },
-  { id: "lost_sale", label: "Quiebres" },
+  { id: "restock", label: "Compras" },
+  { id: "adjustment", label: "Correcciones" },
+  { id: "lost_sale", label: "No había stock" },
 ];
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -66,6 +67,7 @@ export default function ProductDetailPage() {
   const data = useApi(() => (companyId ? catalogApi.timeline(companyId, productId) : Promise.resolve(null)), [companyId, productId]);
   const categories = useApi(() => (companyId ? categoriesApi.list(companyId) : Promise.resolve([])), [companyId]);
   const columns = useColumnConfig(companyId, "product");
+  const [expert] = useExpertMode();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [editOpen, setEditOpen] = useState(false);
@@ -159,8 +161,8 @@ export default function ProductDetailPage() {
               {!product.is_active && <Badge>Inactivo</Badge>}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-lg border border-border bg-surface-soft px-2 py-1 font-mono text-text-secondary">{product.sku}</span>
-              {product.barcode && (
+              {expert && <span className="rounded-lg border border-border bg-surface-soft px-2 py-1 font-mono text-text-secondary" title="Código">{product.sku}</span>}
+              {expert && product.barcode && (
                 <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-soft px-2 py-1 font-mono text-text-secondary">
                   <ScanBarcode className="h-3.5 w-3.5" /> {product.barcode}
                 </span>
@@ -168,17 +170,18 @@ export default function ProductDetailPage() {
               <span className="text-text-muted">Unidad: {product.unit_of_measure === "unit" ? "unidad" : product.unit_of_measure}</span>
             </div>
             {product.description && <p className="max-w-2xl text-sm text-text-secondary">{product.description}</p>}
-            <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-5">
-              <HeroFigure label="Precio" value={soles(price)} strong />
-              <HeroFigure label="Costo promedio" value={soles(avgCost)} />
-              <HeroFigure label="Último costo" value={product.last_cost != null ? soles(product.last_cost) : "—"} />
-              <HeroFigure label="Margen" value={margin == null ? "—" : `${margin.toFixed(1)}%`} tone={margin != null && margin < 0 ? "danger" : "success"} />
+            <div className={cn("grid grid-cols-2 gap-3 pt-1", expert ? "sm:grid-cols-5" : "sm:grid-cols-4")}>
               <HeroFigure
-                label="Stock"
+                label="Te quedan"
                 value={`${stats.stock_on_hand.toLocaleString("es-PE")} u.`}
                 tone={status === "ok" ? undefined : status === "reordenar" ? "warning" : "danger"}
-                sub={`Seguridad ${product.safety_stock} · Reorden ${product.reorder_point}`}
+                sub={`Mínimo ${product.safety_stock} · comprar al llegar a ${product.reorder_point}`}
+                strong
               />
+              <HeroFigure label="Precio de venta" value={soles(price)} strong />
+              <HeroFigure label="Te cuesta (promedio)" value={soles(avgCost)} />
+              {expert && <HeroFigure label="Último costo" value={product.last_cost != null ? soles(product.last_cost) : "—"} />}
+              <HeroFigure label="Ganancia" value={margin == null ? "—" : `${margin.toFixed(1)}%`} tone={margin != null && margin < 0 ? "danger" : "success"} />
             </div>
           </div>
           <div className="flex flex-row flex-wrap gap-2 lg:flex-col lg:items-stretch">
@@ -186,10 +189,10 @@ export default function ProductDetailPage() {
               <Pencil className="h-4 w-4" /> Editar
             </Button>
             <Button variant="secondary" onClick={() => setAdjustOpen(true)}>
-              <ClipboardCheck className="h-4 w-4" /> Ajustar stock
+              <ClipboardCheck className="h-4 w-4" /> Corregir stock
             </Button>
             <Button variant="violet" onClick={() => router.push(`/forecasting?product=${product.id}`)}>
-              <BrainCircuit className="h-4 w-4" /> Pronosticar con FTGM
+              <BrainCircuit className="h-4 w-4" /> {expert ? "Pronosticar con FTGM" : "¿Cuánto venderé?"}
             </Button>
           </div>
         </div>
@@ -198,19 +201,19 @@ export default function ProductDetailPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi icon={ShoppingCart} label="Vendidos 30 días" value={stats.units_sold_30d.toLocaleString("es-PE")} sub={`${stats.units_sold_90d} en 90 días · ${stats.units_sold_365d} en el año`} />
-        <Kpi icon={Coins} label="Ingresos 12 meses" value={soles(stats.revenue_365d)} sub={stats.avg_price_365d != null ? `Precio promedio ${soles(stats.avg_price_365d)}${stats.gross_margin_pct != null ? ` · margen ${stats.gross_margin_pct}%` : ""}` : "Sin ventas en el año"} />
+        <Kpi icon={Coins} label="Vendido en 12 meses" value={soles(stats.revenue_365d)} sub={stats.avg_price_365d != null ? `Precio promedio ${soles(stats.avg_price_365d)}${expert && stats.gross_margin_pct != null ? ` · margen ${stats.gross_margin_pct}%` : ""}` : "Sin ventas en el año"} />
         <Kpi
           icon={Clock}
-          label="Cobertura"
+          label="Te alcanza para"
           value={stats.coverage_days == null ? "—" : stats.coverage_days >= 365 ? "+1 año" : `${Math.round(stats.coverage_days)} días`}
-          sub={stats.coverage_days == null ? "Sin ventas en 30 días" : "Al ritmo de venta actual"}
+          sub={stats.coverage_days == null ? "Sin ventas en 30 días" : "Si sigues vendiendo como ahora"}
           tone={stats.coverage_days != null && stats.coverage_days < 7 ? "danger" : stats.coverage_days != null && stats.coverage_days < 15 ? "warning" : undefined}
         />
         <Kpi
           icon={PackageX}
-          label="Quiebres"
+          label="Ventas perdidas"
           value={String(stats.lost_sale_attempts)}
-          sub={stats.lost_sale_attempts ? `${stats.lost_units} unidades no vendidas · ${stats.lost_sale_attempts_30d} en 30 días` : "Ninguna venta perdida"}
+          sub={stats.lost_sale_attempts ? `Veces que te pidieron y no había · ${stats.lost_units} u. no vendidas` : "Nunca te faltó stock"}
           tone={stats.lost_sale_attempts > 0 ? "danger" : undefined}
         />
       </div>
@@ -221,8 +224,8 @@ export default function ProductDetailPage() {
           <Card>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 className="font-display text-[15px] font-semibold text-text-primary">Nivel de stock</h2>
-                <p className="text-xs text-text-muted">Últimos 180 días · los puntos marcan reabastecimientos</p>
+                <h2 className="font-display text-[15px] font-semibold text-text-primary">Cuánto stock tuviste</h2>
+                <p className="text-xs text-text-muted">Últimos 6 meses · los puntos verdes son tus compras</p>
               </div>
               <div className="text-right text-xs text-text-muted">
                 {stats.restock_count} compras{stats.last_restock_at ? ` · última ${fmtDay(stats.last_restock_at)}` : ""}
@@ -273,8 +276,8 @@ export default function ProductDetailPage() {
           <Card>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="font-display text-[15px] font-semibold text-text-primary">Atributos</h2>
-                <p className="text-xs text-text-muted">Las columnas propias de tu inventario</p>
+                <h2 className="font-display text-[15px] font-semibold text-text-primary">Columnas propias</h2>
+                <p className="text-xs text-text-muted">Datos extra que tú agregaste (ej. talla, sabor)</p>
               </div>
               {attrsDirty && (
                 <div className="flex items-center gap-2">
@@ -317,7 +320,7 @@ export default function ProductDetailPage() {
         <Card className="h-fit p-0">
           <div className="border-b border-border px-6 py-5">
             <h2 className="font-display text-[15px] font-semibold text-text-primary">Historia del producto</h2>
-            <p className="text-xs text-text-muted">Cada venta, compra, ajuste y quiebre, del más reciente al más antiguo</p>
+            <p className="text-xs text-text-muted">Cada venta, compra y corrección, de lo más reciente a lo más antiguo</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               {FILTERS.map((f) => (
                 <button
@@ -336,7 +339,7 @@ export default function ProductDetailPage() {
           </div>
           <div className="max-h-[1100px] overflow-y-auto px-6 py-5">
             {events.length === 0 ? (
-              <p className="py-10 text-center text-sm text-text-muted">No hay eventos de este tipo todavía.</p>
+              <p className="py-10 text-center text-sm text-text-muted">Todavía no hay nada aquí.</p>
             ) : (
               <ol className="relative space-y-1">
                 <span className="absolute bottom-3 left-[17px] top-3 w-px bg-border" aria-hidden="true" />
@@ -351,7 +354,7 @@ export default function ProductDetailPage() {
               </div>
             )}
             {t.events_truncated && events.length <= visibleCount && (
-              <p className="pt-3 text-center text-[11px] text-text-muted">Mostramos los eventos más recientes de cada tipo.</p>
+              <p className="pt-3 text-center text-[11px] text-text-muted">Mostramos solo lo más reciente de cada tipo.</p>
             )}
           </div>
         </Card>
@@ -464,7 +467,7 @@ function TimelineItem({ event: e }: { event: TimelineEvent }) {
 
   if (e.kind === "sale") {
     href = e.order_id ? `/sales/${e.order_id}` : "/sales";
-    title = e.order_number ? `Venta · Ticket #${e.order_number}` : e.batch_id ? "Venta importada" : "Venta";
+    title = e.order_number ? `Venta · Ticket #${e.order_number}` : e.batch_id ? "Venta cargada desde Excel" : "Venta";
     detail = (
       <>
         {e.quantity} u. × {soles(e.unit_price)}
@@ -474,7 +477,7 @@ function TimelineItem({ event: e }: { event: TimelineEvent }) {
     amount = <span className="text-text-primary">{soles(e.total)}</span>;
   } else if (e.kind === "restock") {
     href = e.supplier_id ? `/suppliers/${e.supplier_id}` : null;
-    title = `Reabastecimiento · ${e.supplier_name ?? "Proveedor"}`;
+    title = `Compra · ${e.supplier_name ?? "Proveedor"}`;
     detail = (
       <>
         {e.quantity} u. × {soles(e.unit_cost)}
@@ -484,18 +487,18 @@ function TimelineItem({ event: e }: { event: TimelineEvent }) {
     amount = <span className="text-success">+{e.quantity}</span>;
   } else if (e.kind === "adjustment") {
     const signed = e.signed_quantity ?? e.quantity;
-    title = e.reason ?? "Movimiento de inventario";
+    title = e.reason ?? "Entrada o salida";
     detail =
-      e.reference_type === "import" ? "Importación de inventario" :
-      e.reference_type === "initial" ? "Alta del producto" :
-      e.reference_type === "sale_void" ? "Anulación de venta" :
-      e.reference_type === "adjustment" ? "Ajuste manual" : e.movement_type === "inbound" ? "Entrada" : e.movement_type === "outbound" ? "Salida" : "Ajuste";
+      e.reference_type === "import" ? "Carga desde Excel" :
+      e.reference_type === "initial" ? "Stock inicial del producto" :
+      e.reference_type === "sale_void" ? "Venta anulada" :
+      e.reference_type === "adjustment" ? "Corrección manual" : e.movement_type === "inbound" ? "Entrada" : e.movement_type === "outbound" ? "Salida" : "Ajuste";
     amount = <span className={signed < 0 ? "text-danger" : "text-success"}>{signed > 0 ? "+" : ""}{signed}</span>;
   } else {
-    title = "Quiebre de stock · venta perdida";
+    title = "No había stock · venta perdida";
     detail = (
       <>
-        Se intentó vender {e.requested_quantity}, había {e.available_quantity}
+        Te pidieron {e.requested_quantity}, había {e.available_quantity}
         {e.seller_name && <> · {e.seller_name}</>}
       </>
     );

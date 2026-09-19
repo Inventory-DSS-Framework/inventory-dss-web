@@ -19,12 +19,15 @@ import { DocumentBadge, OrderStatusBadge } from "@/components/pos/DocumentBadge"
 import { formatLongDateTime } from "@/components/pos/dates";
 import { ReceiptPreview } from "@/components/invoicing/ReceiptPreview";
 import { DOCUMENT_LABEL, PAYMENT_LABEL, type SalesOrder } from "@/types/pos";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 export default function SaleDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const companyId = useCompanyId();
   const { company } = useProfile();
   const { isSeller, isAdmin } = useRole();
+  const [expert] = useExpertMode();
+  const showCost = !isSeller && expert;
 
   const order = useApi(
     () => (companyId && orderId ? posApi.get(companyId, orderId) : Promise.resolve(null)),
@@ -65,7 +68,7 @@ export default function SaleDetailPage() {
           <>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Ticket #{o.order_number}</p>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Venta #{o.order_number}</p>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text-primary">
                     {DOCUMENT_LABEL[o.document_type]} {o.document_number}
@@ -105,7 +108,7 @@ export default function SaleDetailPage() {
                   <table className="w-full border-collapse text-left">
                     <thead>
                       <tr className="border-b border-border">
-                        {["Producto", "Cant.", "P. unit.", "Desc.", "Importe", ...(isSeller ? [] : ["Costo"])].map((h, i) => (
+                        {["Producto", "Cantidad", "Precio", "Descuento", "Total", ...(showCost ? ["Costo"] : [])].map((h, i) => (
                           <th key={h} className={cn("whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted", i > 0 && "text-right")}>
                             {h}
                           </th>
@@ -123,13 +126,13 @@ export default function SaleDetailPage() {
                                 {l.product_name}
                               </Link>
                             )}
-                            <p className="font-mono text-[11px] text-text-muted">{l.sku}</p>
+                            {expert && <p className="font-mono text-[11px] text-text-muted">{l.sku}</p>}
                           </td>
                           <td className="px-5 py-3.5 text-right text-sm tabular-nums">{l.quantity}</td>
                           <td className="px-5 py-3.5 text-right text-sm tabular-nums text-text-secondary">{soles(l.unit_price)}</td>
                           <td className="px-5 py-3.5 text-right text-sm tabular-nums text-text-secondary">{Number(l.discount) > 0 ? `−${soles(l.discount)}` : "—"}</td>
                           <td className="px-5 py-3.5 text-right text-sm font-semibold tabular-nums">{soles(l.line_total)}</td>
-                          {!isSeller && (
+                          {showCost && (
                             <td className="px-5 py-3.5 text-right text-sm tabular-nums text-text-muted">{l.unit_cost != null ? soles(Number(l.unit_cost) * l.quantity) : "—"}</td>
                           )}
                         </tr>
@@ -140,7 +143,7 @@ export default function SaleDetailPage() {
                 <div className="flex justify-end border-t border-border px-6 py-4">
                   <dl className="w-full max-w-xs space-y-1.5 text-sm">
                     {Number(o.discount_total) > 0 && <Line label="Descuentos" value={`−${soles(o.discount_total)}`} />}
-                    <Line label="Op. gravada" value={soles(o.subtotal)} />
+                    <Line label="Subtotal (sin IGV)" value={soles(o.subtotal)} />
                     <Line label="IGV 18%" value={soles(o.igv)} />
                     <div className="flex items-baseline justify-between border-t border-border-soft pt-2">
                       <dt className="font-semibold text-text-primary">Total</dt>
@@ -148,7 +151,7 @@ export default function SaleDetailPage() {
                     </div>
                     {!isSeller && (
                       <div className="flex justify-between pt-1 text-xs text-text-muted">
-                        <dt>Margen bruto (sin IGV)</dt>
+                        <dt>Ganaste en esta venta (sin IGV)</dt>
                         <dd className="tabular-nums text-success">{soles(o.gross_margin)}</dd>
                       </div>
                     )}
@@ -165,8 +168,8 @@ export default function SaleDetailPage() {
                   {o.client_address && <p className="text-sm text-text-secondary">{o.client_address}</p>}
                 </InfoCard>
 
-                <InfoCard icon={CreditCard} title="Cobro">
-                  <Line label="Método" value={PAYMENT_LABEL[o.payment_method]} />
+                <InfoCard icon={CreditCard} title="Pago">
+                  <Line label="Forma de pago" value={PAYMENT_LABEL[o.payment_method]} />
                   {o.amount_received != null && <Line label="Recibido" value={soles(o.amount_received)} />}
                   {o.change != null && <Line label="Vuelto" value={soles(o.change)} />}
                   <Line label="Vendedor" value={o.seller_name || "—"} />
@@ -182,10 +185,10 @@ export default function SaleDetailPage() {
                       </span>
                     </p>
                   ) : (
-                    <p className="text-sm text-text-muted">Ticket interno, sin comprobante electrónico.</p>
+                    <p className="text-sm text-text-muted">Nota de venta: es solo para tu control, no se envía a SUNAT.</p>
                   )}
                   <p className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <CalendarClock className="h-3.5 w-3.5" /> {o.items_count} ítems · {o.units} uds
+                    <CalendarClock className="h-3.5 w-3.5" /> {o.items_count} productos distintos · {o.units} unidades
                   </p>
                 </InfoCard>
 
@@ -202,7 +205,7 @@ export default function SaleDetailPage() {
             <Modal
               open={voidOpen}
               onClose={() => !voiding && setVoidOpen(false)}
-              title={`Anular ticket #${o.order_number}`}
+              title={`Anular venta #${o.order_number}`}
               description="Esta acción no se puede deshacer."
               size="sm"
               footer={

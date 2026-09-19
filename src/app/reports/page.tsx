@@ -15,15 +15,15 @@ import { reportsApi } from "@/lib/api";
 import { triggerDownload } from "@/lib/utils";
 import type { ReportStatus, ReportType } from "@/types/api";
 
-const typeMeta: Record<ReportType, { label: string; icon: typeof TrendingUp }> = {
-  forecast: { label: "Pronóstico", icon: TrendingUp },
-  kpi: { label: "KPIs", icon: BarChart2 },
-  recommendation: { label: "Recomendaciones", icon: Lightbulb },
+const typeMeta: Record<ReportType, { label: string; todo: string; icon: typeof TrendingUp }> = {
+  forecast: { label: "Cuánto venderé", todo: "Úsalo para planificar tus compras.", icon: TrendingUp },
+  kpi: { label: "Mis números", todo: "Revisa qué productos se pueden acabar.", icon: BarChart2 },
+  recommendation: { label: "Qué comprar", todo: "Llévalo a tu proveedor al hacer tu pedido.", icon: Lightbulb },
 };
 const statusMeta: Record<ReportStatus, { label: string; tone: "warning" | "success" | "danger" }> = {
   pending: { label: "Generando", tone: "warning" },
   ready: { label: "Listo", tone: "success" },
-  failed: { label: "Fallido", tone: "danger" },
+  failed: { label: "No se pudo generar", tone: "danger" },
 };
 
 export default function ReportsPage() {
@@ -55,7 +55,7 @@ export default function ReportsPage() {
         eyebrow="Motor FTGM"
         eyebrowTone="violet"
         title="Reportes"
-        description="Exporta el último pronóstico FTGM, los KPIs de inventario y las recomendaciones de compra."
+        description="Descarga en un archivo cuánto venderás, tus números y la lista de qué comprar, para revisarlos o compartirlos."
         action={
           <Button variant="violet" onClick={() => setFormOpen(true)} disabled={!companyId}>
             <FileText className="h-4 w-4" /> Generar reporte
@@ -74,14 +74,14 @@ export default function ReportsPage() {
           <EmptyState
             icon={FileText}
             title="Aún no has generado reportes"
-            description="Crea tu primer reporte: se genera al instante con los datos del motor FTGM y queda listo para descargar."
+            description="Crea tu primer reporte: se arma al instante con tus datos y queda listo para descargar."
             action={{ label: "Generar reporte", onClick: () => setFormOpen(true) }}
           />
         }
       >
         <Card className="overflow-hidden p-0">
           <div className="border-b border-border px-6 py-4">
-            <h3 className="font-display text-[15px] font-semibold text-text-primary">Reportes generados</h3>
+            <h3 className="font-display text-[15px] font-semibold text-text-primary">Tus reportes</h3>
           </div>
           <div className="divide-y divide-border-soft">
             {items.map((r) => {
@@ -95,7 +95,9 @@ export default function ReportsPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-text-primary">{r.title}</p>
-                    <p className="text-xs text-text-muted">{t.label}</p>
+                    <p className="text-xs text-text-muted">
+                      {t.label} · <span className="text-text-secondary">{t.todo}</span>
+                    </p>
                   </div>
                   <Badge variant={s.tone} dot>
                     {s.label}

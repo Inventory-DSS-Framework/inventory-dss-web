@@ -3,7 +3,7 @@
 import { Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProductDiagnostics } from "@/types/ftgm";
-import { frequencyLabel, num, pct } from "./labels";
+import { frequencyLabel, modelLabel, num, pct } from "./labels";
 
 /** Engine decisions explained in plain Spanish + the evidence behind them. */
 export function DiagnosticsPanel({ diag, orderSelected }: { diag: ProductDiagnostics | undefined; orderSelected: number }) {
@@ -61,6 +61,33 @@ export function DiagnosticsPanel({ diag, orderSelected }: { diag: ProductDiagnos
                 label="vs baseline"
                 value={diag.skill_vs_naive != null ? `${diag.skill_vs_naive >= 0 ? "+" : ""}${(diag.skill_vs_naive * 100).toFixed(0)}%` : "—"}
               />
+            </div>
+          </div>
+        )}
+
+        {(diag.candidates?.length ?? 0) > 0 && (
+          <div className="rounded-2xl border border-border-soft p-4">
+            <p className="mb-3 text-xs font-medium text-text-secondary">
+              Competencia de modelos · precisión sobre el total, mismos cortes del pasado
+            </p>
+            <div className="space-y-1.5">
+              {diag.candidates!.map((c) => (
+                <div key={c.model} className="flex items-center gap-2 text-xs">
+                  <span className={cn("w-36 truncate", c.chosen ? "font-bold text-accent-violet" : "text-text-muted")}>
+                    {c.chosen ? "✓ " : ""}
+                    {modelLabel[c.model] ?? c.model}
+                  </span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                    <div
+                      className={cn("h-full rounded-full", c.chosen ? "bg-accent-violet" : "bg-border")}
+                      style={{ width: `${Math.max(2, Math.round(c.accuracy_pct ?? 0))}%` }}
+                    />
+                  </div>
+                  <span className="w-12 text-right font-mono text-text-secondary">
+                    {c.accuracy_pct != null ? `${Math.round(c.accuracy_pct)}%` : "—"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}

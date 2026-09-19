@@ -259,8 +259,8 @@ export default function NewSalePage() {
       {/* Header: who is selling and when (automatic, not editable) */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Punto de venta</p>
           <h1 className="font-display text-[26px] font-bold leading-tight tracking-tight text-text-primary">Nueva venta</h1>
+          <p className="mt-1 text-sm text-text-muted">Escanea o busca el producto, elige cómo te pagan y cobra.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-text-secondary">
@@ -353,7 +353,7 @@ export default function NewSalePage() {
                 </div>
               )}
               <div className="flex justify-between text-text-secondary">
-                <dt>Op. gravada</dt>
+                <dt>Subtotal (sin IGV)</dt>
                 <dd className="tabular-nums">{soles(totals.subtotal)}</dd>
               </div>
               <div className="flex justify-between text-text-secondary">

@@ -44,12 +44,11 @@ export default function NewPurchasePage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Compras"
         title="Nueva compra"
-        description="Registra la factura de tu proveedor: el stock y el costo promedio de cada producto se actualizan al instante."
+        description="Anota lo que te trajo tu proveedor. Tu stock y tus costos se actualizan solos."
         action={
           <Link href="/purchases" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
-            <History className="h-4 w-4" /> Ver historial de compras
+            <History className="h-4 w-4" /> Ver mis compras
           </Link>
         }
       />
@@ -58,8 +57,8 @@ export default function NewPurchasePage() {
         value={tab}
         onChange={(id) => setTab(id as Tab)}
         tabs={[
-          { id: "register", label: "Registrar compra" },
-          { id: "import", label: "Carga masiva" },
+          { id: "register", label: "Anotar una compra" },
+          { id: "import", label: "Subir Excel de compras" },
         ]}
       />
 

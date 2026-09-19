@@ -176,13 +176,13 @@ export function SupplierFormModal({ open, onClose, companyId, supplier, onSaved,
               {!isEdit && !rucMessage && <CheckCircle2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-success" />}
             </div>
           </Field>
-          <Field label="Razón social" required>
+          <Field label="Nombre o razón social" required>
             <input className={inputClass()} value={form.business_name} onChange={(e) => set("business_name", e.target.value)} placeholder="Distribuidora Andina S.A.C." />
           </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Contacto"><input className={inputClass()} value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} placeholder="Nombre del vendedor" /></Field>
+          <Field label="Persona de contacto"><input className={inputClass()} value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} placeholder="Nombre del vendedor" /></Field>
           <Field label="Teléfono"><input className={inputClass()} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="987 654 321" inputMode="tel" /></Field>
           <Field label="Correo"><input type="email" className={inputClass()} value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="ventas@proveedor.pe" /></Field>
           <Field label="Dirección"><input className={inputClass()} value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Av. Argentina 123, Lima" /></Field>

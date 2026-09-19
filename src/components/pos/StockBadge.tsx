@@ -10,8 +10,8 @@ export function stockTone(stock: number, reorderPoint = 0): StockTone {
 
 const TONE = {
   out: { cls: "bg-danger-soft text-danger", label: "Sin stock" },
-  low: { cls: "bg-warning-soft text-warning", label: "Stock bajo" },
-  ok: { cls: "bg-success-soft text-success", label: "Disponible" },
+  low: { cls: "bg-warning-soft text-warning", label: "Quedan pocos" },
+  ok: { cls: "bg-success-soft text-success", label: "Hay stock" },
 } as const;
 
 /** "12 uds · Disponible" pill colored by stock status. */

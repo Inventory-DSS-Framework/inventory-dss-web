@@ -26,9 +26,11 @@ import { suppliersApi } from "@/lib/api";
 import { inputClass, soles } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 import type { SupplierDTO } from "@/types/api";
+import { MoreMenu } from "@/components/simple/MoreMenu";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 const BUILTINS: BuiltinColumn[] = [
-  { key: "business_name", label: "Razón social", locked: true },
+  { key: "business_name", label: "Proveedor", locked: true },
   { key: "ruc", label: "RUC" },
   { key: "contact_name", label: "Contacto" },
   { key: "phone", label: "Teléfono" },
@@ -40,6 +42,8 @@ const BUILTINS: BuiltinColumn[] = [
 ];
 
 const RIGHT_ALIGNED = new Set(["total_purchased"]);
+/** Columns only shown in "Modo experto". */
+const EXPERT_ONLY = new Set(["ruc", "email", "address", "status"]);
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -82,11 +86,12 @@ export default function SuppliersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [expert] = useExpertMode();
 
   const openCreate = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (s: SupplierDTO) => { setEditing(s); setFormOpen(true); };
 
-  const visibleBuiltins = BUILTINS.filter((c) => c.locked || columns.isBuiltinVisible(c.key));
+  const visibleBuiltins = BUILTINS.filter((c) => c.locked || (columns.isBuiltinVisible(c.key) && (expert || !EXPERT_ONLY.has(c.key))));
   const customCols = columns.visibleFields;
 
   const filtered = useMemo(() => {
@@ -109,17 +114,17 @@ export default function SuppliersPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Compras"
         title="Proveedores"
-        description="Tu directorio de proveedores, con lo que les compras y las columnas que tu negocio necesita."
+        description="A quién le compras tu mercadería, cómo contactarlos y cuánto les has comprado."
         action={
           <div className="flex flex-wrap items-center gap-2.5">
-            <Link href="/purchases" className="btn btn-ghost h-10 gap-2 px-3 text-sm">
-              <History className="h-4 w-4" /> Historial
-            </Link>
-            <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={!companyId}>
-              <FileSpreadsheet className="h-4 w-4" /> Importar
-            </Button>
+            <MoreMenu
+              items={[
+                { label: "Ver mis compras", icon: History, onClick: () => router.push("/purchases") },
+                { label: "Importar Excel", hint: "Carga tu lista de proveedores", icon: FileSpreadsheet, onClick: () => setImportOpen(true), disabled: !companyId },
+                { label: "Columnas", hint: "Elige qué ver y crea columnas propias", icon: Columns3, onClick: () => setColumnsOpen(true), disabled: !companyId },
+              ]}
+            />
             <Link href="/purchases/new" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
               <PackagePlus className="h-4 w-4" /> Nueva compra
             </Link>
@@ -130,10 +135,10 @@ export default function SuppliersPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className={cn("grid grid-cols-1 gap-6", expert ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
         <StatCard title="Proveedores" value={String(items.length)} icon={Truck} accent="primary" />
-        <StatCard title="Activos" value={`${active} de ${items.length}`} icon={CheckCircle} accent="success" />
-        <StatCard title={`Total comprado · ${withPurchases} con compras`} value={soles(totalPurchased)} icon={Wallet} accent="primary" />
+        {expert && <StatCard title="Activos" value={`${active} de ${items.length}`} icon={CheckCircle} accent="success" />}
+        <StatCard title={`Total que les compraste · ${withPurchases} con compras`} value={soles(totalPurchased)} icon={Wallet} accent="primary" />
       </div>
 
       <DataState
@@ -144,9 +149,9 @@ export default function SuppliersPage() {
         emptyState={
           <EmptyState
             icon={Truck}
-            title="Registra tu primer proveedor"
-            description="Con RUC, razón social y datos de contacto. Luego registra sus facturas de compra: el stock y el costo promedio se actualizan solos."
-            action={{ label: "Nuevo proveedor", onClick: openCreate }}
+            title="Aún no tienes proveedores"
+            description="Agrega a quien te vende tu mercadería. Luego anota sus facturas en Compras y tu stock se actualiza solo."
+            action={{ label: "Agregar mi primer proveedor", onClick: openCreate }}
             hint={
               <button className="font-semibold text-primary hover:underline" onClick={() => setImportOpen(true)}>
                 ¿Ya tienes una lista en Excel? Impórtala
@@ -158,7 +163,7 @@ export default function SuppliersPage() {
         <Card className="overflow-hidden p-0">
           <div className="flex flex-col gap-3 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-baseline gap-2">
-              <h3 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-text-primary">Directorio</h3>
+              <h3 className="font-display text-[15px] font-semibold tracking-[-0.01em] text-text-primary">Tus proveedores</h3>
               <span className="text-xs text-text-muted tabular-nums">{filtered.length} de {items.length}</span>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -166,12 +171,12 @@ export default function SuppliersPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                 <input
                   className={inputClass(false, "pl-9 py-2")}
-                  placeholder="Buscar por nombre, RUC, contacto…"
+                  placeholder="Busca por nombre, contacto o teléfono…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
-              <div className="sm:w-40">
+              {expert && <div className="sm:w-40">
                 <Select<StatusFilter>
                   value={status}
                   onChange={setStatus}
@@ -181,13 +186,7 @@ export default function SuppliersPage() {
                     { value: "inactive", label: "Inactivos" },
                   ]}
                 />
-              </div>
-              <Button variant="secondary" onClick={() => setColumnsOpen(true)}>
-                <Columns3 className="h-4 w-4" /> Columnas
-                {customCols.length > 0 && (
-                  <span className="rounded-full bg-accent-violet-soft px-1.5 text-[11px] font-semibold text-accent-violet">{customCols.length}</span>
-                )}
-              </Button>
+              </div>}
             </div>
           </div>
 
@@ -221,14 +220,14 @@ export default function SuppliersPage() {
                     </th>
                   ))}
                   <th className="px-3 py-2 text-right">
-                    <button
+                    {expert && <button
                       type="button"
                       onClick={() => setColumnsOpen(true)}
                       title="Agregar o quitar columnas"
                       className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-primary/40 px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:border-primary hover:bg-primary-softer"
                     >
                       <Plus className="h-3 w-3" /> Columna
-                    </button>
+                    </button>}
                   </th>
                 </tr>
               </thead>
@@ -267,7 +266,7 @@ export default function SuppliersPage() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={visibleBuiltins.length + customCols.length + 1} className="px-6 py-14 text-center text-sm text-text-muted">
-                      Ningún proveedor coincide con “{query}”.
+                      No encontramos proveedores con “{query}”.
                     </td>
                   </tr>
                 )}
@@ -292,7 +291,7 @@ export default function SuppliersPage() {
         companyId={companyId}
         entity="supplier"
         entityLabel="proveedores"
-        builtinColumns={BUILTINS}
+        builtinColumns={expert ? BUILTINS : BUILTINS.filter((b) => !EXPERT_ONLY.has(b.key))}
         hiddenBuiltins={columns.hiddenBuiltins}
         onHiddenBuiltinsChange={columns.setHiddenBuiltins}
         fields={columns.fields}

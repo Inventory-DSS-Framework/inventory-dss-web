@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
 import { DataState } from "@/components/ui/DataState";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Bell, AlertTriangle, Info } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
@@ -30,15 +31,21 @@ export default function NotificationsPage() {
   return (
     <div className="max-w-[1000px] mx-auto space-y-6">
       <PageHeader
-        eyebrow="Salida"
-        title="Notificaciones"
-        description="Alertas internas del sistema y eventos relevantes."
+        title="Avisos"
+        description="Te avisamos aquí cuando algo necesita tu atención, como productos que se están acabando."
       />
       <DataState
         loading={notifs.loading}
         error={notifs.error}
         empty={items.length === 0}
-        emptyMessage="No tienes notificaciones."
+        emptyState={
+          <EmptyState
+            icon={Bell}
+            title="No tienes avisos"
+            description="Todo en orden. Cuando un producto se esté acabando o pase algo importante, lo verás aquí."
+            action={{ label: "Ver mi inventario", href: "/inventory" }}
+          />
+        }
         onRetry={notifs.reload}
       >
         <div className="space-y-3">
@@ -57,13 +64,15 @@ export default function NotificationsPage() {
                         onClick={() => markRead(n.id)}
                         className="text-xs font-medium text-text-muted hover:text-primary transition-colors"
                       >
-                        Marcar leída
+                        Ya lo vi
                       </button>
                     </div>
                   )}
                 </div>
                 <p className="text-sm text-text-secondary mt-1">{n.message}</p>
-                <p className="text-xs text-text-muted mt-2">{n.created_at.slice(0, 16).replace("T", " ")}</p>
+                <p className="text-xs text-text-muted mt-2">
+                  {new Date(n.created_at).toLocaleString("es-PE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
               </div>
             </Card>
           ))}

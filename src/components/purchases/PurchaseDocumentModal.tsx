@@ -32,8 +32,8 @@ export function PurchaseDocumentModal({ open, onClose, companyId, documentId }: 
       open={open}
       onClose={onClose}
       size="xl"
-      title={d ? (d.document_number ? `Comprobante ${d.document_number}` : "Compra sin N° de comprobante") : "Documento de compra"}
-      description={d ? `${d.supplier_name} · RUC ${d.supplier_ruc}` : undefined}
+      title={d ? (d.document_number ? `Compra · ${d.document_number}` : "Compra sin número de factura") : "Detalle de la compra"}
+      description={d ? d.supplier_name : undefined}
       footer={
         <>
           {d && (
@@ -54,9 +54,9 @@ export function PurchaseDocumentModal({ open, onClose, companyId, documentId }: 
       ) : d ? (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
-            <Meta icon={FileText} label="N° comprobante" value={d.document_number || "—"} />
+            <Meta icon={FileText} label="N° de factura o boleta" value={d.document_number || "—"} />
             <Meta icon={CalendarDays} label="Fecha" value={fmtDate(d.purchase_date)} />
-            <Meta icon={Truck} label="Unidades" value={`${fmtQty(d.units)} en ${d.lines.length} ${d.lines.length === 1 ? "línea" : "líneas"}`} />
+            <Meta icon={Truck} label="Unidades" value={`${fmtQty(d.units)} de ${d.lines.length} ${d.lines.length === 1 ? "producto" : "productos"}`} />
           </div>
           {d.notes && <p className="rounded-xl bg-surface-soft px-4 py-2.5 text-sm text-text-secondary">{d.notes}</p>}
 
@@ -64,7 +64,7 @@ export function PurchaseDocumentModal({ open, onClose, companyId, documentId }: 
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-soft/60">
-                  {["Código", "Producto", "Cantidad", "Costo unit.", "Subtotal"].map((h, i) => (
+                  {["Código", "Producto", "Cantidad", "Costo c/u", "Subtotal"].map((h, i) => (
                     <th key={h} className={`whitespace-nowrap px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted ${i >= 2 ? "text-right" : ""}`}>
                       {h}
                     </th>
@@ -88,13 +88,13 @@ export function PurchaseDocumentModal({ open, onClose, companyId, documentId }: 
           </div>
 
           <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-            <Row label="Subtotal (valor de compra)" value={soles(subtotal)} />
+            <Row label="Subtotal (sin IGV)" value={soles(subtotal)} />
             <Row label="IGV 18%" value={soles(igv)} />
             <div className="flex items-center justify-between border-t border-border pt-2">
               <span className="font-semibold text-text-primary">Total</span>
               <span className="font-display text-lg font-semibold tabular-nums text-text-primary">{soles(subtotal + igv)}</span>
             </div>
-            <p className="text-[11px] text-text-muted">Los costos se guardan sin IGV (crédito fiscal).</p>
+            <p className="text-[11px] text-text-muted">Guardamos tus costos sin IGV.</p>
           </div>
         </div>
       ) : null}

@@ -66,7 +66,6 @@ export default function UsersPage() {
         <ArrowLeft className="h-4 w-4" /> Configuración
       </Link>
       <PageHeader
-        eyebrow="Configuración"
         title="Usuarios"
         description="Crea usuarios para tus vendedores: ingresan con usuario y contraseña y solo acceden al punto de venta."
         action={
@@ -297,7 +296,7 @@ function CreateUserModal({ open, onClose, companyId, onCreated }: { open: boolea
               onChange={(v) => setRole(v as "seller" | "admin")}
               options={[
                 { value: "seller", label: "Vendedor", description: "Solo punto de venta, sus ventas y consulta de stock" },
-                { value: "admin", label: "Administrador", description: "Acceso completo al ERP" },
+                { value: "admin", label: "Administrador", description: "Puede ver y cambiar todo" },
               ]}
             />
           </Field>

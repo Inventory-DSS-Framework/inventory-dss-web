@@ -22,11 +22,14 @@ import { useColumnConfig } from "@/hooks/useColumnConfig";
 import { purchasingApi, supplierInsightsApi } from "@/lib/apis/purchasing";
 import { soles } from "@/lib/ui";
 import type { PurchaseDocumentPageDTO, SupplierSummaryDTO } from "@/types/purchasing";
+import { useExpertMode } from "@/hooks/useExpertMode";
+import { MoreDetails } from "@/components/simple/MoreMenu";
 
 export default function SupplierDetailPage() {
   const { supplierId } = useParams<{ supplierId: string }>();
   const companyId = useCompanyId();
   const columns = useColumnConfig(companyId, "supplier");
+  const [expert] = useExpertMode();
 
   const summary = useApi<SupplierSummaryDTO | null>(
     () => (companyId && supplierId ? supplierInsightsApi.summary(companyId, supplierId) : Promise.resolve(null)),
@@ -94,14 +97,14 @@ export default function SupplierDetailPage() {
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard title="Total comprado (sin IGV)" value={soles(data.total_purchased)} icon={Wallet} accent="primary" />
-              <StatCard title="Compras (documentos)" value={`${data.documents_count} · ${data.purchases_count} líneas`} icon={Receipt} accent="primary" />
+              <StatCard title="Compras que le hiciste" value={expert ? `${data.documents_count} · ${data.purchases_count} líneas` : String(data.documents_count)} icon={Receipt} accent="primary" />
               <StatCard title="Última compra" value={fmtDate(data.last_purchase_date)} icon={CalendarClock} accent="success" />
               <StatCard title="Productos que te vende" value={String(data.products_count)} icon={Package} accent="success" />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
               <Card className="overflow-hidden p-0">
-                <SectionTitle title="Productos que suministra" subtitle="Cantidades y costos de todas sus compras" />
+                <SectionTitle title="Productos que te vende" subtitle="Cuánto le compraste de cada uno y a qué precio" />
                 {data.products.length === 0 ? (
                   <Empty text="Aún no le registras compras a este proveedor." />
                 ) : (
@@ -110,8 +113,8 @@ export default function SupplierDetailPage() {
                       <thead>
                         <tr className="border-b border-border bg-surface-soft/60">
                           <Th>Producto</Th>
-                          <Th right>Cant. total</Th>
-                          <Th right>Costo prom.</Th>
+                          <Th right>Cantidad total</Th>
+                          <Th right>Costo promedio</Th>
                           <Th right>Último costo</Th>
                           <Th right>Total</Th>
                         </tr>
@@ -122,7 +125,7 @@ export default function SupplierDetailPage() {
                             <td className="px-5 py-3">
                               <Link href={`/inventory/${p.product_id}`} className="group block">
                                 <span className="font-medium text-text-primary group-hover:text-primary">{p.name}</span>
-                                <span className="block font-mono text-[11px] text-text-muted">{p.sku}</span>
+                                {expert && <span className="block font-mono text-[11px] text-text-muted">{p.sku}</span>}
                               </Link>
                             </td>
                             <td className="px-5 py-3 text-right tabular-nums">{fmtQty(p.total_quantity)}</td>
@@ -142,8 +145,8 @@ export default function SupplierDetailPage() {
 
               <Card className="overflow-hidden p-0">
                 <SectionTitle
-                  title="Documentos de compra"
-                  subtitle="Facturas y comprobantes registrados"
+                  title="Sus facturas"
+                  subtitle="Cada compra que le registraste"
                   action={
                     <Link href={`/purchases?supplier=${s.id}`} className="text-xs font-semibold text-primary hover:underline">
                       Ver en historial
@@ -153,7 +156,7 @@ export default function SupplierDetailPage() {
                 {docs.loading ? (
                   <Empty text="Cargando…" />
                 ) : (docs.data?.items ?? []).length === 0 ? (
-                  <Empty text="Sin documentos todavía." />
+                  <Empty text="Aún no le registras compras. Usa “Nueva compra”." />
                 ) : (
                   <ul className="divide-y divide-border-soft">
                     {docs.data!.items.map((d) => (
@@ -167,7 +170,7 @@ export default function SupplierDetailPage() {
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium text-text-primary">
-                              {d.document_number || "Sin N° de comprobante"}
+                              {d.document_number || "Sin número de factura"}
                             </span>
                             <span className="block text-xs text-text-muted">
                               {fmtDate(d.purchase_date)} · {d.lines} {d.lines === 1 ? "producto" : "productos"} · {fmtQty(d.units)} u.
@@ -183,17 +186,18 @@ export default function SupplierDetailPage() {
             </div>
 
             {data.recent_lines.length > 0 && (
+              <MoreDetails summary="Ver más detalle: últimos productos comprados" defaultOpen={expert}>
               <Card className="overflow-hidden p-0">
-                <SectionTitle title="Últimas líneas compradas" subtitle="Detalle por producto, lo más reciente primero" />
+                <SectionTitle title="Últimos productos comprados" subtitle="Lo más reciente primero" />
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border bg-surface-soft/60">
                         <Th>Fecha</Th>
-                        <Th>Comprobante</Th>
+                        <Th>Factura</Th>
                         <Th>Producto</Th>
-                        <Th right>Cant.</Th>
-                        <Th right>Costo unit.</Th>
+                        <Th right>Cantidad</Th>
+                        <Th right>Costo c/u</Th>
                         <Th right>Subtotal</Th>
                       </tr>
                     </thead>
@@ -204,7 +208,7 @@ export default function SupplierDetailPage() {
                           <td className="whitespace-nowrap px-5 py-2.5">
                             {l.document_id ? (
                               <button onClick={() => setDocId(l.document_id)} className="font-medium text-primary hover:underline">
-                                {l.document_number || "Ver documento"}
+                                {l.document_number || "Ver la compra"}
                               </button>
                             ) : (
                               <span className="text-text-secondary">{l.document_number || "—"}</span>
@@ -212,7 +216,7 @@ export default function SupplierDetailPage() {
                           </td>
                           <td className="px-5 py-2.5">
                             <Link href={`/inventory/${l.product_id}`} className="text-text-primary hover:text-primary">{l.product_name}</Link>
-                            <span className="ml-2 font-mono text-[11px] text-text-muted">{l.sku}</span>
+                            {expert && <span className="ml-2 font-mono text-[11px] text-text-muted">{l.sku}</span>}
                           </td>
                           <td className="px-5 py-2.5 text-right tabular-nums">{fmtQty(l.quantity)}</td>
                           <td className="px-5 py-2.5 text-right tabular-nums text-text-secondary">{soles(l.unit_cost)}</td>
@@ -223,6 +227,7 @@ export default function SupplierDetailPage() {
                   </table>
                 </div>
               </Card>
+              </MoreDetails>
             )}
 
             <SupplierFormModal

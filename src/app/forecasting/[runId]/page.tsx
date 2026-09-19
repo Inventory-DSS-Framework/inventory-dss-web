@@ -43,6 +43,8 @@ import {
 import { cn } from "@/lib/utils";
 import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
+import { useExpertMode } from "@/hooks/useExpertMode";
+import { confidenceOf } from "@/components/ftgm/decisions";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { forecastingApi } from "@/lib/api";
 import { ftgmApi } from "@/lib/apis/ftgm";
@@ -75,6 +77,7 @@ export default function ForecastRunDetailPage() {
 
   const [tab, setTab] = useState("resumen");
   const [showTech, setShowTech] = useState(false);
+  const [expert] = useExpertMode();
   const [selected, setSelected] = useState<string | null>(null);
   const [tracking, setTracking] = useState<RunTracking | null>(null);
   const [trackingError, setTrackingError] = useState<string | null>(null);
@@ -109,15 +112,17 @@ export default function ForecastRunDetailPage() {
       </Link>
 
       <PageHeader
-        eyebrow="Motor FTGM · Resultado"
+        eyebrow="¿Cuánto venderé?"
         eyebrowTone="violet"
-        title={r?.scope_description ?? "Resultado del pronóstico"}
+        title={r?.scope_description ?? "Resultado del cálculo"}
         description={
           r
-            ? `Ejecutado el ${dateLabel(r.created_at ?? r.started_at)} · horizonte ${horizonLabel(r.horizon_days)} · frecuencia ${
-                frequencyLabel[r.frequency ?? ""] ?? "mensual"
-              } · ${r.product_count} producto(s)${r.as_of ? ` · historia hasta ${dateLabel(r.as_of)}` : ""}`
-            : "Cargando ejecución…"
+            ? expert
+              ? `Ejecutado el ${dateLabel(r.created_at ?? r.started_at)} · horizonte ${horizonLabel(r.horizon_days)} · frecuencia ${
+                  frequencyLabel[r.frequency ?? ""] ?? "mensual"
+                } · ${r.product_count} producto(s)${r.as_of ? ` · historia hasta ${dateLabel(r.as_of)}` : ""}`
+              : `Calculado el ${dateLabel(r.created_at ?? r.started_at)} para los próximos ${horizonLabel(r.horizon_days)} · ${r.product_count} producto(s)`
+            : "Cargando…"
         }
         action={status ? <Badge variant={status.tone} dot>{status.label}</Badge> : undefined}
       />
@@ -132,8 +137,11 @@ export default function ForecastRunDetailPage() {
         <DataState loading={overview.loading && !ov} error={overview.error} onRetry={overview.reload}>
           {ov && (
             <>
+              <Reliability accuracy={ov.summary.accuracy_pct ?? null} products={ov.summary.products} />
+
               <ActionPlan rows={rows} />
 
+              {expert && (
               <div className="flex justify-center pt-2">
                 <button
                   type="button"
@@ -144,8 +152,9 @@ export default function ForecastRunDetailPage() {
                   {showTech ? "Ocultar detalle técnico" : "Ver detalle técnico (gráficos y métricas del modelo)"}
                 </button>
               </div>
+              )}
 
-              {showTech && (
+              {expert && showTech && (
               <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <Kpi icon={TrendingUp} label="Demanda proyectada" value={units(ov.summary.total_forecast_units)} hint={`${units(ov.summary.next_period_units)} el próximo periodo`} />
@@ -308,6 +317,37 @@ function Trend({ value }: { value: number | null }) {
   );
 }
 
+/**
+ * One plain sentence on how much to trust the numbers: the engine re-ran itself on the
+ * shop's own past months and measured how many units it got right.
+ */
+function Reliability({ accuracy, products }: { accuracy: number | null; products: number }) {
+  if (accuracy == null) return null;
+  const level = confidenceOf(accuracy);
+  const tone =
+    level === "Alta"
+      ? "border-success/30 bg-success-soft/40 text-success"
+      : level === "Media"
+        ? "border-primary/25 bg-primary-soft/40 text-primary"
+        : "border-warning/30 bg-warning-soft/40 text-warning";
+  return (
+    <Card className={cn("flex flex-wrap items-center gap-4", tone)}>
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-surface font-display text-lg font-semibold tabular-nums">
+        {Math.round(accuracy)}%
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-display font-semibold text-text-primary">Confianza {level.toLowerCase()} en este cálculo</p>
+        <p className="text-sm text-text-secondary">
+          Lo probamos con tus propias ventas pasadas: de cada 100 unidades que vendiste, el cálculo acertó unas{" "}
+          {Math.round(accuracy)}
+          {products > 1 ? " (promedio de tus productos, pesando más los que más vendes)." : "."}
+          {level === "Baja" && " Úsalo como referencia y revisa antes de comprar mucho."}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 function accuracy(p: OverviewProduct) {
   const mape = p.holdout?.mape ?? (p.metrics ? Number(p.metrics.mape) : null);
   const mase = p.holdout?.mase ?? (p.metrics?.mase != null ? Number(p.metrics.mase) : null);
@@ -331,6 +371,7 @@ function ProductCard({ p }: { p: OverviewProduct }) {
         <Mini label="Total horizonte" value={units(p.total_forecast_units)} />
         <Mini label="Stock actual" value={units(p.on_hand)} />
         <Mini label="Cobertura" value={p.coverage_days != null ? `${num(p.coverage_days)} días` : "—"} />
+        <Mini label="Precisión (pasado)" value={p.accuracy_pct != null ? `${Math.round(p.accuracy_pct)}%` : "—"} />
         <Mini label={acc.holdout ? "MAPE validación" : "MAPE ajuste"} value={pct(acc.mape)} />
         <Mini label="MASE" value={acc.mase != null ? acc.mase.toFixed(2) : "—"} />
       </div>
@@ -385,6 +426,7 @@ function ProductsTable({
             <tr className="border-b border-border bg-surface-soft/60 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">
               <th className="px-6 py-3">Producto</th>
               <th className="px-4 py-3">Modelo</th>
+              <th className="px-4 py-3">Precisión</th>
               <th className="px-4 py-3">MAPE</th>
               <th className="px-4 py-3">MASE</th>
               <th className="px-4 py-3">Tendencia</th>
@@ -414,6 +456,7 @@ function ProductsTable({
                     <span className="text-text-primary">{modelLabel[p.model_used] ?? p.model_used}</span>
                     {p.order_selected > 0 && <span className="ml-1 text-xs text-text-muted">N={p.order_selected}</span>}
                   </td>
+                  <td className="px-4 py-3 tabular-nums">{p.accuracy_pct != null ? `${Math.round(p.accuracy_pct)}%` : "—"}</td>
                   <td className="px-4 py-3 tabular-nums">{pct(acc.mape)}</td>
                   <td className="px-4 py-3 tabular-nums">{acc.mase != null ? acc.mase.toFixed(2) : "—"}</td>
                   <td className="px-4 py-3">

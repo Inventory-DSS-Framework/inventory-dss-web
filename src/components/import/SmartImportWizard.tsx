@@ -69,9 +69,9 @@ type Cell = { value: string; bad: boolean; msg?: string };
 type Built = { index: number; row: ImportRow; errors: string[]; cells: Cell[] };
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: "upload", label: "Archivo" },
-  { id: "preview", label: "Vista previa y ajustes" },
-  { id: "done", label: "Resultado" },
+  { id: "upload", label: "Elige tu archivo" },
+  { id: "preview", label: "Revisa" },
+  { id: "done", label: "Listo" },
 ];
 
 const NEW_TYPE_OPTIONS: SelectOption<NewType>[] = [
@@ -168,7 +168,7 @@ export function SmartImportWizard({
       setNewLabels(Object.fromEntries(parsed.headers.map((h, i) => [i, h])));
       setStep("preview");
     } catch {
-      setReadError("No pudimos leer el archivo. Usa CSV, XLSX o XLS.");
+      setReadError("No pudimos leer el archivo. Usa un Excel (.xlsx o .xls) o un archivo .csv.");
     } finally {
       setReading(false);
     }
@@ -186,14 +186,14 @@ export function SmartImportWizard({
         value: t.key,
         label: t.label + (t.required ? " *" : ""),
         description: t.hint,
-        group: "Campos del sistema",
+        group: "Datos principales",
         disabled: takenByOthers.has(t.key),
       })),
-      ...custom.map((t) => ({ value: t.key, label: t.label, group: "Tus columnas", disabled: takenByOthers.has(t.key) })),
+      ...custom.map((t) => ({ value: t.key, label: t.label, group: "Columnas propias", disabled: takenByOthers.has(t.key) })),
       ...(allowNewColumns
-        ? [{ value: NEW_COLUMN, label: "Crear columna nueva", group: "Otras opciones", icon: <Plus className="h-3.5 w-3.5 text-primary" /> }]
+        ? [{ value: NEW_COLUMN, label: "Guardar como columna propia", group: "Otras opciones", icon: <Plus className="h-3.5 w-3.5 text-primary" /> }]
         : []),
-      { value: IGNORE, label: "No importar", group: "Otras opciones", icon: <EyeOff className="h-3.5 w-3.5 text-text-muted" /> },
+      { value: IGNORE, label: "No cargar esta columna", group: "Otras opciones", icon: <EyeOff className="h-3.5 w-3.5 text-text-muted" /> },
     ];
   };
 
@@ -355,7 +355,7 @@ export function SmartImportWizard({
       setResult(res);
       setStep("done");
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : "No se pudo completar la importación.");
+      setImportError(err instanceof Error ? err.message : "No se pudo terminar de cargar tu archivo. Inténtalo de nuevo.");
     } finally {
       setImporting(false);
     }
@@ -363,7 +363,7 @@ export function SmartImportWizard({
 
   const importCount = onlyValid ? validCount : active.length;
   const stepIndex = STEPS.findIndex((s) => s.id === step);
-  const reason = blockReason ?? (missingRequired.length ? `Asigna: ${missingRequired.map((t) => t.label).join(", ")}` : null);
+  const reason = blockReason ?? (missingRequired.length ? `Te falta indicar: ${missingRequired.map((t) => t.label).join(", ")}` : null);
 
   const footer = (
     <div className="flex w-full items-center justify-between gap-3">
@@ -439,11 +439,11 @@ export function SmartImportWizard({
             <div>
               <p className="font-display text-base font-semibold text-text-primary">{reading ? "Leyendo tu archivo…" : "Arrastra tu Excel o CSV aquí"}</p>
               <p className="mt-1 text-sm text-text-secondary">
-                o haz clic para elegirlo. Antes de guardar verás una vista previa donde puedes editar todo.
+                o haz clic para elegirlo. Antes de guardar podrás revisar y corregir todo.
               </p>
             </div>
             <div className="flex gap-1.5">
-              {["XLSX", "XLS", "CSV"].map((t) => (
+              {["Excel", "CSV"].map((t) => (
                 <span key={t} className="rounded-md bg-surface px-2 py-0.5 text-[10px] font-bold text-text-muted ring-1 ring-border">{t}</span>
               ))}
             </div>
@@ -461,9 +461,9 @@ export function SmartImportWizard({
           </div>
           <ol className="grid gap-2 sm:grid-cols-3">
             {[
-              { icon: Wand2, t: "Detectamos tus columnas", d: "Sin importar el orden ni el nombre." },
-              { icon: Pencil, t: "Edita antes de guardar", d: "Corrige celdas, renombra o ignora columnas." },
-              { icon: CheckCircle2, t: "Importa lo que está bien", d: "Las filas con error no frenan al resto." },
+              { icon: Wand2, t: "Entendemos tu Excel", d: "No importa el orden ni cómo se llamen tus columnas." },
+              { icon: Pencil, t: "Revisa antes de guardar", d: "Puedes corregir cualquier dato o quitar columnas." },
+              { icon: CheckCircle2, t: "Se carga lo que está bien", d: "Si una fila tiene un error, las demás igual se cargan." },
             ].map((s, i) => (
               <li key={s.t} className="flex items-start gap-3 rounded-2xl border border-border bg-surface px-3.5 py-3">
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary"><s.icon className="h-3.5 w-3.5" /></span>
@@ -483,7 +483,7 @@ export function SmartImportWizard({
         <div className="space-y-3">
           {/* Status + filters */}
           <div className="flex flex-wrap items-center gap-2">
-            <FilterChip active={filter === "all"} onClick={() => setFilter("all")} tone="success" icon={CheckCircle2} label="Listas" value={validCount} />
+            <FilterChip active={filter === "all"} onClick={() => setFilter("all")} tone="success" icon={CheckCircle2} label="Bien" value={validCount} />
             <FilterChip active={filter === "errors"} onClick={() => setFilter("errors")} tone={invalidCount ? "danger" : "muted"} icon={AlertTriangle} label="Con errores" value={invalidCount} />
             <FilterChip active={filter === "edited"} onClick={() => setFilter("edited")} tone="primary" icon={Pencil} label="Editadas" value={rowsEdited.size} />
             {newColumns.length > 0 && (
@@ -515,7 +515,7 @@ export function SmartImportWizard({
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {missingRequired.length > 0 && (
                 <span>
-                  Falta asignar {missingRequired.map((t) => <strong key={t.key} className="mx-0.5">{t.label}</strong>)} — elige en el encabezado de la columna que corresponda.
+                  Dinos en qué columna está {missingRequired.map((t) => <strong key={t.key} className="mx-0.5">{t.label}</strong>)}: elígelo arriba, en el título de esa columna.
                 </span>
               )}
               {blockReason && <span>{blockReason}</span>}
@@ -526,12 +526,12 @@ export function SmartImportWizard({
 
           <div className="flex items-center justify-between gap-3 text-xs text-text-muted">
             <span className="inline-flex items-center gap-1.5">
-              <Wand2 className="h-3.5 w-3.5 text-primary" /> Haz clic en una celda para editarla · <kbd className="rounded border border-border px-1 font-mono text-[10px]">Enter</kbd> baja · <kbd className="rounded border border-border px-1 font-mono text-[10px]">Tab</kbd> avanza
+              <Wand2 className="h-3.5 w-3.5 text-primary" /> Toca una celda para corregirla
             </span>
             {invalidCount > 0 && (
               <label className="inline-flex cursor-pointer items-center gap-2 text-text-secondary">
                 <input type="checkbox" checked={onlyValid} onChange={(e) => setOnlyValid(e.target.checked)} className="accent-[rgb(var(--c-primary))]" />
-                Omitir filas con errores
+                Saltar las filas con errores
               </label>
             )}
           </div>
@@ -569,7 +569,7 @@ export function SmartImportWizard({
                                 m.confidence === "alta" ? "bg-success-soft text-success" : m.confidence === "media" ? "bg-primary-soft text-primary" : "bg-warning-soft text-warning",
                               )}
                             >
-                              {m.confidence === "alta" ? "Detectado" : m.confidence === "media" ? "Probable" : "Revisar"}
+                              {m.confidence === "alta" ? "Lo reconocimos" : m.confidence === "media" ? "Creemos que es" : "Revísalo"}
                             </span>
                           )}
                         </div>
@@ -595,7 +595,7 @@ export function SmartImportWizard({
                               <button
                                 type="button"
                                 onClick={() => setRenaming(i)}
-                                title="Renombrar la nueva columna"
+                                title="Cambiar el nombre de la columna"
                                 className="flex h-8 min-w-0 items-center gap-1 rounded-lg border border-accent-violet/25 bg-surface px-2 text-left text-xs font-medium text-accent-violet hover:border-accent-violet/50"
                               >
                                 <Pencil className="h-3 w-3 shrink-0" />
@@ -692,7 +692,7 @@ export function SmartImportWizard({
                 {visibleRows.length === 0 && (
                   <tr>
                     <td colSpan={headers.length + 1} className="px-6 py-12 text-center text-sm text-text-muted">
-                      {filter === "errors" ? "¡Sin errores! Todo listo para importar." : "Ninguna fila coincide."}
+                      {filter === "errors" ? "¡Sin errores! Todo listo para cargar." : "No hay filas aquí."}
                     </td>
                   </tr>
                 )}
@@ -739,11 +739,11 @@ export function SmartImportWizard({
             <div className="grid h-16 w-16 animate-scale-in place-items-center rounded-full bg-success-soft text-success">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <p className="font-display text-xl font-bold text-text-primary">Importación completada</p>
+            <p className="font-display text-xl font-bold text-text-primary">¡Listo! Ya cargamos tu archivo</p>
             <p className="text-sm text-text-secondary">
               {result.created} {entityLabel} creados
               {result.updated ? ` · ${result.updated} actualizados` : ""}
-              {result.skipped ? ` · ${result.skipped} omitidos` : ""}
+              {result.skipped ? ` · ${result.skipped} saltados` : ""}
             </p>
           </div>
           {result.notes?.map((n) => (
@@ -751,7 +751,7 @@ export function SmartImportWizard({
           ))}
           {result.errors.length > 0 && (
             <div className="rounded-2xl border border-danger/25 bg-danger-soft/40 p-4">
-              <p className="mb-2 text-sm font-semibold text-danger">{result.errors.length} filas no se pudieron importar</p>
+              <p className="mb-2 text-sm font-semibold text-danger">{result.errors.length} filas no se pudieron cargar</p>
               <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-text-secondary">
                 {result.errors.map((e, i) => (
                   <li key={i}>Fila {e.row}: {e.message}</li>

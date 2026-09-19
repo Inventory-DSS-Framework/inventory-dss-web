@@ -28,6 +28,8 @@ export type NavGroup = {
   icon?: typeof LayoutDashboard;
   /** "brand" tints the whole group (the FTGM engine, set apart from day-to-day ERP work). */
   tone?: "brand";
+  /** Plain-words subtitle shown under the group label (the FTGM brand needs one). */
+  hint?: string;
   items: NavItem[];
 };
 
@@ -67,10 +69,11 @@ export const adminNav: NavGroup[] = [
     label: "Motor FTGM",
     icon: BrainCircuit,
     tone: "brand",
+    hint: "Te ayuda a saber cuánto venderás y qué comprar",
     items: [
-      { name: "Pronóstico", href: "/forecasting", icon: Activity },
-      { name: "Recomendaciones", href: "/recommendations", icon: Lightbulb },
-      { name: "KPIs", href: "/kpis", icon: BarChart2 },
+      { name: "¿Cuánto venderé?", href: "/forecasting", icon: Activity },
+      { name: "Qué comprar", href: "/recommendations", icon: Lightbulb },
+      { name: "Mis números", href: "/kpis", icon: BarChart2 },
       { name: "Reportes", href: "/reports", icon: FileText },
     ],
   },
@@ -226,6 +229,10 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                 </div>
               )}
 
+              {!collapsed && section.hint && ftgmOpen && brand && (
+                <p className="-mt-1 mb-1.5 px-3 text-[11px] leading-snug text-text-muted">{section.hint}</p>
+              )}
+
               {brand && !collapsed && !ftgmOpen ? (
                 <button
                   type="button"
@@ -238,7 +245,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13px] font-semibold text-text-primary">Explorar el Motor FTGM</span>
-                    <span className="block text-[11px] leading-snug text-text-muted">Pronóstico, compras sugeridas y KPIs</span>
+                    <span className="block text-[11px] leading-snug text-text-muted">Cuánto venderás y qué comprar</span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-accent-violet transition-transform group-hover:translate-x-0.5" />
                 </button>

@@ -10,7 +10,7 @@ import { salesHistoryApi } from "@/lib/apis/pos";
 
 const TARGETS: ImportTargetField[] = [
   { key: "sale_date", label: "Fecha", required: true, type: "date", synonyms: ["fecha", "fecha de venta", "fecha venta", "fecha emisión", "fecha emision", "día", "dia", "date"] },
-  { key: "code", label: "Código (SKU)", synonyms: ["código", "codigo", "cod", "cód", "código producto", "codigo producto", "sku", "item", "ref"], hint: "Así encontramos el producto" },
+  { key: "code", label: "Código", synonyms: ["código", "codigo", "cod", "cód", "código producto", "codigo producto", "sku", "item", "ref"], hint: "Así encontramos el producto" },
   { key: "barcode", label: "Código de barras", synonyms: ["ean", "ean13", "código de barras", "codigo de barras", "cod barras", "cod barra", "barcode", "upc"] },
   { key: "name", label: "Producto", synonyms: ["producto", "descripción", "descripcion", "artículo", "articulo", "detalle", "nombre"], hint: "Si no hay código, se busca por nombre exacto" },
   { key: "quantity", label: "Cantidad", required: true, type: "integer", synonyms: ["cantidad", "cant", "cant.", "unidades", "qty", "und"] },
@@ -71,10 +71,10 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished, mode =
     const notes: string[] = [];
     if (res.created > 0) {
       notes.push(
-        `${res.tickets.toLocaleString("es-PE")} tickets · ${res.units.toLocaleString("es-PE")} unidades · ${soles(res.revenue)}` +
+        `${res.tickets.toLocaleString("es-PE")} ventas · ${res.units.toLocaleString("es-PE")} unidades · ${soles(res.revenue)}` +
           (res.period_start && res.period_end ? ` · del ${fmt(res.period_start)} al ${fmt(res.period_end)}` : ""),
       );
-      notes.push("Ya aparecen en Ventas › Tickets, en tu panel y en el Motor FTGM.");
+      notes.push("Ya aparecen en tus Ventas y en tu Inicio.");
       notes.push(affectStock ? "Se descontó el stock de cada producto." : "Tu stock no se modificó.");
     }
     return { created: res.created, errors: res.errors, notes };
@@ -84,7 +84,7 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished, mode =
     <SmartImportWizard
       open={open}
       onClose={onClose}
-      title={mode === "stock" ? "Carga masiva de ventas" : "Importar ventas"}
+      title={mode === "stock" ? "Cargar muchas ventas a la vez" : "Importar ventas pasadas"}
       entityLabel="ventas"
       targetFields={TARGETS}
       allowNewColumns={false}
@@ -92,10 +92,9 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished, mode =
       onFinished={onFinished}
       uploadHint={
         <p>
-          Sube el reporte de ventas de tu sistema anterior, de otro canal o tu Excel: una fila por producto vendido con
-          <strong> fecha</strong>, <strong>cantidad</strong> y código, código de barras o nombre del producto. Si trae
-          <strong> comprobante</strong>, las filas del mismo comprobante forman un ticket (con su cliente y medio de pago).
-          Importa primero tu inventario.
+          Sube tu Excel de ventas: una fila por cada producto vendido, con la <strong>fecha</strong>, la
+          <strong> cantidad</strong> y el nombre o código del producto. Si tiene el número de <strong>boleta o factura</strong>,
+          juntamos esas filas en una sola venta. Antes, asegúrate de haber cargado tus productos.
         </p>
       }
       mappingExtra={
@@ -117,7 +116,7 @@ export function SalesImportWizard({ open, onClose, companyId, onFinished, mode =
             </span>
             <span className="mt-1 block text-xs text-text-secondary">
               {affectStock
-                ? "Cada venta resta unidades de tu inventario. Úsalo para ventas nuevas de otro canal; las filas sin stock se rechazan."
+                ? "Cada venta resta unidades de tu stock. Úsalo para ventas nuevas hechas fuera de la tienda; si no hay stock, esa fila no se carga."
                 : "Tu stock no cambia. Es lo correcto para ventas pasadas: tu stock actual ya las refleja."}
             </span>
           </span>

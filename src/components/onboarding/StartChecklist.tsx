@@ -27,14 +27,14 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
         <div className="min-w-0">
           <p className="font-display font-semibold text-text-primary">Todo listo 🎉</p>
           <p className="text-sm text-text-secondary">
-            Tu pipeline está completo. Explora tus pronósticos, KPIs y recomendaciones.
+            Ya está todo listo. Mira cuánto venderás, qué comprar y cómo van tus números.
           </p>
         </div>
         <Link
           href="/forecasting"
           className="ml-auto hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:text-primary-hover"
         >
-          Ver pronósticos <ArrowRight className="h-3.5 w-3.5" />
+          Ver cuánto venderé <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </Card>
     );
@@ -55,7 +55,7 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
           <div>
             <h3 className="font-display font-semibold text-text-primary">Primeros pasos</h3>
             <p className="text-xs text-text-secondary">
-              Dos fases: carga tus datos (ERP) y luego pronostica con el motor FTGM.
+              Dos pasos: carga tus productos y ventas, y luego calcula cuánto venderás.
             </p>
           </div>
         </div>

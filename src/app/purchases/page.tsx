@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, FileText, PackagePlus, Receipt, Search, Wallet, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, FileText, PackagePlus, Receipt, Search, Wallet, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +19,8 @@ import { purchasingApi } from "@/lib/apis/purchasing";
 import { inputClass, soles } from "@/lib/ui";
 import type { SupplierDTO } from "@/types/api";
 import type { PurchaseDocumentPageDTO } from "@/types/purchasing";
+import { useExpertMode } from "@/hooks/useExpertMode";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 25;
 
@@ -31,6 +33,8 @@ export default function PurchasesHistoryPage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [docId, setDocId] = useState<string | null>(null);
+  const [expert] = useExpertMode();
+  const [datesOpen, setDatesOpen] = useState(false);
 
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get("supplier");
@@ -56,10 +60,11 @@ export default function PurchasesHistoryPage() {
   const supplierOptions = useMemo(
     () => [
       { value: "", label: "Todos los proveedores" },
-      ...(suppliers.data ?? []).map((s) => ({ value: s.id, label: s.business_name, description: `RUC ${s.ruc}` })),
+      ...(suppliers.data ?? []).map((s) => ({ value: s.id, label: s.business_name, description: expert ? `RUC ${s.ruc}` : undefined })),
     ],
-    [suppliers.data],
+    [suppliers.data, expert],
   );
+  const showDates = expert || datesOpen || !!(dateFrom || dateTo);
 
   const items = docs.data?.items ?? [];
   const pageTotal = items.reduce((a, d) => a + num(d.total), 0);
@@ -76,9 +81,8 @@ export default function PurchasesHistoryPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Compras"
-        title="Historial de compras"
-        description="Cada comprobante de proveedor con sus productos, unidades y total."
+        title="Compras"
+        description="Todo lo que le compraste a tus proveedores. Toca una compra para ver qué productos trajo."
         action={
           <Link href="/purchases/new" className="btn btn-primary h-10 gap-2 px-4 text-sm">
             <PackagePlus className="h-4 w-4" /> Nueva compra
@@ -86,29 +90,37 @@ export default function PurchasesHistoryPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <StatCard title={hasFilters ? "Documentos (filtrados)" : "Documentos"} value={String(docs.data?.total ?? 0)} icon={Receipt} accent="primary" />
-        <StatCard title="Monto de esta página (sin IGV)" value={soles(pageTotal)} icon={Wallet} accent="primary" />
-        <StatCard title="Unidades de esta página" value={fmtQty(pageUnits)} icon={PackagePlus} accent="success" />
+      <div className={cn("grid grid-cols-1 gap-6", expert ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        <StatCard title={hasFilters ? "Compras encontradas" : "Compras registradas"} value={String(docs.data?.total ?? 0)} icon={Receipt} accent="primary" />
+        <StatCard title="Total de las compras en pantalla (sin IGV)" value={soles(pageTotal)} icon={Wallet} accent="primary" />
+        {expert && <StatCard title="Unidades de esta página" value={fmtQty(pageUnits)} icon={PackagePlus} accent="success" />}
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="grid gap-3 border-b border-border px-5 py-4 md:grid-cols-[1.2fr_1fr_150px_150px_auto] md:items-end">
+        <div className={cn("grid gap-3 border-b border-border px-5 py-4 md:items-end", showDates ? "md:grid-cols-[1.2fr_1fr_150px_150px_auto]" : "md:grid-cols-[1.2fr_1fr_auto_auto]")}>
           <FilterField label="Buscar">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-              <input className={inputClass(false, "pl-9 py-2")} placeholder="N° comprobante, proveedor o RUC" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input className={inputClass(false, "pl-9 py-2")} placeholder="N° de factura o proveedor" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </FilterField>
           <FilterField label="Proveedor">
             <Select value={supplierId} onChange={setSupplierId} options={supplierOptions} searchable />
           </FilterField>
-          <FilterField label="Desde">
-            <input type="date" className={inputClass(false, "py-2")} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </FilterField>
-          <FilterField label="Hasta">
-            <input type="date" className={inputClass(false, "py-2")} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </FilterField>
+          {showDates ? (
+            <>
+              <FilterField label="Desde">
+                <input type="date" className={inputClass(false, "py-2")} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              </FilterField>
+              <FilterField label="Hasta">
+                <input type="date" className={inputClass(false, "py-2")} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </FilterField>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={() => setDatesOpen(true)}>
+              <CalendarDays className="h-4 w-4" /> Filtrar por fechas
+            </Button>
+          )}
           <Button variant="ghost" onClick={clear} disabled={!hasFilters}>
             <X className="h-4 w-4" /> Limpiar
           </Button>
@@ -121,14 +133,14 @@ export default function PurchasesHistoryPage() {
           empty={items.length === 0}
           emptyState={
             hasFilters ? (
-              <p className="px-6 py-14 text-center text-sm text-text-muted">No hay compras con esos filtros.</p>
+              <p className="px-6 py-14 text-center text-sm text-text-muted">No encontramos compras con esa búsqueda. Prueba con “Limpiar”.</p>
             ) : (
               <EmptyState
                 className="m-5"
                 icon={Receipt}
                 title="Aún no registras compras"
-                description="Registra la factura de tu proveedor o sube un Excel: el stock y el costo promedio se actualizan solos."
-                action={{ label: "Registrar compra", href: "/purchases/new" }}
+                description="Cuando te llegue mercadería, anota la factura de tu proveedor aquí. Tu stock y tus costos se actualizan solos."
+                action={{ label: "Registrar mi primera compra", href: "/purchases/new" }}
               />
             )
           }
@@ -137,7 +149,7 @@ export default function PurchasesHistoryPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-soft/60">
-                  {["Fecha", "Comprobante", "Proveedor", "Productos", "Unidades", "Total (sin IGV)"].map((h, i) => (
+                  {["Fecha", "N° de factura/boleta", "Proveedor", "Productos", "Unidades", "Total (sin IGV)"].map((h, i) => (
                     <th key={h} className={`whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted ${i >= 3 ? "text-right" : ""}`}>
                       {h}
                     </th>
@@ -162,7 +174,7 @@ export default function PurchasesHistoryPage() {
                       <Link href={`/suppliers/${d.supplier_id}`} onClick={(e) => e.stopPropagation()} className="font-medium text-text-primary hover:text-primary">
                         {d.supplier_name}
                       </Link>
-                      <span className="block font-mono text-[11px] text-text-muted">RUC {d.supplier_ruc}</span>
+                      {expert && <span className="block font-mono text-[11px] text-text-muted">RUC {d.supplier_ruc}</span>}
                     </td>
                     <td className="px-5 py-3.5 text-right tabular-nums">{d.lines}</td>
                     <td className="px-5 py-3.5 text-right tabular-nums">{fmtQty(d.units)}</td>
@@ -175,7 +187,7 @@ export default function PurchasesHistoryPage() {
           {docs.data && docs.data.pages > 1 && (
             <div className="flex items-center justify-between border-t border-border px-5 py-3 text-sm">
               <span className="text-text-muted">
-                Página {docs.data.page} de {docs.data.pages} · {docs.data.total} documentos
+                Página {docs.data.page} de {docs.data.pages} · {docs.data.total} compras
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>

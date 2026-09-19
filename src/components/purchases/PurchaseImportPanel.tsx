@@ -26,14 +26,14 @@ interface Props {
 }
 
 const BASE_TARGETS: ImportTargetField[] = [
-  { key: "code", label: "Código", synonyms: ["codigo", "cod", "sku", "item", "codigo producto", "cod producto", "codigo interno", "cod item"], hint: "Código del producto (SKU)" },
+  { key: "code", label: "Código", synonyms: ["codigo", "cod", "sku", "item", "codigo producto", "cod producto", "codigo interno", "cod item"], hint: "El código de tu producto" },
   { key: "barcode", label: "Código de barras", synonyms: ["ean", "ean13", "codigo de barras", "cod barras", "upc", "barcode"] },
   { key: "name", label: "Producto", synonyms: ["producto", "descripcion", "articulo", "nombre", "detalle", "nombre producto", "descripcion producto"] },
   { key: "quantity", label: "Cantidad", required: true, type: "integer", synonyms: ["cantidad", "cant", "unidades", "qty", "und", "unid"] },
-  { key: "unit_cost", label: "Costo unitario", required: true, type: "number", synonyms: ["costo", "costo unitario", "precio compra", "p unit", "valor unitario", "precio unitario", "costo unit", "pu"] },
+  { key: "unit_cost", label: "Costo c/u", required: true, type: "number", synonyms: ["costo", "costo unitario", "precio compra", "p unit", "valor unitario", "precio unitario", "costo unit", "pu"] },
   { key: "unit_price", label: "Precio de venta", type: "number", synonyms: ["precio venta", "pvp", "precio de venta", "precio publico", "p venta"] },
   { key: "purchase_date", label: "Fecha", type: "date", synonyms: ["fecha", "fecha emision", "fecha de emision", "fecha compra"] },
-  { key: "document_number", label: "N° comprobante", synonyms: ["factura", "comprobante", "documento", "n doc", "nro doc", "numero documento", "serie numero", "n factura"] },
+  { key: "document_number", label: "N° de factura o boleta", synonyms: ["factura", "comprobante", "documento", "n doc", "nro doc", "numero documento", "serie numero", "n factura"] },
 ];
 
 export function PurchaseImportPanel({ companyId, suppliers, productFields, initialSupplierId, onImported }: Props) {
@@ -57,7 +57,7 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
       <p className="font-display text-sm font-semibold text-text-primary">Datos de la compra</p>
       <div>
         <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">Proveedor <span className="text-danger">*</span></span>
-        <Select value={supplierId} onChange={setSupplierId} options={supplierOptions} searchable placeholder="Elige el proveedor" invalid={!supplierId} />
+        <Select value={supplierId} onChange={setSupplierId} options={supplierOptions} searchable placeholder="¿A quién le compraste?" invalid={!supplierId} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -65,11 +65,11 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
           <input type="date" className={inputClass(false, "px-2.5 py-2 text-xs")} value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">N° comprob.</span>
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">N° factura</span>
           <input className={inputClass(false, "px-2.5 py-2 text-xs font-mono")} value={docNumber} onChange={(e) => setDocNumber(e.target.value.toUpperCase())} placeholder="F001-123" />
         </div>
       </div>
-      <p className="text-[11px] text-text-muted">Si el archivo trae fecha o comprobante por fila, esos valores mandan.</p>
+      <p className="text-[11px] text-text-muted">Si tu Excel ya tiene fecha o N° de factura en cada fila, usamos esos.</p>
       <label className="flex items-center gap-2 text-xs text-text-secondary">
         <input type="checkbox" checked={includeIgv} onChange={(e) => setIncludeIgv(e.target.checked)} className="accent-[rgb(var(--c-primary))]" />
         Los costos del archivo incluyen IGV
@@ -85,20 +85,20 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
             <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-primary-soft text-primary">
               <FileSpreadsheet className="h-6 w-6" />
             </div>
-            <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-text-primary">Carga masiva desde Excel o CSV</h3>
+            <h3 className="font-display text-xl font-semibold tracking-[-0.02em] text-text-primary">Sube tus compras desde Excel</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
               Sube el detalle de la factura o tu propia planilla: detectamos las columnas, reconocemos tus productos y creamos los que
               faltan. Todo ingresa al stock con su costo.
             </p>
             <ul className="mt-5 grid gap-3 sm:grid-cols-3">
-              <Step icon={Hash} title="Por código" text="Si la fila trae código (SKU), buscamos ese producto." />
-              <Step icon={ScanBarcode} title="Por barras o nombre" text="Si no, por código de barras o nombre exacto." />
-              <Step icon={Sparkles} title="Crea lo nuevo" text="Lo que no existe se crea con su código o un correlativo." />
+              <Step icon={Hash} title="Por código" text="Si la fila tiene código, buscamos ese producto." />
+              <Step icon={ScanBarcode} title="Por barras o nombre" text="Si no, lo buscamos por código de barras o por nombre." />
+              <Step icon={Sparkles} title="Crea lo nuevo" text="Si el producto no existe, lo creamos por ti." />
             </ul>
           </div>
           <div className="flex flex-col items-stretch gap-3 rounded-3xl border-2 border-dashed border-border bg-surface-soft p-6 text-center">
             <UploadCloud className="mx-auto h-8 w-8 text-primary" />
-            <p className="text-sm text-text-secondary">Columnas mínimas: <strong className="text-text-primary">cantidad</strong> y <strong className="text-text-primary">costo</strong>, más código o nombre.</p>
+            <p className="text-sm text-text-secondary">Tu Excel necesita al menos: <strong className="text-text-primary">cantidad</strong>, <strong className="text-text-primary">costo</strong> y el nombre o código del producto.</p>
             <Button onClick={() => setOpen(true)} disabled={!companyId}>
               <FileSpreadsheet className="h-4 w-4" /> Subir archivo
             </Button>
@@ -114,7 +114,7 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-display font-semibold text-text-primary">Última importación</p>
+                <p className="font-display font-semibold text-text-primary">Lo último que subiste</p>
                 <p className="text-sm text-text-secondary">
                   {result.created_lines} líneas · {fmtQty(result.units)} unidades · {soles(result.total)} (IGV incl.) · {supplier?.business_name}
                 </p>
@@ -127,10 +127,10 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
             <div className="flex flex-wrap gap-2">
               {result.batch_ids.map((id, i) => (
                 <Button key={id} variant="secondary" size="sm" onClick={() => setDocId(id)}>
-                  <FileText className="h-3.5 w-3.5" /> {result.batch_ids.length > 1 ? `Documento ${i + 1}` : "Ver documento"}
+                  <FileText className="h-3.5 w-3.5" /> {result.batch_ids.length > 1 ? `Compra ${i + 1}` : "Ver la compra"}
                 </Button>
               ))}
-              <Link href="/purchases" className="btn btn-ghost h-8 px-3 text-[13px]">Historial</Link>
+              <Link href="/purchases" className="btn btn-ghost h-8 px-3 text-[13px]">Ver mis compras</Link>
             </div>
           </div>
 
@@ -174,7 +174,7 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
       <SmartImportWizard
         open={open}
         onClose={() => setOpen(false)}
-        title="Carga masiva de compras"
+        title="Subir compras desde Excel"
         entityLabel="líneas de compra"
         targetFields={targets}
         allowNewColumns
@@ -190,11 +190,11 @@ export function PurchaseImportPanel({ companyId, suppliers, productFields, initi
               Si tu archivo trae el código del producto, lo usamos; si no, creamos un código correlativo automático (P-000123) para cada
               producto nuevo.
             </p>
-            <p className="text-text-muted">Las columnas extra (marca, talla, lote…) pueden guardarse como columnas del producto.</p>
+            <p className="text-text-muted">Las columnas extra (marca, talla, vencimiento…) se pueden guardar como columnas propias del producto.</p>
           </div>
         }
         onImport={async (rows, newColumns) => {
-          if (!companyId) throw new Error("Sin empresa activa.");
+          if (!companyId) throw new Error("Vuelve a iniciar sesión.");
           if (!supplierId) throw new Error("Elige el proveedor");
           if (newColumns.length > 0) {
             await customFieldsApi.ensure(companyId, "product", newColumns.map((c) => ({ label: c.label, field_type: c.field_type })));

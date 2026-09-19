@@ -6,9 +6,9 @@ export type StockStatus = "sin_stock" | "critico" | "reordenar" | "ok";
 
 export const STOCK_STATUS_LABEL: Record<StockStatus, string> = {
   sin_stock: "Sin stock",
-  critico: "Crítico",
-  reordenar: "Reordenar",
-  ok: "OK",
+  critico: "Por acabarse",
+  reordenar: "Hay que comprar",
+  ok: "Bien",
 };
 
 export interface InventoryOverviewItem {
@@ -78,7 +78,7 @@ export type AdjustmentReason = "conteo" | "merma" | "robo" | "vencido" | "otro";
 
 export const ADJUSTMENT_REASON_LABEL: Record<AdjustmentReason, string> = {
   conteo: "Conteo físico",
-  merma: "Merma",
+  merma: "Dañado o roto",
   robo: "Robo o pérdida",
   vencido: "Producto vencido",
   otro: "Otro motivo",

@@ -16,9 +16,9 @@ interface ReportFormModalProps {
 }
 
 const REPORT_TYPES: { value: ReportType; label: string; hint: string }[] = [
-  { value: "forecast", label: "Pronóstico de demanda", hint: "Predicciones del modelo FTGM por producto." },
-  { value: "kpi", label: "Indicadores (KPIs)", hint: "Cobertura, riesgo de quiebre y rotación." },
-  { value: "recommendation", label: "Recomendaciones", hint: "Sugerencias de reabastecimiento accionables." },
+  { value: "forecast", label: "¿Cuánto venderé?", hint: "Cuánto calculamos que venderás de cada producto. Úsalo para planificar tus compras." },
+  { value: "kpi", label: "Mis números", hint: "Para cuántos días te alcanza el stock y qué productos se pueden acabar." },
+  { value: "recommendation", label: "Qué comprar", hint: "La lista de compras sugerida. Llévala a tu proveedor." },
 ];
 
 export function ReportFormModal({ open, onClose, companyId, onSaved }: ReportFormModalProps) {
@@ -36,14 +36,13 @@ export function ReportFormModal({ open, onClose, companyId, onSaved }: ReportFor
 
   const submit = async () => {
     if (!companyId) return;
-    if (!title.trim()) {
-      setError("El título es obligatorio");
-      return;
-    }
+    // The name is optional for the owner: default to "<tipo> — <fecha>".
+    const label = REPORT_TYPES.find((rt) => rt.value === type)?.label ?? "Reporte";
+    const name = title.trim() || `${label} — ${new Date().toLocaleDateString("es-PE", { day: "numeric", month: "short", year: "numeric" })}`;
     setSaving(true);
     setError(null);
     try {
-      await reportsApi.create(companyId, { title: title.trim(), report_type: type });
+      await reportsApi.create(companyId, { title: name, report_type: type });
       onSaved();
       onClose();
     } catch (err) {
@@ -78,17 +77,19 @@ export function ReportFormModal({ open, onClose, companyId, onSaved }: ReportFor
         )}
 
         <label className="block">
-          <span className="block text-sm font-medium text-text-primary mb-1.5">Título</span>
+          <span className="block text-sm font-medium text-text-primary mb-1.5">
+            Ponle un nombre <span className="font-normal text-text-muted">(opcional)</span>
+          </span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Reporte de pronóstico — Junio"
+            placeholder="Ej.: Compras de junio"
             className="w-full bg-surface-soft border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:bg-surface focus:border-primary/40 focus:ring-4 focus:ring-primary/10 transition-all"
           />
         </label>
 
         <div>
-          <span className="block text-sm font-medium text-text-primary mb-2">Tipo de reporte</span>
+          <span className="block text-sm font-medium text-text-primary mb-2">¿Qué quieres descargar?</span>
           <div className="space-y-2">
             {REPORT_TYPES.map((rt) => {
               const active = rt.value === type;

@@ -60,9 +60,7 @@ export function CartPanel({ lines, onQuantity, onPrice, onDiscount, onRemove, on
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-text-primary" title={p.name}>{p.name}</p>
-                        <p className="font-mono text-[11px] text-text-muted">
-                          {p.sku} · stock {p.stock_on_hand}
-                        </p>
+                        <p className="text-[11px] text-text-muted">Quedan {p.stock_on_hand}</p>
                       </div>
                       <button
                         type="button"
@@ -110,7 +108,7 @@ export function CartPanel({ lines, onQuantity, onPrice, onDiscount, onRemove, on
                         </div>
                       </div>
                       <label>
-                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">P. unit.</span>
+                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Precio</span>
                         <input
                           value={line.unitPrice}
                           inputMode="decimal"
@@ -120,7 +118,7 @@ export function CartPanel({ lines, onQuantity, onPrice, onDiscount, onRemove, on
                         />
                       </label>
                       <label>
-                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Desc. S/</span>
+                        <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wider text-text-muted">Descuento S/</span>
                         <input
                           value={line.discount}
                           inputMode="decimal"

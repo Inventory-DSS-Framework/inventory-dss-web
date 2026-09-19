@@ -47,7 +47,7 @@ export function PlanBillingCard() {
           (plan.isPremium ? (
             <Badge variant={canceled ? "warning" : "success"} dot>{canceled ? "No se renovará" : "Activo"}</Badge>
           ) : (
-            <Badge variant="default">ERP completo · FTGM en 1 producto</Badge>
+            <Badge variant="default">Todo el sistema · pronóstico para 1 producto</Badge>
           ))}
       </div>
 
@@ -100,7 +100,7 @@ export function PlanBillingCard() {
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary-softer/50 px-4 py-3.5">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-text-primary">Pronostica todo tu catálogo con el Motor FTGM</p>
+            <p className="text-sm font-semibold text-text-primary">Calcula cuánto venderás de todos tus productos</p>
             <p className="text-xs text-text-secondary">Paga con tarjeta, Yape o transferencia. IGV incluido y cancelas cuando quieras.</p>
           </div>
           <Link href="/premium" className="btn btn-primary h-10 gap-2 px-4 text-sm">

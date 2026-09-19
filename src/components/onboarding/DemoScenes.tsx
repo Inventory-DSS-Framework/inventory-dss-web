@@ -452,17 +452,17 @@ export function FtgmScene({ t }: { t: number }) {
   const frozen = t >= FTGM_LOCK_AT - 0.001 && t < 0.54;
 
   return (
-    <MockWindow path="/forecasting" crumb="Motor FTGM › Pronóstico" active="/forecasting" dark>
+    <MockWindow path="/forecasting" crumb="Motor FTGM › ¿Cuánto venderé?" active="/forecasting" dark>
       <div className="absolute inset-0" style={{ background: `radial-gradient(60% 50% at 70% 10%, rgb(${NEON} / 0.08), transparent 70%), radial-gradient(40% 40% at 10% 90%, rgb(${VIOLET} / 0.08), transparent 70%)` }} />
       <div className="absolute left-4 top-3 flex items-center gap-2">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: `rgb(${NEON})`, boxShadow: `0 0 10px rgb(${NEON})` }} />
         <span className="font-mono text-[9.5px] uppercase tracking-[0.3em]" style={{ color: `rgb(${NEON})` }}>Motor FTGM</span>
       </div>
-      <div className="absolute left-4 top-7 font-display text-[16px] font-semibold text-white">Pronóstico de demanda</div>
+      <div className="absolute left-4 top-7 font-display text-[16px] font-semibold text-white">¿Cuánto venderé?</div>
 
       {/* Analysis chips */}
       <div className="absolute left-4 top-[56px] flex items-center gap-1.5">
-        {["Fourier", "Tendencia", "Estacionalidad"].map((c, i) => {
+        {["Ventas", "Tendencia", "Temporadas"].map((c, i) => {
           const ok = t >= 0.36 + i * 0.06;
           const on = t >= 0.3;
           return (
@@ -523,13 +523,13 @@ export function FtgmScene({ t }: { t: number }) {
             <g style={{ animation: "fade-in 0.4s ease-out both" }}>
               <circle cx={FC[4][0]} cy={FC[4][1]} r="4" fill={`rgb(${PINK})`} />
               <rect x={FC[4][0] - 58} y={FC[4][1] - 34} width="116" height="22" rx="6" fill="#0b0f14" stroke={`rgb(${PINK} / 0.5)`} />
-              <text x={FC[4][0]} y={FC[4][1] - 19} fontSize="9.5" textAnchor="middle" fill="#fff">Pronóstico · 142 u ±11</text>
+              <text x={FC[4][0]} y={FC[4][1] - 19} fontSize="9.5" textAnchor="middle" fill="#fff">Venderás ≈ 142 u</text>
             </g>
           )}
         </svg>
         {frozen && (
           <div className="absolute right-4 top-3 flex items-center gap-1.5 text-[9.5px] text-white/60">
-            <Loader2 className="h-3 w-3 animate-spin" /> Generando pronóstico…
+            <Loader2 className="h-3 w-3 animate-spin" /> Calculando cuánto venderás…
           </div>
         )}
       </div>
@@ -537,8 +537,8 @@ export function FtgmScene({ t }: { t: number }) {
       {/* Recommendations */}
       {[
         { p: "Arena gato 10 kg", a: "Compra 36 u. antes del 24", c: NEON },
-        { p: "Alimento perro 15 kg", a: "Demanda +18% en diciembre", c: VIOLET },
-        { p: "Snack dental", a: "Stock cubre 41 días", c: PINK },
+        { p: "Alimento perro 15 kg", a: "Se venderá 18% más en diciembre", c: VIOLET },
+        { p: "Snack dental", a: "Te alcanza para 41 días", c: PINK },
       ].map((r, i) => {
         const p = easeOut(seg(t, 0.8 + i * 0.05, 0.9 + i * 0.05));
         return (
@@ -558,7 +558,7 @@ export function FtgmScene({ t }: { t: number }) {
           >
             {p > 0.05 ? (
               <>
-                <p className="text-[8.5px] font-semibold uppercase tracking-wider" style={{ color: `rgb(${r.c})` }}>Recomendación</p>
+                <p className="text-[8.5px] font-semibold uppercase tracking-wider" style={{ color: `rgb(${r.c})` }}>Qué hacer</p>
                 <p className="mt-1.5 text-[11.5px] font-semibold text-white">{r.p}</p>
                 <p className="mt-0.5 text-[10px] text-white/60">{r.a}</p>
               </>

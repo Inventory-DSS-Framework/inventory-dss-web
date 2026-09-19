@@ -16,7 +16,7 @@ interface Props {
 
 const BASE_TARGETS: ImportTargetField[] = [
   { key: "ruc", label: "RUC", required: true, synonyms: ["ruc", "n ruc", "nro ruc", "numero de ruc", "num ruc", "ruc proveedor"], hint: "11 dígitos" },
-  { key: "business_name", label: "Razón social", required: true, synonyms: ["razon social", "proveedor", "nombre", "empresa", "nombre proveedor", "denominacion"] },
+  { key: "business_name", label: "Nombre o razón social", required: true, synonyms: ["razon social", "proveedor", "nombre", "empresa", "nombre proveedor", "denominacion"] },
   { key: "contact_name", label: "Contacto", synonyms: ["contacto", "vendedor", "representante", "nombre contacto", "asesor"] },
   { key: "phone", label: "Teléfono", synonyms: ["telefono", "celular", "movil", "tel", "whatsapp", "fono"] },
   { key: "email", label: "Correo", synonyms: ["correo", "email", "e mail", "mail", "correo electronico"] },

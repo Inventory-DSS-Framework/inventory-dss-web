@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChevronLeft, ChevronRight, Coins, FileSpreadsheet, Loader2, PlusCircle, Receipt, Search, TrendingUp, Upload, Wallet } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Coins, FileSpreadsheet, Loader2, PlusCircle, Receipt, Search, SlidersHorizontal, TrendingUp, Upload, Wallet } from "lucide-react";
 import { SalesImportWizard } from "@/components/sales/SalesImportWizard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -23,6 +23,8 @@ import { productsApi, salesApi } from "@/lib/api";
 import { DocumentBadge, OrderStatusBadge } from "@/components/pos/DocumentBadge";
 import { RangePreset, formatDateTime, presetRange, shortDay } from "@/components/pos/dates";
 import { PAYMENT_LABEL, type SalesDocumentType } from "@/types/pos";
+import { MoreDetails } from "@/components/simple/MoreMenu";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 const PRESETS: { id: Exclude<RangePreset, "custom">; label: string }[] = [
   { id: "today", label: "Hoy" },
@@ -45,12 +47,11 @@ export default function SalesPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Ventas"
         title="Ventas"
         description={
           isSeller
-            ? "Tus tickets del periodo: comprobantes emitidos, cobros y detalle de cada venta."
-            : "Tickets del punto de venta con su comprobante, cobro, vendedor y margen."
+            ? "Lo que vendiste. Toca una venta para ver su detalle."
+            : "Cuánto vendiste y cada venta hecha. Toca una venta para ver su detalle."
         }
         action={
           <Link href="/sales/new" className="btn btn-primary gap-2 px-4 py-2.5 text-sm">
@@ -62,8 +63,8 @@ export default function SalesPage() {
       {!isSeller && (
         <Tabs
           tabs={[
-            { id: "pos", label: "Tickets" },
-            { id: "imported", label: "Historial importado" },
+            { id: "pos", label: "Ventas de la tienda" },
+            { id: "imported", label: "Ventas pasadas (Excel)" },
           ]}
           value={tab}
           onChange={(id) => setTab(id as "pos" | "imported")}
@@ -81,8 +82,10 @@ export default function SalesPage() {
 
 function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSeller: boolean; isAdmin: boolean }) {
   const router = useRouter();
+  const [expert] = useExpertMode();
   const [preset, setPreset] = useState<RangePreset>("7d");
   const [range, setRange] = useState(() => presetRange("7d"));
+  const [moreFilters, setMoreFilters] = useState(false);
   const [sellerId, setSellerId] = useState("");
   const [docType, setDocType] = useState<"" | SalesDocumentType>("");
   const [status, setStatus] = useState<"" | "completed" | "voided">("");
@@ -131,6 +134,71 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
   const rows = orders.data?.items ?? [];
   const payments = s?.by_payment_method ?? [];
   const paymentsTotal = payments.reduce((a, p) => a + Number(p.total), 0);
+  const extraFilters = [sellerId, docType, status].filter(Boolean).length;
+  const showFilters = moreFilters || extraFilters > 0 || preset === "custom";
+  const periodLabel = preset === "today" ? "hoy" : preset === "custom" ? "en esas fechas" : preset === "month" ? "este mes" : `en ${PRESETS.find((p) => p.id === preset)?.label ?? ""}`;
+
+  const chartAndPayments = (
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-2">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h3 className="font-display text-base font-semibold text-text-primary">Ventas por día</h3>
+            <span className="text-xs text-text-muted">En soles, con IGV</span>
+          </div>
+          <div className="h-[190px]">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="salesArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="rgb(var(--c-primary))" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="rgb(var(--c-primary))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="rgb(var(--c-border))" strokeDasharray="3 3" />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "rgb(var(--c-text-muted))" }} minTickGap={16} />
+                  <YAxis tickLine={false} axisLine={false} width={52} tick={{ fontSize: 11, fill: "rgb(var(--c-text-muted))" }} tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
+                  <Tooltip
+                    cursor={{ stroke: "rgb(var(--c-border))" }}
+                    contentStyle={{ background: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-border))", borderRadius: 12, fontSize: 12 }}
+                    labelStyle={{ color: "rgb(var(--c-text))", fontWeight: 600 }}
+                    formatter={(value, name) => (name === "total" ? [soles(Number(value)), "Ventas"] : [String(value), "Ventas"])}
+                  />
+                  <Area type="monotone" dataKey="total" stroke="rgb(var(--c-primary))" strokeWidth={2} fill="url(#salesArea)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="grid h-full place-items-center text-sm text-text-muted">
+                {summary.loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Aún no hay ventas en estas fechas"}
+              </div>
+            )}
+          </div>
+        </Card>
+        <Card className="p-5">
+          <h3 className="mb-3 font-display text-base font-semibold text-text-primary">Cómo te pagaron</h3>
+          {payments.length === 0 ? (
+            <p className="py-10 text-center text-sm text-text-muted">Aún no hay cobros en estas fechas</p>
+          ) : (
+            <ul className="space-y-3">
+              {payments.map((p) => {
+                const pct = paymentsTotal ? (Number(p.total) / paymentsTotal) * 100 : 0;
+                return (
+                  <li key={p.payment_method}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="text-text-secondary">{PAYMENT_LABEL[p.payment_method] ?? p.payment_method} <span className="text-text-muted">· {p.orders}</span></span>
+                      <span className="font-semibold tabular-nums text-text-primary">{soles(p.total)}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -154,6 +222,27 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
             </button>
           ))}
         </div>
+        <div className="relative lg:ml-auto lg:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Busca por cliente o N° de venta"
+            className={inputClass(false, "h-10 pl-9")}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setMoreFilters((v) => !v)}
+          aria-expanded={showFilters}
+          className="btn btn-ghost h-10 gap-1.5 px-3 text-sm"
+        >
+          <SlidersHorizontal className="h-4 w-4" /> Más filtros{extraFilters > 0 && ` (${extraFilters})`}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showFilters && "rotate-180")} />
+        </button>
+      </Card>
+      {showFilters && (
+      <Card className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
         <div className="flex items-center gap-2">
           <input
             type="date"
@@ -187,7 +276,7 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
             value={docType}
             onChange={(v) => setDocType(v as "" | SalesDocumentType)}
             options={[
-              { value: "", label: "Todos los comprobantes" },
+              { value: "", label: "Boletas, facturas y notas" },
               { value: "boleta", label: "Boleta" },
               { value: "factura", label: "Factura" },
               { value: "nota_venta", label: "Nota de venta" },
@@ -198,101 +287,35 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
             value={status}
             onChange={(v) => setStatus(v as "" | "completed" | "voided")}
             options={[
-              { value: "", label: "Todos los estados" },
+              { value: "", label: "Todas (incluye anuladas)" },
               { value: "completed", label: "Completadas" },
               { value: "voided", label: "Anuladas" },
             ]}
             aria-label="Estado"
           />
         </div>
-        <div className="relative lg:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cliente, DNI/RUC o N° de ticket"
-            className={inputClass(false, "h-10 pl-9")}
-          />
-        </div>
       </Card>
+      )}
 
       {/* KPIs */}
       <div className={cn("grid grid-cols-2 gap-4", isSeller ? "lg:grid-cols-3" : "lg:grid-cols-4")}>
-        <Kpi icon={Coins} label="Ventas del periodo" value={s ? soles(s.revenue) : "—"} hint={s ? `Sin IGV ${soles(s.revenue_net)}` : undefined} loading={summary.loading} />
-        <Kpi icon={Receipt} label="N° tickets" value={s ? s.orders.toLocaleString("es-PE") : "—"} hint={s ? `${s.units.toLocaleString("es-PE")} uds vendidas${s.voided_orders ? ` · ${s.voided_orders} anuladas` : ""}` : undefined} loading={summary.loading} />
-        <Kpi icon={Wallet} label="Ticket promedio" value={s ? soles(s.avg_ticket) : "—"} loading={summary.loading} />
+        <Kpi icon={Coins} label={`Vendiste ${periodLabel}`} value={s ? soles(s.revenue) : "—"} hint={s && expert ? `Sin IGV ${soles(s.revenue_net)}` : undefined} loading={summary.loading} />
+        <Kpi icon={Receipt} label="Número de ventas" value={s ? s.orders.toLocaleString("es-PE") : "—"} hint={s ? `${s.units.toLocaleString("es-PE")} productos vendidos${s.voided_orders ? ` · ${s.voided_orders} anuladas` : ""}` : undefined} loading={summary.loading} />
+        <Kpi icon={Wallet} label="Gasto promedio por cliente" value={s ? soles(s.avg_ticket) : "—"} loading={summary.loading} />
         {!isSeller && (
           <Kpi
             icon={TrendingUp}
-            label="Margen bruto"
+            label="Ganaste"
             value={s ? soles(s.gross_margin) : "—"}
-            hint={s ? `${Number(s.margin_pct).toFixed(1)}% sobre ventas sin IGV` : undefined}
+            hint={s ? (expert ? `Margen ${Number(s.margin_pct).toFixed(1)}% sobre ventas sin IGV` : "Lo vendido menos lo que te costó") : undefined}
             loading={summary.loading}
             tone="success"
           />
         )}
       </div>
 
-      {/* Chart + payment mix */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-5 lg:col-span-2">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h3 className="font-display text-base font-semibold text-text-primary">Ventas por día</h3>
-            <span className="text-xs text-text-muted">S/ con IGV</span>
-          </div>
-          <div className="h-[190px]">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 6, right: 6, left: -12, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="salesArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgb(var(--c-primary))" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="rgb(var(--c-primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} stroke="rgb(var(--c-border))" strokeDasharray="3 3" />
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "rgb(var(--c-text-muted))" }} minTickGap={16} />
-                  <YAxis tickLine={false} axisLine={false} width={52} tick={{ fontSize: 11, fill: "rgb(var(--c-text-muted))" }} tickFormatter={(v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
-                  <Tooltip
-                    cursor={{ stroke: "rgb(var(--c-border))" }}
-                    contentStyle={{ background: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-border))", borderRadius: 12, fontSize: 12 }}
-                    labelStyle={{ color: "rgb(var(--c-text))", fontWeight: 600 }}
-                    formatter={(value, name) => (name === "total" ? [soles(Number(value)), "Ventas"] : [String(value), "Tickets"])}
-                  />
-                  <Area type="monotone" dataKey="total" stroke="rgb(var(--c-primary))" strokeWidth={2} fill="url(#salesArea)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="grid h-full place-items-center text-sm text-text-muted">
-                {summary.loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Sin datos"}
-              </div>
-            )}
-          </div>
-        </Card>
-        <Card className="p-5">
-          <h3 className="mb-3 font-display text-base font-semibold text-text-primary">Cobros por método</h3>
-          {payments.length === 0 ? (
-            <p className="py-10 text-center text-sm text-text-muted">Sin cobros en el periodo</p>
-          ) : (
-            <ul className="space-y-3">
-              {payments.map((p) => {
-                const pct = paymentsTotal ? (Number(p.total) / paymentsTotal) * 100 : 0;
-                return (
-                  <li key={p.payment_method}>
-                    <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-text-secondary">{PAYMENT_LABEL[p.payment_method] ?? p.payment_method} <span className="text-text-muted">· {p.orders}</span></span>
-                      <span className="font-semibold tabular-nums text-text-primary">{soles(p.total)}</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-      </div>
+      {/* Chart + payment mix: secondary, collapsed unless Modo experto */}
+      {expert ? chartAndPayments : <MoreDetails summary="Ver gráfico y formas de pago">{chartAndPayments}</MoreDetails>}
 
       {/* Orders table */}
       <DataState
@@ -303,23 +326,30 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
         emptyState={
           <EmptyState
             icon={Receipt}
-            title="No hay ventas con estos filtros"
-            description="Cambia el rango de fechas o registra una venta desde el punto de venta."
+            title={preset === "today" && !q && extraFilters === 0 ? "Aún no vendiste nada hoy" : "No hay ventas en estas fechas"}
+            description="Registra una venta con “Nueva venta” o mira otras fechas."
             action={{ label: "Nueva venta", href: "/sales/new" }}
+            hint={
+              preset !== "30d" ? (
+                <button className="font-semibold text-primary hover:underline" onClick={() => { setPreset("30d"); setRange(presetRange("30d")); }}>
+                  Ver los últimos 30 días
+                </button>
+              ) : undefined
+            }
           />
         }
       >
         <Card className="overflow-hidden p-0">
           <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <h3 className="font-display text-base font-semibold text-text-primary">Tickets</h3>
-            <span className="text-xs text-text-muted">{orders.data?.total.toLocaleString("es-PE") ?? 0} resultados</span>
+            <h3 className="font-display text-base font-semibold text-text-primary">Tus ventas</h3>
+            <span className="text-xs text-text-muted">{orders.data?.total.toLocaleString("es-PE") ?? 0} ventas</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-border">
-                  {["Ticket", "Fecha y hora", "Comprobante", "Cliente", ...(isSeller ? [] : ["Vendedor"]), "Ítems", "Pago", "Total", "Estado"].map((h) => (
-                    <th key={h} className={cn("whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted", (h === "Total" || h === "Ítems") && "text-right")}>
+                  {["N°", "Fecha y hora", ...(expert ? ["Comprobante"] : []), "Cliente", ...(isSeller ? [] : ["Vendedor"]), "Productos", "Pago", "Total", "Estado"].map((h) => (
+                    <th key={h} className={cn("whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted", (h === "Total" || h === "Productos") && "text-right")}>
                       {h}
                     </th>
                   ))}
@@ -334,10 +364,10 @@ function OrdersView({ companyId, isSeller, isAdmin }: { companyId: string; isSel
                   >
                     <td className="px-5 py-3.5 font-mono text-sm font-semibold text-text-primary">#{o.order_number}</td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-sm text-text-secondary">{formatDateTime(o.sold_at)}</td>
-                    <td className="px-5 py-3.5"><DocumentBadge type={o.document_type} number={o.document_number} /></td>
+                    {expert && <td className="px-5 py-3.5"><DocumentBadge type={o.document_type} number={o.document_number} /></td>}
                     <td className="max-w-[220px] px-5 py-3.5 text-sm">
                       <p className="truncate text-text-primary">{o.client_name || "Público en general"}</p>
-                      {o.client_doc_number && (
+                      {expert && o.client_doc_number && (
                         <p className="font-mono text-[11px] text-text-muted">{o.client_doc_type.toUpperCase()} {o.client_doc_number}</p>
                       )}
                     </td>
@@ -413,6 +443,7 @@ const HISTORY_PAGE = 50;
 
 /** Legacy / CSV-imported sales (no POS ticket), kept so the imported history isn't lost. */
 function ImportedHistory({ companyId }: { companyId: string }) {
+  const [expert] = useExpertMode();
   const [page, setPage] = useState(1);
   const [importOpen, setImportOpen] = useState(false);
   const sales = useApi(() => salesApi.list(companyId, page, HISTORY_PAGE, "imported"), [companyId, page]);
@@ -430,12 +461,12 @@ function ImportedHistory({ companyId }: { companyId: string }) {
           <div>
             <p className="font-display text-sm font-semibold text-text-primary">¿Vienes de otro sistema o de Excel?</p>
             <p className="text-xs text-text-secondary">
-              Sube tu reporte de ventas anterior: queda como historial, no descuenta stock y alimenta el Motor FTGM.
+              Sube tus ventas pasadas en Excel. Se guardan como historial (no cambian tu stock) y nos ayudan a calcular cuánto venderás.
             </p>
           </div>
         </div>
         <button type="button" onClick={() => setImportOpen(true)} className="btn btn-primary gap-2 px-4 py-2.5 text-sm">
-          <Upload className="h-4 w-4" /> Importar ventas
+          <Upload className="h-4 w-4" /> Importar mi Excel
         </button>
       </Card>
       <SalesImportWizard
@@ -455,24 +486,25 @@ function ImportedHistory({ companyId }: { companyId: string }) {
       emptyState={
         <EmptyState
           icon={Receipt}
-          title="Sin historial importado"
-          description="Usa “Importar ventas” para cargar tu historial anterior; aparecerá aquí."
+          title="Aún no cargaste ventas pasadas"
+          description="Si llevabas tus ventas en Excel o en otro sistema, súbelas aquí. Así los cálculos de compra salen mejor."
+          action={{ label: "Importar mi Excel", onClick: () => setImportOpen(true) }}
         />
       }
     >
       <Card className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h3 className="font-display text-base font-semibold text-text-primary">Historial importado</h3>
-            <p className="text-xs text-text-muted">Ventas por línea sin ticket del POS — alimentan los pronósticos.</p>
+            <h3 className="font-display text-base font-semibold text-text-primary">Ventas pasadas</h3>
+            <p className="text-xs text-text-muted">Las ventas que cargaste desde Excel.</p>
           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border-b border-border">
-                {["Fecha", "Producto", "SKU", "Cantidad", "P. unit.", "Total", "Origen"].map((h) => (
-                  <th key={h} className={cn("whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted", ["Cantidad", "P. unit.", "Total"].includes(h) && "text-right")}>
+                {["Fecha", "Producto", ...(expert ? ["Código"] : []), "Cantidad", "Precio", "Total", ...(expert ? ["Origen"] : [])].map((h) => (
+                  <th key={h} className={cn("whitespace-nowrap px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-text-muted", ["Cantidad", "Precio", "Total"].includes(h) && "text-right")}>
                     {h}
                   </th>
                 ))}
@@ -486,14 +518,14 @@ function ImportedHistory({ companyId }: { companyId: string }) {
                     <td className="whitespace-nowrap px-5 py-3 text-sm text-text-secondary">{s.sale_date}</td>
                     <td className="px-5 py-3 text-sm">
                       <Link href={`/inventory/${s.product_id}`} className="text-text-primary hover:text-primary">
-                        {p?.name ?? s.product_id.slice(0, 8)}
+                        {p?.name ?? (expert ? s.product_id.slice(0, 8) : "Producto")}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 font-mono text-xs text-text-muted">{p?.sku ?? "—"}</td>
+                    {expert && <td className="px-5 py-3 font-mono text-xs text-text-muted">{p?.sku ?? "—"}</td>}
                     <td className="px-5 py-3 text-right text-sm tabular-nums">{s.quantity}</td>
                     <td className="px-5 py-3 text-right text-sm tabular-nums text-text-secondary">{soles(s.unit_price)}</td>
                     <td className="px-5 py-3 text-right text-sm font-semibold tabular-nums">{soles(s.total_amount)}</td>
-                    <td className="px-5 py-3 text-xs text-text-muted">{s.batch_id ? "Carga de archivo" : "Registro manual"}</td>
+                    {expert && <td className="px-5 py-3 text-xs text-text-muted">{s.batch_id ? "Desde Excel" : "Registro manual"}</td>}
                   </tr>
                 );
               })}

@@ -19,9 +19,9 @@ import { ProductDetailCard } from "@/components/pos/ProductDetailCard";
 
 const FILTERS: { id: "all" | StockTone; label: string }[] = [
   { id: "all", label: "Todos" },
-  { id: "ok", label: "Disponibles" },
-  { id: "low", label: "Stock bajo" },
-  { id: "out", label: "Sin stock" },
+  { id: "ok", label: "Hay stock" },
+  { id: "low", label: "Quedan pocos" },
+  { id: "out", label: "Se acabaron" },
 ];
 
 /** "Consultar productos": read-only price & stock lookup, usable by sellers. */
@@ -58,9 +58,8 @@ export default function StockLookupPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Punto de venta"
-        title="Consultar productos"
-        description="Busca un producto para ver su precio, código y stock disponible."
+        title="Consultar precios y stock"
+        description="Busca un producto para ver cuánto cuesta y cuántos quedan."
       />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
@@ -70,7 +69,7 @@ export default function StockLookupPage() {
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Nombre, SKU, código de barras o categoría"
+            placeholder="Escribe el nombre o escanea el código"
             className={inputClass(false, "h-12 rounded-2xl pl-12 text-base")}
           />
         </div>
@@ -97,7 +96,7 @@ export default function StockLookupPage() {
         empty={!catalog.loading && items.length === 0}
         onRetry={catalog.reload}
         emptyState={
-          <EmptyState icon={PackageSearch} title="Sin resultados" description="Prueba con otro nombre, SKU o código de barras." />
+          <EmptyState icon={PackageSearch} title="No encontramos ese producto" description="Prueba con otro nombre o con el código de barras." />
         }
       >
         <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", catalog.loading && "opacity-60")}>

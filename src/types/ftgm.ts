@@ -82,6 +82,7 @@ export interface RunSummary {
   models: Record<string, number>;
   frequencies: Record<string, number>;
   median_holdout_mape: number | null;
+  median_accuracy_pct?: number | null;
 }
 
 export interface FtgmRun {
@@ -110,6 +111,17 @@ export interface HoldoutMetrics {
   rmse: number | null;
   mape: number | null;
   mase: number | null;
+  wape?: number | null;
+  total_wape?: number | null;
+}
+
+/** One contender of the engine's model tournament, scored on the same past data. */
+export interface CandidateScore {
+  model: string;
+  mae: number | null;
+  wape: number | null;
+  accuracy_pct: number | null;
+  chosen: boolean;
 }
 
 export interface ProductDiagnostics {
@@ -136,6 +148,9 @@ export interface ProductDiagnostics {
   naive_holdout?: HoldoutMetrics | null;
   skill_vs_naive?: number | null;
   interval_level?: number | null;
+  /** Plain accuracy on past data: 100 − error of the horizon total (%). */
+  accuracy_pct?: number | null;
+  candidates?: CandidateScore[];
   forecast_vs_recent_pct?: number | null;
   explanations?: string[];
   warnings?: string[];
@@ -163,6 +178,7 @@ export interface OverviewProduct {
   } | null;
   holdout: HoldoutMetrics | null;
   skill_vs_naive: number | null;
+  accuracy_pct?: number | null;
   trend_pct: number | null;
   next_period: string | null;
   next_period_units: number;
@@ -188,6 +204,7 @@ export interface RunOverview {
     products_ok: number;
     products_fallback: number;
     products_skipped: number;
+    accuracy_pct?: number | null;
   };
   preview: Partial<PreviewTotals> | null;
   products: OverviewProduct[];

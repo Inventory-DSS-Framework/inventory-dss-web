@@ -71,7 +71,7 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
       products.map((p) => ({
         value: p.id,
         label: p.name,
-        description: `${p.sku} · stock ${p.stock_on_hand}`,
+        description: `Tienes ${p.stock_on_hand}`,
       })),
     [products],
   );
@@ -113,7 +113,7 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
       onDone(result);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo registrar el ajuste.");
+      setError(err instanceof Error ? err.message : "No se pudo guardar la corrección.");
     } finally {
       setSaving(false);
     }
@@ -123,8 +123,8 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
     <Modal
       open={open}
       onClose={onClose}
-      title="Ajuste de stock"
-      description="Corrige el inventario después de un conteo, una merma o un vencimiento."
+      title="Corregir stock"
+      description="Úsalo cuando contaste y no cuadra, o si algo se dañó, venció o se perdió."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
@@ -132,7 +132,7 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
           </Button>
           <Button onClick={submit} loading={saving} disabled={!!problem || saving || delta === 0}>
             <ClipboardCheck className="h-4 w-4" />
-            Registrar ajuste
+            Guardar corrección
           </Button>
         </>
       }
@@ -145,18 +145,18 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
             <ProductThumb src={product.image_url} name={product.name} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-text-primary">{product.name}</p>
-              <p className="font-mono text-xs text-text-muted">{product.sku}</p>
+              <p className="text-xs text-text-muted">Ahora tienes {product.stock_on_hand}</p>
             </div>
           </div>
         ) : (
           <div>
             <Label>Producto</Label>
-            <Select value={selected} options={options} onChange={setSelected} searchable placeholder="Busca por nombre o código" />
+            <Select value={selected} options={options} onChange={setSelected} searchable placeholder="Busca el producto por nombre" />
           </div>
         )}
 
         <div>
-          <Label>Motivo</Label>
+          <Label>¿Qué pasó?</Label>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {REASONS.map((r) => (
               <button
@@ -178,11 +178,11 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
         </div>
 
         <div>
-          <Label>Cómo ajustar</Label>
+          <Label>¿Cómo quieres corregir?</Label>
           <div className="inline-flex rounded-xl border border-border bg-surface-soft p-1">
             {(
               [
-                { v: "set", label: "Stock contado" },
+                { v: "set", label: "Conté y hay…" },
                 { v: "delta", label: "Sumar o restar" },
               ] as const
             ).map((m) => (
@@ -241,7 +241,7 @@ export function StockAdjustmentModal({ open, onClose, companyId, products, produ
           </div>
           <div className="flex items-end">
             <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-2">
-              <Stat label="Actual" value={product ? current : "—"} />
+              <Stat label="Ahora" value={product ? current : "—"} />
               <ArrowRight className="h-4 w-4 text-text-muted" />
               <Stat
                 label="Quedará"

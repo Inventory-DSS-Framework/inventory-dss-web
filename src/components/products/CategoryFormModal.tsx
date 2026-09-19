@@ -43,7 +43,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
   }, [open, category, defaultParentId, isEdit]);
 
   const parentOptions = useMemo(
-    () => categoryOptions(categories, "Ninguna — es una marca (nivel superior)", category?.id),
+    () => categoryOptions(categories, "Ninguna (es una marca)", category?.id),
     [categories, category?.id],
   );
   const parentPath = categoryPath(categories, parentId || null);
@@ -66,7 +66,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
       onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar la categoría.");
+      setError(err instanceof Error ? err.message : "No se pudo guardar.");
     } finally {
       setSaving(false);
     }
@@ -81,7 +81,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
       onSaved();
       onClose();
     } catch {
-      setError("No se pudo eliminar: revisa que no tenga productos ni subcategorías.");
+      setError("No se pudo eliminar: primero quita sus productos y tipos.");
     } finally {
       setDeleting(false);
     }
@@ -94,8 +94,8 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Editar categoría" : isBrand ? "Nueva marca" : "Nuevo tipo"}
-      description={isEdit ? categoryPath(categories, category?.id).join(" › ") : "Una categoría sin padre es una marca; con padre, un tipo dentro de ella."}
+      title={isEdit ? (isBrand ? "Editar marca" : "Editar tipo") : isBrand ? "Nueva marca" : "Nuevo tipo"}
+      description={isEdit ? categoryPath(categories, category?.id).join(" › ") : "Ordena tus productos: primero la marca (ej. Pro Plan), luego el tipo (ej. Alimento seco)."}
       footer={
         <>
           {isEdit &&
@@ -123,7 +123,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
             Cancelar
           </Button>
           <Button onClick={() => handleSubmit()} loading={saving} disabled={busy || !name.trim()}>
-            {isEdit ? "Guardar cambios" : "Crear categoría"}
+            {isEdit ? "Guardar cambios" : isBrand ? "Crear marca" : "Crear tipo"}
           </Button>
         </>
       }
@@ -136,7 +136,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
         {!isEdit && (
           <div className="grid grid-cols-2 gap-2">
             {[
-              { brand: true, icon: Tag, title: "Marca", text: "Nivel superior del árbol" },
+              { brand: true, icon: Tag, title: "Marca", text: "Ej. Pro Plan, Gloria" },
               { brand: false, icon: Tags, title: "Tipo", text: "Dentro de una marca" },
             ].map((opt) => {
               const active = isBrand === opt.brand;
@@ -190,7 +190,7 @@ export function CategoryFormModal({ open, onClose, companyId, category, defaultP
         )}
 
         <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-text-primary">Descripción</span>
+          <span className="mb-1.5 block text-sm font-medium text-text-primary">Descripción (opcional)</span>
           <textarea
             className={cn(inputClass(), "resize-none")}
             rows={2}

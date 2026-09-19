@@ -44,8 +44,7 @@ export function decide(p: OverviewProduct): Decision {
   const daily = rateN / periodDays;
   const cover = p.coverage_days ?? (daily > 0 ? Math.round(p.on_hand / daily) : null);
   const buy = p.suggested_qty > 0 ? `Compra ${Math.ceil(p.suggested_qty)} u (≈ ${money(p.suggested_investment)})` : "Haz un pedido";
-  const mape = p.holdout?.mape ?? (p.metrics ? Number(p.metrics.mape) : null);
-  const confidence: Decision["confidence"] = mape == null ? "Media" : mape < 25 ? "Alta" : mape < 50 ? "Media" : "Baja";
+  const confidence = confidenceOf(p.accuracy_pct ?? null);
   const base = { rate, coverDays: cover, confidence };
   const trend = p.trend_pct ?? 0;
 
@@ -90,4 +89,13 @@ export function decide(p: OverviewProduct): Decision {
     action: "mantener",
     sentence: cover != null ? `Tienes para unos ${cover} días. No necesitas hacer nada por ahora.` : "Tu stock está bien. No necesitas hacer nada por ahora.",
   };
+}
+
+/**
+ * How sure we are, from the plain accuracy the engine measured on the shop's own past sales
+ * (100 − % of units missed on the forecast total). No accuracy → "Media".
+ */
+export function confidenceOf(accuracy: number | null): Decision["confidence"] {
+  if (accuracy == null) return "Media";
+  return accuracy >= 75 ? "Alta" : accuracy >= 55 ? "Media" : "Baja";
 }

@@ -8,7 +8,19 @@ import { DataState } from "@/components/ui/DataState";
 import { AppearanceSettings } from "@/components/experience/AppearanceSettings";
 import { PlanBillingCard } from "@/components/settings/PlanBillingCard";
 import { HelpTourCard } from "@/components/settings/HelpTourCard";
-import { LogOut, User, Building2 } from "lucide-react";
+import { LogOut, User, Building2, Wrench } from "lucide-react";
+import { useExpertMode } from "@/hooks/useExpertMode";
+import { cn } from "@/lib/utils";
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Dueño",
+  admin: "Administrador",
+  seller: "Vendedor",
+  analyst: "Analista",
+  viewer: "Solo lectura",
+};
+const STATUS_LABEL: Record<string, string> = { active: "Activo", inactive: "Inactivo", suspended: "Suspendido" };
+const PLAN_LABEL: Record<string, string> = { free: "Gratis", basic: "Básico", premium: "Premium", pro: "Pro" };
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
@@ -18,6 +30,7 @@ import { logout } from "@/lib/auth";
 export default function SettingsPage() {
   const router = useRouter();
   const companyId = useCompanyId();
+  const [expert, setExpert] = useExpertMode();
   const me = useApi(() => authApi.me(), []);
   const company = useApi(
     () => (companyId ? companiesApi.get(companyId) : Promise.resolve(null)),
@@ -27,10 +40,44 @@ export default function SettingsPage() {
   return (
     <div className="max-w-[800px] mx-auto space-y-6">
       <PageHeader
-        eyebrow="Cuenta"
-        title="Configuración"
-        description="Datos de tu cuenta y sesión."
+        title="Ajustes"
+        description="Tu cuenta, tu negocio y cómo quieres ver la plataforma."
       />
+
+      <Card className="space-y-4">
+        <div className="flex items-start gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-muted text-text-secondary">
+            <Wrench className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-text-primary">Modo experto</p>
+            <p className="text-sm text-text-secondary">
+              Muestra detalles técnicos (métricas, códigos internos). Déjalo apagado si solo quieres lo esencial.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={expert}
+            aria-label="Modo experto"
+            onClick={() => setExpert(!expert)}
+            className={cn(
+              "relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors",
+              expert ? "bg-primary" : "bg-surface-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-soft transition-all",
+                expert ? "left-[22px]" : "left-0.5",
+              )}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-text-muted">
+          {expert ? "Encendido: verás códigos, costos detallados y columnas extra." : "Apagado: solo ves lo esencial."} Solo cambia lo que ves en este navegador.
+        </p>
+      </Card>
       <DataState loading={me.loading} error={me.error} onRetry={me.reload}>
         {me.data && (
           <Card className="space-y-5">
@@ -45,12 +92,12 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-text-muted">Rol</p>
-                <Badge variant="primary">{me.data.role}</Badge>
+                <p className="text-text-muted">Tu rol</p>
+                <Badge variant="primary">{ROLE_LABEL[me.data.role] ?? me.data.role}</Badge>
               </div>
               <div>
-                <p className="text-text-muted">Estado</p>
-                <Badge variant="success">{me.data.status}</Badge>
+                <p className="text-text-muted">Cuenta</p>
+                <Badge variant="success">{STATUS_LABEL[me.data.status] ?? me.data.status}</Badge>
               </div>
             </div>
             <div className="pt-2 border-t border-border">
@@ -78,13 +125,13 @@ export default function SettingsPage() {
             <div>
               <p className="font-semibold text-text-primary">{company.data.name}</p>
               <p className="text-sm text-text-secondary capitalize">
-                {company.data.business_type || "Empresa"}
+                {company.data.business_type || "Mi negocio"}
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <Badge variant="primary">{company.data.plan}</Badge>
+              <Badge variant="primary">{PLAN_LABEL[company.data.plan] ?? company.data.plan}</Badge>
               <Badge variant={company.data.status === "active" ? "success" : "default"} dot>
-                {company.data.status}
+                {STATUS_LABEL[company.data.status] ?? company.data.status}
               </Badge>
             </div>
           </div>
@@ -96,7 +143,7 @@ export default function SettingsPage() {
               <div><p className="text-text-muted">Teléfono</p><p className="text-text-primary">{company.data.phone}</p></div>
             )}
             {company.data.tax_id && (
-              <div><p className="text-text-muted">RUC / Tax ID</p><p className="text-text-primary font-mono">{company.data.tax_id}</p></div>
+              <div><p className="text-text-muted">RUC</p><p className="text-text-primary font-mono">{company.data.tax_id}</p></div>
             )}
             {company.data.address && (
               <div className="col-span-2"><p className="text-text-muted">Dirección</p><p className="text-text-primary">{company.data.address}</p></div>

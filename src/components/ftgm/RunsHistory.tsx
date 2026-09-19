@@ -19,7 +19,7 @@ export function RunsHistory({ runs }: { runs: FtgmRun[] }) {
   return (
     <Card className="overflow-hidden p-0">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <h3 className="font-display text-[15px] font-semibold text-text-primary">Historial de ejecuciones</h3>
+        <h3 className="font-display text-[15px] font-semibold text-text-primary">Cálculos anteriores</h3>
         <span className="text-xs text-text-muted">{runs.length} ejecución(es)</span>
       </div>
       <div className="divide-y divide-border-soft">

@@ -38,7 +38,7 @@ export function QuickProductPicker({ companyId, onPick, refreshKey }: Props) {
           value: p.id,
           label: p.name,
           group: p.category_name ?? "Sin categoría",
-          description: `${p.sku} · ${soles(p.unit_price)} · ${p.stock_on_hand > 0 ? `${p.stock_on_hand} en stock` : "sin stock"}`,
+          description: `${soles(p.unit_price)} · ${p.stock_on_hand > 0 ? `quedan ${p.stock_on_hand}` : "sin stock"}`,
           icon: p.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={p.image_url} alt="" className="h-7 w-7 rounded-lg object-cover" />
@@ -67,7 +67,7 @@ export function QuickProductPicker({ companyId, onPick, refreshKey }: Props) {
       <Select
         value=""
         searchable
-        placeholder={catalog.loading ? "Cargando catálogo…" : "Elige un producto para agregarlo al carrito"}
+        placeholder={catalog.loading ? "Cargando productos…" : "Elige un producto para agregarlo al carrito"}
         emptyText="No hay productos"
         options={options}
         disabled={catalog.loading || products.length === 0}

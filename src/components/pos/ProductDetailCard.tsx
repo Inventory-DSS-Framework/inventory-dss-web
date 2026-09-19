@@ -72,9 +72,9 @@ export function ProductDetailCard({
           </div>
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
-            <Info icon={Tag} label="SKU" value={product.sku} mono />
+            <Info icon={Tag} label="Código" value={product.sku} mono />
             <Info icon={Barcode} label="Código de barras" value={product.barcode || "—"} mono />
-            <Info icon={Layers} label="Categoría" value={product.category_name || "Sin categoría"} />
+            <Info icon={Layers} label="Categoría" value={product.category_name || "Sin marca"} />
             <Info icon={Tag} label="Unidad" value={product.unit_of_measure === "unit" ? "Unidad" : product.unit_of_measure} />
           </dl>
 

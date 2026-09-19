@@ -16,6 +16,8 @@ import { CategoryFormModal } from "@/components/products/CategoryFormModal";
 import { ProductThumb } from "@/components/products/ProductThumb";
 import { categoryPath, childrenOf, descendantIds } from "@/components/products/categoryTree";
 import { ProductImportWizard } from "@/components/inventory/ProductImportWizard";
+import { MoreMenu } from "@/components/simple/MoreMenu";
+import { useExpertMode } from "@/hooks/useExpertMode";
 import { cn } from "@/lib/utils";
 import { inputClass, soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
@@ -30,6 +32,7 @@ export default function ProductsPage() {
   const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
   const categories = useApi(() => (companyId ? categoriesApi.list(companyId) : Promise.resolve([])), [companyId]);
   const columns = useColumnConfig(companyId, "product");
+  const [expert] = useExpertMode();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ProductDTO | null>(null);
@@ -77,17 +80,16 @@ export default function ProductsPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="ERP · Catálogo"
-        title="Catálogo"
-        description="Tu árbol de productos: marca › tipo › producto. Haz clic en un producto para ver su historia completa."
+        title="Productos"
+        description="Todo lo que vendes, ordenado por marca y tipo. Toca un producto para ver su historia."
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={() => openCategory(null)} disabled={!companyId}>
-              <FolderPlus className="h-4 w-4" /> Nueva marca
-            </Button>
-            <Button variant="secondary" onClick={() => setImportOpen(true)} disabled={!companyId}>
-              <Upload className="h-4 w-4" /> Importar
-            </Button>
+            <MoreMenu
+              items={[
+                { label: "Nueva marca", hint: "Para ordenar tus productos", icon: FolderPlus, onClick: () => openCategory(null), disabled: !companyId },
+                { label: "Importar Excel", hint: "Carga muchos productos de golpe", icon: Upload, onClick: () => setImportOpen(true), disabled: !companyId },
+              ]}
+            />
             <Button onClick={openCreate} disabled={!companyId}>
               <PackagePlus className="h-4 w-4" /> Nuevo producto
             </Button>
@@ -95,11 +97,11 @@ export default function ProductsPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Tile label="Productos activos" value={active} sub={`${items.length - active} inactivos`} />
+      <div className={cn("grid grid-cols-2 gap-4", expert ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
+        <Tile label="Productos a la venta" value={active} sub={`${items.length - active} pausados`} />
         <Tile label="Marcas" value={brands} sub={`${types} tipos`} />
-        <Tile label="Sin categoría" value={uncategorized} sub={uncategorized ? "Asígnales una marca" : "Todo organizado"} tone={uncategorized ? "warning" : undefined} />
-        <Tile label="Con foto" value={withPhoto} sub={items.length ? `${Math.round((withPhoto / items.length) * 100)}% del catálogo` : "—"} />
+        <Tile label="Sin marca ni tipo" value={uncategorized} sub={uncategorized ? "Asígnales una marca" : "Todo ordenado"} tone={uncategorized ? "warning" : undefined} />
+        {expert && <Tile label="Con foto" value={withPhoto} sub={items.length ? `${Math.round((withPhoto / items.length) * 100)}% de tus productos` : "—"} />}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
@@ -107,7 +109,7 @@ export default function ProductsPage() {
           <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <FolderTree className="h-4 w-4 text-primary" />
-              <h3 className="font-display text-sm font-semibold text-text-primary">Árbol del catálogo</h3>
+              <h3 className="font-display text-sm font-semibold text-text-primary">Marcas y tipos</h3>
             </div>
             <button
               onClick={() => openCategory(null)}
@@ -132,7 +134,7 @@ export default function ProductsPage() {
 
           {cats.length === 0 ? (
             <div className="mt-2 rounded-2xl border border-dashed border-border px-4 py-6 text-center text-xs text-text-muted">
-              Sin categorías todavía. Crea tu primera marca con <FolderPlus className="inline h-3 w-3" />.
+              Aún no tienes marcas. Crea la primera con <FolderPlus className="inline h-3 w-3" /> para ordenar tus productos.
             </div>
           ) : (
             <TreeLevel
@@ -152,11 +154,11 @@ export default function ProductsPage() {
           <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-              <input className={inputClass(false, "pl-10")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre, SKU o código de barras" />
+              <input className={inputClass(false, "pl-10")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Busca por nombre o código" />
             </div>
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="accent-[rgb(var(--c-primary))]" />
-              Mostrar inactivos
+              Ver pausados
             </label>
           </Card>
 
@@ -169,15 +171,16 @@ export default function ProductsPage() {
               items.length === 0 ? (
                 <EmptyState
                   icon={Package}
-                  title="Empieza tu catálogo"
-                  description="Registra tus productos con foto, código, costo y precio, u organízalos importando tu Excel."
-                  action={{ label: "Nuevo producto", onClick: openCreate }}
+                  title="Aún no tienes productos"
+                  description="Importa tu Excel o crea el primero con su nombre y precio."
+                  action={{ label: "Crear mi primer producto", onClick: openCreate }}
+                  hint={<button className="font-semibold text-primary hover:underline" onClick={() => setImportOpen(true)}>O importa tu Excel</button>}
                 />
               ) : (
                 <EmptyState
                   icon={FolderTree}
-                  title="Sin productos aquí"
-                  description="Ningún producto coincide con esta rama del árbol o con tu búsqueda."
+                  title="No encontramos productos"
+                  description="Ningún producto coincide con esta marca o con lo que buscaste."
                   action={{ label: "Ver todos", onClick: () => { setSelectedCategoryId(null); setQuery(""); } }}
                 />
               )
@@ -205,19 +208,19 @@ export default function ProductsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-text-primary">{p.name}</p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
-                          <span className="font-mono">{p.sku}</span>
+                          {expert && <span className="font-mono">{p.sku}</span>}
                           {path.length > 0 ? (
                             <span className="inline-flex items-center gap-1"><Tag className="h-3 w-3" /> {path.join(" › ")}</span>
                           ) : (
-                            <span className="text-warning">Sin categoría</span>
+                            <span className="text-warning">Sin marca</span>
                           )}
-                          {!p.is_active && <Badge>Inactivo</Badge>}
+                          {!p.is_active && <Badge>Pausado</Badge>}
                         </div>
                       </div>
                       <div className="hidden text-right sm:block">
                         <p className="font-display font-semibold tabular-nums text-text-primary">{soles(price)}</p>
                         <p className="text-xs tabular-nums text-text-muted">
-                          Costo {soles(p.unit_cost)}{margin != null && ` · ${margin.toFixed(0)}%`}
+                          Te cuesta {soles(p.unit_cost)}{expert && margin != null && ` · ${margin.toFixed(0)}%`}
                         </p>
                       </div>
                       <button

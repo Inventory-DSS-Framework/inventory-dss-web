@@ -43,7 +43,10 @@ export const readinessMeta: Record<Readiness, { label: string; tone: Tone }> = {
 
 export const modelLabel: Record<string, string> = {
   FTGM: "FTGM",
-  SeasonalNaive: "Baseline estacional",
+  FTGMCombo: "FTGM combinado",
+  DampedTrend: "Suavizado de nivel",
+  SeasonalDamped: "Suavizado estacional",
+  SeasonalNaive: "Temporada anterior",
   CrostonSBA: "Croston-SBA",
   MovingAverage: "Promedio móvil",
   None: "Omitido",

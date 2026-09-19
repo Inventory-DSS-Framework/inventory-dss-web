@@ -17,6 +17,7 @@ import type { SupplierDTO } from "@/types/api";
 import type { PurchaseBatchItemInput, PurchaseBatchResultDTO, PurchaseCatalogItemDTO } from "@/types/purchasing";
 import { PurchaseDocumentModal } from "./PurchaseDocumentModal";
 import { IGV_RATE, fmtPct, fmtQty, num, round2, todayISO, weightedAverage } from "./format";
+import { useExpertMode } from "@/hooks/useExpertMode";
 
 interface Props {
   companyId: string | null;
@@ -65,6 +66,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
   const [result, setResult] = useState<PurchaseBatchResultDTO | null>(null);
   const [supplierModal, setSupplierModal] = useState(false);
   const [docOpen, setDocOpen] = useState(false);
+  const [expert] = useExpertMode();
 
   useEffect(() => {
     if (initialSupplierId && suppliers.some((s) => s.id === initialSupplierId)) setSupplierId(initialSupplierId);
@@ -74,7 +76,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
 
   const supplierOptions: SelectOption[] = suppliers
     .filter((s) => s.is_active || s.id === supplierId)
-    .map((s) => ({ value: s.id, label: s.business_name, description: `RUC ${s.ruc}` }));
+    .map((s) => ({ value: s.id, label: s.business_name, description: expert ? `RUC ${s.ruc}` : undefined }));
 
   const productOptions = (current: string): SelectOption[] => {
     const taken = new Set(lines.map((l) => l.productId).filter((id) => id && id !== current));
@@ -83,7 +85,9 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
       .map((p) => ({
         value: p.id,
         label: p.name,
-        description: `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""} · Stock ${fmtQty(p.stock_on_hand)} · Costo prom. ${soles(p.unit_cost)}`,
+        description: expert
+          ? `${p.sku}${p.barcode ? ` · ${p.barcode}` : ""} · Stock ${fmtQty(p.stock_on_hand)} · Costo promedio ${soles(p.unit_cost)}`
+          : `Tienes ${fmtQty(p.stock_on_hand)} · te costó ${soles(p.unit_cost)}`,
         disabled: taken.has(p.id),
       }));
   };
@@ -129,8 +133,8 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
   const submit = async () => {
     setAttempted(true);
     if (!canSubmit || !companyId) {
-      if (!supplierId) setError("Elige el proveedor del comprobante.");
-      else if (!allValid) setError("Revisa las líneas marcadas: falta el producto, la cantidad o el costo.");
+      if (!supplierId) setError("Elige a qué proveedor le compraste.");
+      else if (!allValid) setError("Revisa las filas marcadas en rojo: falta el producto, la cantidad o el costo.");
       return;
     }
     setSaving(true);
@@ -187,8 +191,8 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
           </div>
           <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-text-primary">Compra registrada</h2>
           <p className="text-sm text-text-secondary">
-            {result.document_number ? `Comprobante ${result.document_number}` : "Compra sin N° de comprobante"} · {supplier?.business_name} ·{" "}
-            ingresaron <strong className="text-text-primary">{fmtQty(result.units)} unidades</strong> por{" "}
+            {result.document_number ? `Factura/boleta ${result.document_number}` : "Compra sin número de factura"} · {supplier?.business_name} ·{" "}
+            entraron <strong className="text-text-primary">{fmtQty(result.units)} unidades</strong> por{" "}
             <strong className="text-text-primary">{soles(result.total)}</strong> (IGV incl.)
           </p>
         </div>
@@ -197,7 +201,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-soft/60">
-                {["Producto", "Ingreso", "Stock", "Costo promedio"].map((h, i) => (
+                {["Producto", "Entró", "Stock", ...(expert ? ["Costo promedio"] : [])].map((h, i) => (
                   <th key={h} className={cn("whitespace-nowrap px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted", i > 0 && "text-right")}>{h}</th>
                 ))}
               </tr>
@@ -209,16 +213,16 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                   <tr key={c.product_id}>
                     <td className="px-4 py-2.5">
                       <Link href={`/inventory/${c.product_id}`} className="font-medium text-text-primary hover:text-primary">{c.name}</Link>
-                      <span className="ml-2 font-mono text-[11px] text-text-muted">{c.sku}</span>
+                      {expert && <span className="ml-2 font-mono text-[11px] text-text-muted">{c.sku}</span>}
                       {isNew && <span className="ml-2"><Badge variant="violet">Nuevo</Badge></span>}
                     </td>
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-success">+{fmtQty(c.quantity)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-text-secondary">
                       {fmtQty(c.previous_stock)} <ArrowRight className="inline h-3 w-3" /> <span className="font-medium text-text-primary">{fmtQty(c.new_stock)}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-text-secondary">
+                    {expert && <td className="px-4 py-2.5 text-right tabular-nums text-text-secondary">
                       {soles(c.previous_avg_cost)} <ArrowRight className="inline h-3 w-3" /> <span className="font-medium text-text-primary">{soles(c.new_avg_cost)}</span>
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}
@@ -228,10 +232,10 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button variant="secondary" onClick={() => setDocOpen(true)}>
-            <FileText className="h-4 w-4" /> Ver documento
+            <FileText className="h-4 w-4" /> Ver la compra
           </Button>
           <Link href="/purchases" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
-            <History className="h-4 w-4" /> Historial de compras
+            <History className="h-4 w-4" /> Ver mis compras
           </Link>
           <Button onClick={reset}>
             <Plus className="h-4 w-4" /> Registrar otra compra
@@ -248,7 +252,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
       <Card className="p-6">
         <div className="mb-4 flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-[15px] font-semibold text-text-primary">Comprobante del proveedor</h3>
+          <h3 className="font-display text-[15px] font-semibold text-text-primary">¿A quién le compraste?</h3>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
           <Field label="Proveedor" required>
@@ -259,7 +263,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                   onChange={setSupplierId}
                   options={supplierOptions}
                   searchable
-                  placeholder={suppliers.length ? "Busca por razón social o RUC…" : "Aún no tienes proveedores"}
+                  placeholder={suppliers.length ? "Busca a tu proveedor por nombre…" : "Aún no tienes proveedores: crea uno con “Nuevo”"}
                   invalid={attempted && !supplierId}
                   emptyText="Ningún proveedor coincide"
                 />
@@ -269,16 +273,16 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
               </Button>
             </div>
           </Field>
-          <Field label="Fecha de emisión" required>
+          <Field label="Fecha de la compra" required>
             <input type="date" className={inputClass(attempted && !date)} value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="N° comprobante">
+          <Field label="N° de factura o boleta">
             <input className={inputClass(false, "font-mono")} value={docNumber} onChange={(e) => setDocNumber(e.target.value.toUpperCase())} placeholder="F001-000123" maxLength={40} />
           </Field>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-          <Field label="Notas">
-            <input className={inputClass()} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional: condiciones, guía de remisión…" maxLength={500} />
+          <Field label="Notas (opcional)">
+            <input className={inputClass()} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej. pagado al contado, llegó incompleto…" maxLength={500} />
           </Field>
           <button
             type="button"
@@ -294,8 +298,8 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
               <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow-soft transition-all", includeIgv ? "left-[18px]" : "left-0.5")} />
             </span>
             <span>
-              <span className="block font-medium text-text-primary">Los costos incluyen IGV</span>
-              <span className="block text-[11px] text-text-muted">Guardamos el costo sin IGV (÷ 1.18)</span>
+              <span className="block font-medium text-text-primary">Los precios de la factura ya incluyen IGV</span>
+              <span className="block text-[11px] text-text-muted">Actívalo si copias los precios con IGV; nosotros lo separamos</span>
             </span>
           </button>
         </div>
@@ -305,24 +309,24 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
       <Card className="overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h3 className="font-display text-[15px] font-semibold text-text-primary">Productos del comprobante</h3>
+            <h3 className="font-display text-[15px] font-semibold text-text-primary">¿Qué productos te trajo?</h3>
             <p className="text-xs text-text-muted">
-              Costo unitario {includeIgv ? "con IGV" : "sin IGV"} · vemos cómo cambia tu costo promedio y tu margen
+              Escribe cuántos llegaron y cuánto te costó cada uno ({includeIgv ? "con IGV" : "sin IGV"})
             </p>
           </div>
-          <span className="text-xs text-text-muted tabular-nums">{lines.length} {lines.length === 1 ? "línea" : "líneas"}</span>
+          <span className="text-xs text-text-muted tabular-nums">{lines.length} {lines.length === 1 ? "producto" : "productos"}</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className={cn("w-full text-left text-sm", expert ? "min-w-[980px]" : "min-w-[680px]")}>
             <thead>
               <tr className="border-b border-border bg-surface-soft/60">
                 <Th className="w-8">#</Th>
                 <Th>Producto</Th>
                 <Th className="w-28 text-right">Cantidad</Th>
-                <Th className="w-36 text-right">Costo unit.</Th>
-                <Th className="w-48 text-right">Costo promedio</Th>
-                <Th className="w-24 text-right">Margen</Th>
+                <Th className="w-36 text-right">Costo c/u</Th>
+                {expert && <Th className="w-48 text-right">Costo promedio</Th>}
+                {expert && <Th className="w-24 text-right">Margen</Th>}
                 <Th className="w-32 text-right">Subtotal</Th>
                 <Th className="w-10" />
               </tr>
@@ -342,16 +346,16 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                             onChange={(v) => pickProduct(l.uid, v)}
                             options={productOptions(l.productId)}
                             searchable
-                            placeholder="Busca por nombre, código o código de barras…"
+                            placeholder="Busca el producto por nombre o código…"
                             invalid={attempted && !c.productOk}
-                            emptyText="No está en tu catálogo — usa “Producto nuevo”"
+                            emptyText="No lo tienes todavía: usa “Producto nuevo”"
                           />
                           {c.product && (
                             <p className="px-1 text-[11px] text-text-muted">
-                              <span className="font-mono">{c.product.sku}</span> · Stock actual{" "}
+                              {expert && <><span className="font-mono">{c.product.sku}</span> · </>}Tienes{" "}
                               <span className="font-medium text-text-secondary">{fmtQty(c.stock)}</span>
                               {c.qtyOk && <> → <span className="font-medium text-success">{fmtQty(c.stock + c.qty)}</span></>}
-                              {num(c.product.unit_price) > 0 && <> · Venta {soles(c.product.unit_price)}</>}
+                              {num(c.product.unit_price) > 0 && <> · Lo vendes a {soles(c.product.unit_price)}</>}
                             </p>
                           )}
                         </div>
@@ -360,14 +364,14 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                           <div className="flex items-center gap-2">
                             <Badge variant="violet">Producto nuevo</Badge>
                             <button type="button" onClick={() => update(l.uid, { mode: "existing" })} className="text-[11px] font-medium text-text-muted hover:text-text-primary">
-                              Elegir del catálogo
+                              Elegir uno que ya tengo
                             </button>
                           </div>
                           <input className={inputClass(attempted && !c.productOk, "py-2")} placeholder="Nombre del producto *" value={l.name} onChange={(e) => update(l.uid, { name: e.target.value })} autoFocus />
                           <div className="grid grid-cols-3 gap-2">
-                            <input className={inputClass(false, "py-1.5 text-xs font-mono")} placeholder="Código (auto)" value={l.sku} onChange={(e) => update(l.uid, { sku: e.target.value.toUpperCase() })} title="Si lo dejas vacío asignamos el correlativo P-000123" />
-                            <input className={inputClass(false, "py-1.5 text-xs")} placeholder="Cód. barras" value={l.barcode} onChange={(e) => update(l.uid, { barcode: e.target.value })} />
-                            <input type="number" min="0" step="0.01" className={inputClass(false, "py-1.5 text-xs")} placeholder="Precio venta" value={l.price} onChange={(e) => update(l.uid, { price: e.target.value })} />
+                            <input className={inputClass(false, "py-1.5 text-xs font-mono")} placeholder="Código (auto)" value={l.sku} onChange={(e) => update(l.uid, { sku: e.target.value.toUpperCase() })} title="Si lo dejas vacío te ponemos uno automático" />
+                            <input className={inputClass(false, "py-1.5 text-xs")} placeholder="Código de barras" value={l.barcode} onChange={(e) => update(l.uid, { barcode: e.target.value })} />
+                            <input type="number" min="0" step="0.01" className={inputClass(false, "py-1.5 text-xs")} placeholder="Precio de venta" value={l.price} onChange={(e) => update(l.uid, { price: e.target.value })} />
                           </div>
                         </div>
                       )}
@@ -382,7 +386,7 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                       </div>
                       {includeIgv && c.costOk && <p className="mt-1 text-right text-[11px] text-text-muted">sin IGV {soles(toNet(Number(l.unitCost)))}</p>}
                     </td>
-                    <td className="px-4 pt-5 text-right text-[13px] tabular-nums">
+                    {expert && <td className="px-4 pt-5 text-right text-[13px] tabular-nums">
                       {c.newAvg === null ? (
                         <span className="text-text-muted">—</span>
                       ) : l.mode === "existing" && c.product ? (
@@ -396,21 +400,21 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
                       ) : (
                         <span className="font-semibold text-text-primary">{soles(c.newAvg)}</span>
                       )}
-                    </td>
-                    <td className="px-4 pt-5 text-right text-[13px] tabular-nums" title="Sobre el precio de venta sin IGV">
+                    </td>}
+                    {expert && <td className="px-4 pt-5 text-right text-[13px] tabular-nums" title="Sobre el precio de venta sin IGV">
                       {c.margin === null ? (
                         <span className="text-text-muted">—</span>
                       ) : (
                         <span className={cn("font-semibold", c.margin < 0 ? "text-danger" : c.margin < 0.15 ? "text-warning" : "text-success")}>{fmtPct(c.margin)}</span>
                       )}
-                    </td>
+                    </td>}
                     <td className="px-4 pt-5 text-right font-semibold tabular-nums text-text-primary">{soles(c.lineTotal)}</td>
                     <td className="px-2 pt-4">
                       <button
                         type="button"
                         onClick={() => setLines((ls) => (ls.length === 1 ? [newLine()] : ls.filter((x) => x.uid !== l.uid)))}
                         className="rounded-lg p-1.5 text-text-muted hover:bg-danger-soft hover:text-danger"
-                        aria-label="Quitar línea"
+                        aria-label="Quitar producto"
                       >
                         {lines.length === 1 ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
                       </button>
@@ -451,11 +455,11 @@ export function PurchaseDocumentForm({ companyId, suppliers, catalog, initialSup
 
       <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-text-muted">
-          Al registrar, el stock sube y el costo promedio ponderado de cada producto se recalcula automáticamente.
+          Al guardar, sube tu stock y se actualiza el costo promedio de cada producto.
         </p>
         <Button size="lg" onClick={submit} disabled={saving || !companyId}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
-          {saving ? "Registrando…" : `Registrar compra · ${soles(total)}`}
+          {saving ? "Guardando…" : `Guardar compra · ${soles(total)}`}
         </Button>
       </div>
 

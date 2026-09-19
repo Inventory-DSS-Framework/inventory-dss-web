@@ -11,21 +11,21 @@ import type { CustomFieldDTO } from "@/types/custom-fields";
 import type { ProductImportRow } from "@/types/inventory";
 
 const BUILTIN_TARGETS: ImportTargetField[] = [
-  { key: "sku", label: "Código (SKU)", synonyms: ["código", "codigo", "cod", "cód", "codigo producto", "código producto", "cod producto", "item", "sku", "ref", "referencia"], hint: "Si falta, se genera P-000123" },
+  { key: "sku", label: "Código", synonyms: ["código", "codigo", "cod", "cód", "codigo producto", "código producto", "cod producto", "item", "sku", "ref", "referencia"], hint: "Si falta, se genera P-000123" },
   { key: "barcode", label: "Código de barras", synonyms: ["ean", "ean13", "código de barras", "codigo de barras", "cod barra", "cod barras", "codbarra", "barcode", "upc", "gtin"] },
   { key: "name", label: "Nombre", required: true, synonyms: ["producto", "nombre", "descripción", "descripcion", "artículo", "articulo", "nombre producto", "detalle"] },
   { key: "category", label: "Categoría", synonyms: ["categoría", "categoria", "familia", "línea", "linea", "rubro", "marca", "grupo"], hint: "Usa “Marca > Tipo” para dos niveles" },
-  { key: "unit_cost", label: "Costo unitario", type: "number", synonyms: ["costo", "costo unitario", "p. compra", "p compra", "precio compra", "precio de compra", "cost", "costo promedio"] },
+  { key: "unit_cost", label: "Costo (lo que te cuesta)", type: "number", synonyms: ["costo", "costo unitario", "p. compra", "p compra", "precio compra", "precio de compra", "cost", "costo promedio"] },
   { key: "unit_price", label: "Precio de venta", required: true, type: "number", synonyms: ["precio", "pvp", "precio venta", "precio de venta", "p. venta", "p venta", "price"] },
   { key: "initial_stock", label: "Stock", type: "integer", synonyms: ["stock", "cantidad", "existencia", "existencias", "saldo", "unidades", "stock actual", "cant"] },
-  { key: "safety_stock", label: "Stock de seguridad", type: "integer", synonyms: ["stock de seguridad", "stock seguridad", "stock minimo", "stock mínimo", "minimo", "mínimo"] },
-  { key: "reorder_point", label: "Punto de reorden", type: "integer", synonyms: ["punto de reorden", "punto reorden", "reorden", "punto de pedido"] },
-  { key: "lead_time_days", label: "Días de reposición", type: "integer", synonyms: ["lead time", "tiempo de reposición", "tiempo reposicion", "dias reposicion", "días de entrega"] },
-  { key: "unit_of_measure", label: "Unidad de medida", synonyms: ["unidad", "um", "u.m.", "unidad de medida", "medida"] },
+  { key: "safety_stock", label: "Stock mínimo", type: "integer", synonyms: ["stock mínimo de seguridad", "stock de seguridad", "stock seguridad", "stock minimo", "stock mínimo", "minimo", "mínimo"] },
+  { key: "reorder_point", label: "Comprar cuando queden", type: "integer", synonyms: ["comprar cuando queden", "comprar al llegar a", "punto de reorden", "punto reorden", "reorden", "punto de pedido"] },
+  { key: "lead_time_days", label: "Días que tarda el proveedor", type: "integer", synonyms: ["días que tarda el proveedor", "dias que tarda el proveedor", "días de reposición", "lead time", "tiempo de reposición", "tiempo reposicion", "dias reposicion", "días de entrega"] },
+  { key: "unit_of_measure", label: "Unidad", synonyms: ["unidad", "um", "u.m.", "unidad de medida", "medida"] },
 ];
 
 const TEMPLATE =
-  "Código,Código de barras,Producto,Categoría,Costo,Precio venta,Stock,Stock de seguridad,Punto de reorden,Unidad\n" +
+  "Código,Código de barras,Producto,Categoría,Costo,Precio venta,Stock,Stock mínimo,Comprar cuando queden,Unidad\n" +
   "PH-001,7750000000011,Alimento Premium Perro Adulto 15kg,Pro Plan > Alimento seco,185.50,239.90,12,3,6,unit\n" +
   ",7750000000028,Arena Sanitaria Gato 10kg,Cat Chow > Higiene,32.00,45.90,20,5,8,bolsa\n";
 
@@ -108,7 +108,7 @@ export function ProductImportWizard({ open, onClose, companyId, fields, onFinish
     <SmartImportWizard
       open={open}
       onClose={onClose}
-      title="Importar inventario"
+      title="Importar productos desde Excel"
       entityLabel="productos"
       targetFields={targetFields}
       allowNewColumns
@@ -117,15 +117,15 @@ export function ProductImportWizard({ open, onClose, companyId, fields, onFinish
       uploadHint={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Sube tu Excel tal como lo tienes: nombre y precio son obligatorios. Si una fila no trae código, le asignamos el
-            siguiente correlativo (P-000123). Las columnas que no reconozcamos pueden convertirse en columnas nuevas.
+            Sube tu Excel tal como lo tienes. Solo necesitas el nombre y el precio de cada producto; lo demás es opcional. Si
+            un producto no tiene código, le ponemos uno automático.
           </p>
           <button
             type="button"
             onClick={downloadTemplate}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface-soft px-3 py-2 text-xs font-semibold text-text-primary hover:border-primary/30"
           >
-            <Download className="h-3.5 w-3.5 text-primary" /> Plantilla CSV
+            <Download className="h-3.5 w-3.5 text-primary" /> Descargar ejemplo
           </button>
         </div>
       }
@@ -149,12 +149,12 @@ export function ProductImportWizard({ open, onClose, companyId, fields, onFinish
           </span>
           <span>
             <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-text-primary">
-              <RefreshCcw className="h-3.5 w-3.5 text-primary" /> Actualizar existentes
+              <RefreshCcw className="h-3.5 w-3.5 text-primary" /> Actualizar los productos que ya tengo
             </span>
             <span className="mt-1 block text-xs text-text-secondary">
               {updateExisting
-                ? "Si el código o el código de barras ya existe, actualizamos precio, datos y ajustamos el stock al del archivo."
-                : "Las filas con un código que ya existe se reportarán como error y no se tocarán."}
+                ? "Si un producto ya existe, le ponemos el precio, los datos y el stock que dice tu Excel."
+                : "Los productos que ya existen no se tocan; te avisaremos cuáles fueron."}
             </span>
           </span>
         </button>
