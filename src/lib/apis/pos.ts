@@ -83,6 +83,34 @@ export const posApi = {
     apiClient.post<SalesOrder>(`${base(companyId)}/sales-orders/${orderId}/void`, { reason }),
 };
 
+export interface SalesImportRowBody {
+  row: number;
+  code?: string;
+  barcode?: string;
+  name?: string;
+  sale_date: string;
+  quantity: string;
+  unit_price?: string;
+  seller_name?: string;
+}
+
+export interface SalesImportResult {
+  batch_id: string | null;
+  created: number;
+  units: number;
+  revenue: string | number;
+  period_start: string | null;
+  period_end: string | null;
+  products: number;
+  errors: { row: number; message: string }[];
+}
+
+/** Past sales loaded from a spreadsheet as history (no ticket, no stock movement). */
+export const salesHistoryApi = {
+  import: (companyId: string, rows: SalesImportRowBody[], allowDuplicates = false) =>
+    apiClient.post<SalesImportResult>(`${base(companyId)}/sales/import`, { rows, allow_duplicates: allowDuplicates }),
+};
+
 export const lostSalesApi = {
   record: (companyId: string, body: { product_id: string; requested_quantity: number; available_quantity: number }) =>
     apiClient.post<LostSale>(`${base(companyId)}/lost-sales`, { ...body, source: "pos" }),

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ChevronLeft, ChevronRight, Coins, Loader2, PlusCircle, Receipt, Search, TrendingUp, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, Coins, FileSpreadsheet, Loader2, PlusCircle, Receipt, Search, TrendingUp, Upload, Wallet } from "lucide-react";
+import { SalesImportWizard } from "@/components/sales/SalesImportWizard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
@@ -409,12 +410,39 @@ const HISTORY_PAGE = 50;
 /** Legacy / CSV-imported sales (no POS ticket), kept so the imported history isn't lost. */
 function ImportedHistory({ companyId }: { companyId: string }) {
   const [page, setPage] = useState(1);
+  const [importOpen, setImportOpen] = useState(false);
   const sales = useApi(() => salesApi.list(companyId, page, HISTORY_PAGE, "imported"), [companyId, page]);
   const products = useApi(() => productsApi.list(companyId), [companyId]);
   const productOf = useMemo(() => new Map((products.data ?? []).map((p) => [p.id, p])), [products.data]);
   const rows = sales.data ?? [];
 
   return (
+    <div className="space-y-4">
+      <Card className="flex flex-wrap items-center justify-between gap-4 py-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+            <FileSpreadsheet className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-display text-sm font-semibold text-text-primary">¿Vienes de otro sistema o de Excel?</p>
+            <p className="text-xs text-text-secondary">
+              Sube tu reporte de ventas anterior: queda como historial, no descuenta stock y alimenta el Motor FTGM.
+            </p>
+          </div>
+        </div>
+        <button type="button" onClick={() => setImportOpen(true)} className="btn btn-primary gap-2 px-4 py-2.5 text-sm">
+          <Upload className="h-4 w-4" /> Importar ventas
+        </button>
+      </Card>
+      <SalesImportWizard
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        companyId={companyId}
+        onFinished={() => {
+          setPage(1);
+          sales.reload();
+        }}
+      />
     <DataState
       loading={sales.loading && !sales.data}
       error={sales.error}
@@ -424,7 +452,7 @@ function ImportedHistory({ companyId }: { companyId: string }) {
         <EmptyState
           icon={Receipt}
           title="Sin historial importado"
-          description="Las ventas cargadas desde archivos (antes del punto de venta) aparecerán aquí."
+          description="Usa “Importar ventas” para cargar tu historial anterior; aparecerá aquí."
         />
       }
     >
@@ -481,5 +509,6 @@ function ImportedHistory({ companyId }: { companyId: string }) {
         </div>
       </Card>
     </DataState>
+    </div>
   );
 }
