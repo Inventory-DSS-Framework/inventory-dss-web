@@ -14,6 +14,7 @@ import { customFieldsApi } from "@/lib/apis/custom-fields";
 import { CheckoutError, lostSalesApi, posApi } from "@/lib/apis/pos";
 import type { CatalogProduct, PaymentMethod, SalesDocumentType, SalesOrder } from "@/types/pos";
 import { ProductSearch } from "@/components/pos/ProductSearch";
+import { QuickProductPicker } from "@/components/pos/QuickProductPicker";
 import { CameraScannerModal } from "@/components/pos/CameraScannerModal";
 import { ProductDetailCard } from "@/components/pos/ProductDetailCard";
 import { CartPanel } from "@/components/pos/CartPanel";
@@ -290,6 +291,7 @@ export default function NewSalePage() {
             onPick={addProduct}
             onOpenCamera={() => setCameraOpen(true)}
           />
+          <QuickProductPicker companyId={companyId} onPick={addProduct} refreshKey={receipt?.id ?? 0} />
 
           {notice && (
             <div

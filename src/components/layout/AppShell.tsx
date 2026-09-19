@@ -4,9 +4,12 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getRole, isAuthenticated } from "@/lib/auth";
+import { getCompanyId, getRole, isAuthenticated } from "@/lib/auth";
 import { isSellerRoute } from "@/hooks/useRole";
-import { isOnboardingPending } from "@/lib/onboarding";
+import { ONBOARDING_PREF, isOnboardingPending, markOnboardingPending } from "@/lib/onboarding";
+import { productsApi } from "@/lib/api";
+import { preferencesApi } from "@/lib/apis/custom-fields";
+import { PremiumFab } from "@/components/premium/PremiumFab";
 import { ExperienceProvider, useExperience } from "@/components/experience/ExperienceProvider";
 import { AmbientBackground } from "@/components/experience/AmbientBackground";
 import { CommandPalette } from "@/components/experience/CommandPalette";
@@ -28,9 +31,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     // A freshly created account goes through the welcome flow first.
-    if (pathname !== "/login" && pathname !== "/welcome" && !pathname.startsWith("/premium") && getRole() !== "seller" && isOnboardingPending()) {
+    const onAppScreen = pathname !== "/login" && pathname !== "/welcome" && !pathname.startsWith("/premium");
+    if (onAppScreen && getRole() !== "seller" && isOnboardingPending()) {
       window.location.replace("/welcome");
+      return;
     }
+    // Same on any device/browser: an account that never finished (or skipped) the welcome
+    // flow and still has no products starts there. Checked once per session.
+    if (onAppScreen && getRole() !== "seller") checkServerOnboarding();
   }, [pathname]);
 
   if (!isMounted) return null;
@@ -81,6 +89,33 @@ function Shell({ pathname, children }: { pathname: string; children: React.React
       </div>
       <CommandPalette />
       <GuidedTour />
+      {/* The till needs its bottom-right corner (cart total / Cobrar). */}
+      {pathname !== "/sales/new" && <PremiumFab />}
     </div>
   );
+}
+
+const ONBOARDING_CHECKED = "dss-onboarding-checked";
+
+async function checkServerOnboarding() {
+  try {
+    if (window.sessionStorage.getItem(ONBOARDING_CHECKED)) return;
+    window.sessionStorage.setItem(ONBOARDING_CHECKED, "1");
+  } catch {
+    return;
+  }
+  const companyId = getCompanyId();
+  if (!companyId) return;
+  try {
+    const [pref, products] = await Promise.all([
+      preferencesApi.get(companyId, ONBOARDING_PREF),
+      productsApi.list(companyId),
+    ]);
+    if (!pref.value && products.length === 0) {
+      markOnboardingPending();
+      window.location.replace("/welcome");
+    }
+  } catch {
+    /* offline or no access: never block the app on this */
+  }
 }

@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, Package, Settings, Activity, BarChart2, Bell, FileText, ChevronsUpDown,
-  Sparkles, LogOut, Archive, Lightbulb, BrainCircuit, ScanBarcode, Receipt, PackagePlus,
-  Truck, Crown, Users, Search, Lock, ShoppingBag, Boxes,
+  LogOut, Archive, Lightbulb, BrainCircuit, ScanBarcode, Receipt, PackagePlus,
+  Truck, Users, Search, ShoppingBag, Boxes, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { logout } from "@/lib/auth";
+import { TOUR_EVENT, isTourPending } from "@/lib/onboarding";
 import { initialsOf, useProfile } from "@/hooks/useProfile";
-import { usePlan } from "@/hooks/usePlan";
 import { useRole } from "@/hooks/useRole";
+
+const FTGM_KEY = "dss-ftgm-open";
+const FTGM_HREFS = ["/forecasting", "/recommendations", "/kpis", "/reports"];
 
 export type NavItem = {
   name: string;
@@ -108,9 +112,31 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const { company } = useProfile();
   const { isSeller } = useRole();
-  const { isPremium, loading: planLoading } = usePlan();
   const navSections = isSeller ? sellerNav : adminNav;
   const activeHref = activeHrefFor(pathname, navSections);
+
+  // Motor FTGM is a fold-out section: closed until the user chooses to continue into it.
+  // It opens by itself on an FTGM screen and during the guided tour (which points at it).
+  const inFtgm = FTGM_HREFS.some((h) => pathname === h || pathname.startsWith(h + "/"));
+  const [ftgmOpen, setFtgmOpen] = useState(false);
+  useEffect(() => {
+    let stored = false;
+    try {
+      stored = window.localStorage.getItem(FTGM_KEY) === "open";
+    } catch {}
+    setFtgmOpen(stored || inFtgm || isTourPending());
+  }, [inFtgm]);
+  useEffect(() => {
+    const open = () => setFtgmOpen(true);
+    window.addEventListener(TOUR_EVENT, open);
+    return () => window.removeEventListener(TOUR_EVENT, open);
+  }, []);
+  const setFtgm = (open: boolean) => {
+    setFtgmOpen(open);
+    try {
+      window.localStorage.setItem(FTGM_KEY, open ? "open" : "closed");
+    } catch {}
+  };
 
   return (
     <aside
@@ -186,23 +212,38 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                       {section.label}
                     </p>
                   </span>
-                  {brand && !planLoading && (
-                    <Link
-                      href="/premium"
-                      className={cn(
-                        "flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold transition-opacity hover:opacity-90",
-                        isPremium ? "bg-accent-violet text-white" : "bg-surface text-accent-violet ring-1 ring-accent-violet/30",
-                      )}
-                      title={isPremium ? "Plan Premium activo" : "Desbloquea FTGM completo"}
+                  {brand && (
+                    <button
+                      type="button"
+                      onClick={() => setFtgm(!ftgmOpen)}
+                      aria-expanded={ftgmOpen}
+                      aria-label={ftgmOpen ? "Plegar Motor FTGM" : "Desplegar Motor FTGM"}
+                      className="grid h-6 w-6 place-items-center rounded-lg text-accent-violet transition-colors hover:bg-surface/70"
                     >
-                      {isPremium ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                      {isPremium ? "PRO" : "1 producto"}
-                    </Link>
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300", ftgmOpen && "rotate-180")} />
+                    </button>
                   )}
                 </div>
               )}
 
-              <div className="space-y-0.5">
+              {brand && !collapsed && !ftgmOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setFtgm(true)}
+                  data-tour="/forecasting"
+                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface/70"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-violet/15 text-accent-violet transition-transform group-hover:scale-105">
+                    <BrainCircuit className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-semibold text-text-primary">Explorar el Motor FTGM</span>
+                    <span className="block text-[11px] leading-snug text-text-muted">Pronóstico, compras sugeridas y KPIs</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-accent-violet transition-transform group-hover:translate-x-0.5" />
+                </button>
+              ) : (
+              <div className={cn("space-y-0.5", brand && !collapsed && "animate-fade-up")}>
                 {section.items.map((item) => {
                   const isActive = item.href === activeHref;
                   return (
@@ -238,52 +279,13 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                   );
                 })}
               </div>
+              )}
             </div>
           );
         })}
       </nav>
 
       <div className={cn("space-y-1.5", collapsed ? "px-3 pb-4" : "p-3")}>
-        {!isSeller && !planLoading && !isPremium && !collapsed && (
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-soft">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-primary/15 blur-2xl"
-            />
-            <div className="relative">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2 py-0.5 text-[10.5px] font-semibold text-primary">
-                <Sparkles className="h-3 w-3" />
-                Plan gratuito
-              </div>
-              <p className="mt-2.5 text-[13px] font-semibold leading-snug text-text-primary">ERP completo + FTGM en 1 producto</p>
-              <p className="mt-1 text-xs leading-snug text-text-secondary">Pronostica todo tu catálogo con el motor FTGM.</p>
-              <Link href="/premium" className="btn btn-primary mt-3 h-9 w-full gap-1.5 text-xs">
-                <Crown className="h-3.5 w-3.5" /> Descubrir Premium
-              </Link>
-            </div>
-          </div>
-        )}
-        {!isSeller && isPremium && (
-          <Link
-            href="/premium"
-            title="Premium activo"
-            className={cn(
-              "flex items-center gap-2.5 rounded-2xl border border-border bg-surface/70 transition-colors hover:bg-surface",
-              collapsed ? "mx-auto h-10 w-10 justify-center" : "px-3 py-2.5",
-            )}
-          >
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent-violet text-white">
-              <Crown className="h-4 w-4" />
-            </span>
-            {!collapsed && (
-              <span className="min-w-0">
-                <span className="block text-[13px] font-semibold text-text-primary">Premium activo</span>
-                <span className="block text-[11px] text-text-muted">Motor FTGM completo</span>
-              </span>
-            )}
-          </Link>
-        )}
-
         <Link
           href="/login"
           title={collapsed ? "Salir" : undefined}
