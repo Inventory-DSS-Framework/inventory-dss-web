@@ -539,8 +539,9 @@ export function SmartImportWizard({
           {importError && <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{importError}</div>}
 
           {/* The editable grid */}
-          <div ref={gridRef} className="max-h-[52vh] overflow-auto rounded-2xl border border-border bg-surface">
-            <table className="border-separate border-spacing-0 text-left text-sm">
+          <div ref={gridRef} className="max-h-[52vh] overflow-x-auto overflow-y-auto rounded-2xl border border-border bg-surface">
+            {/* w-max: columns keep their natural width (no wrapping) and the grid scrolls sideways. */}
+            <table className="w-max min-w-full border-separate border-spacing-0 text-left text-sm">
               <thead className="sticky top-0 z-10">
                 <tr>
                   <th className="sticky left-0 z-20 w-12 border-b border-r border-border bg-surface-soft px-2 py-2 text-[10px] font-semibold uppercase text-text-muted">#</th>
@@ -552,7 +553,7 @@ export function SmartImportWizard({
                       <th
                         key={i}
                         className={cn(
-                          "min-w-[190px] max-w-[260px] border-b border-r border-border bg-surface-soft px-2.5 py-2 align-top font-normal last:border-r-0",
+                          "min-w-[200px] whitespace-nowrap border-b border-r border-border bg-surface-soft px-2.5 py-2 align-top font-normal last:border-r-0",
                           isNew && "bg-accent-violet-soft/60",
                           ignored && "bg-surface-muted/80",
                         )}
@@ -649,7 +650,7 @@ export function SmartImportWizard({
                             onClick={() => !isEditing && startEdit(b.index, c)}
                             title={cell?.msg}
                             className={cn(
-                              "relative max-w-[260px] border-b border-r border-border-soft px-2.5 py-1.5 last:border-r-0",
+                              "relative whitespace-nowrap border-b border-r border-border-soft px-2.5 py-1.5 last:border-r-0",
                               ignored ? "cursor-default bg-surface-muted/40 text-text-muted/60" : "cursor-text hover:bg-primary-softer/50",
                               cell?.bad && "bg-danger-soft/50 text-danger",
                               wasEdited && !cell?.bad && "bg-primary-softer/60",
@@ -677,7 +678,7 @@ export function SmartImportWizard({
                                 className="h-full w-full min-w-[160px] bg-surface px-2.5 py-1.5 text-sm text-text-primary shadow-[inset_0_0_0_2px_rgb(var(--c-primary))] focus:outline-none"
                               />
                             ) : (
-                              <span className="block truncate">
+                              <span className="block whitespace-nowrap">
                                 {cell?.value || <span className="text-text-muted/50">—</span>}
                               </span>
                             )}

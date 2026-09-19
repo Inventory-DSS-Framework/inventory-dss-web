@@ -44,7 +44,9 @@ const ExperienceContext = createContext<Experience>(DEFAULT);
 
 export const useExperience = () => useContext(ExperienceContext);
 
-export const stageFor = (pathname: string): Stage => (pathname.startsWith("/forecasting") ? "ftgm" : "none");
+// Motor FTGM used to switch to a dark "cinema" stage; it now keeps the same light ERP look
+// (and the user's own light/dark choice) so forecasts read like the rest of the app.
+export const stageFor = (_pathname: string): Stage => "none";
 
 /**
  * Owns the three experience layers — Base (ERP), Premium, and the Motor FTGM stage —

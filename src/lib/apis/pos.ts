@@ -92,11 +92,16 @@ export interface SalesImportRowBody {
   quantity: string;
   unit_price?: string;
   seller_name?: string;
+  document_number?: string;
+  payment_method?: string;
+  client_name?: string;
+  client_doc?: string;
 }
 
 export interface SalesImportResult {
   batch_id: string | null;
   created: number;
+  tickets: number;
   units: number;
   revenue: string | number;
   period_start: string | null;

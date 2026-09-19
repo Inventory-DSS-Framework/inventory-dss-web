@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Boxes,
+  ChevronDown,
   Lightbulb,
   Minus,
   PackageSearch,
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/Table";
 import { Tabs } from "@/components/ui/Tabs";
 import { Select } from "@/components/ui/Select";
 import { DataState } from "@/components/ui/DataState";
+import { ActionPlan } from "@/components/ftgm/ActionPlan";
 import { DiagnosticsPanel } from "@/components/ftgm/DiagnosticsPanel";
 import { EngineProgress } from "@/components/ftgm/EngineProgress";
 import { ForecastDrilldownChart } from "@/components/ftgm/ForecastDrilldownChart";
@@ -72,6 +74,7 @@ export default function ForecastRunDetailPage() {
   );
 
   const [tab, setTab] = useState("resumen");
+  const [showTech, setShowTech] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [tracking, setTracking] = useState<RunTracking | null>(null);
   const [trackingError, setTrackingError] = useState<string | null>(null);
@@ -129,6 +132,21 @@ export default function ForecastRunDetailPage() {
         <DataState loading={overview.loading && !ov} error={overview.error} onRetry={overview.reload}>
           {ov && (
             <>
+              <ActionPlan rows={rows} />
+
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTech((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:text-text-primary"
+                >
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", showTech && "rotate-180")} />
+                  {showTech ? "Ocultar detalle técnico" : "Ver detalle técnico (gráficos y métricas del modelo)"}
+                </button>
+              </div>
+
+              {showTech && (
+              <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <Kpi icon={TrendingUp} label="Demanda proyectada" value={units(ov.summary.total_forecast_units)} hint={`${units(ov.summary.next_period_units)} el próximo periodo`} />
                 <Kpi icon={Boxes} label="Necesitan reabastecerse" value={`${ov.summary.products_need_restock}`} hint={`de ${ov.summary.products} producto(s)`} tone={ov.summary.products_need_restock ? "warning" : undefined} />
@@ -235,6 +253,8 @@ export default function ForecastRunDetailPage() {
                     {null}
                   </DataState>
                 ))}
+              </>
+              )}
             </>
           )}
         </DataState>
