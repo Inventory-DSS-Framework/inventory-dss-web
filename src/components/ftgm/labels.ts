@@ -38,6 +38,7 @@ export const readinessMeta: Record<Readiness, { label: string; tone: Tone }> = {
   listo: { label: "Listo", tone: "success" },
   pocos_datos: { label: "Pocos datos · baseline", tone: "warning" },
   sin_ventas: { label: "Sin ventas · excluido", tone: "default" },
+  en_curso: { label: "Ventas en curso · aún no", tone: "primary" },
 };
 
 export const modelLabel: Record<string, string> = {

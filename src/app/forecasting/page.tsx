@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, CalendarRange, Crown, Loader2, PackageCheck, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarRange, Crown, FileSpreadsheet, Loader2, PackageCheck, Sparkles, Wand2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +19,50 @@ import { useCompanyId } from "@/hooks/useCompanyId";
 import { usePlan } from "@/hooks/usePlan";
 import { categoriesApi, productsApi, suppliersApi } from "@/lib/api";
 import { ftgmApi } from "@/lib/apis/ftgm";
-import type { ForecastScope, FtgmFrequency, FtgmRun, ScopePreview } from "@/types/ftgm";
+import type { ForecastScope, FtgmFrequency, FtgmRun, PreviewTotals, ScopePreview } from "@/types/ftgm";
+
+/**
+ * Shown when nothing in the scope is ready for the FTGM yet (typically a brand-new account):
+ * says why, how much history each model needs, and takes the user to import it.
+ */
+function HistoryGuide({ totals }: { totals: PreviewTotals }) {
+  const nothing = totals.products_included === 0;
+  return (
+    <Card className="border-primary/25 bg-primary-softer/50">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+            <FileSpreadsheet className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-display font-semibold text-text-primary">
+              {nothing ? "Aún no hay historia suficiente para pronosticar" : "Con esta historia el motor usará un baseline"}
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">
+              El motor aprende de <strong>semanas o meses completos</strong> de ventas; las del periodo en curso entran
+              cuando ese periodo termina. Si tu negocio es nuevo en InventoryDSS, importa las ventas de tu sistema
+              anterior o de tu Excel y el pronóstico queda listo al instante.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {[
+                ["1 semana completa", "baseline (promedio móvil)"],
+                ["26 semanas con ventas regulares", "FTGM semanal"],
+                ["24 meses", "FTGM mensual con estacionalidad"],
+              ].map(([need, gets]) => (
+                <span key={need} className="rounded-full border border-border bg-surface px-3 py-1 text-text-secondary">
+                  <strong className="text-text-primary">{need}</strong> → {gets}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <Link href="/sales?tab=imported" className="btn btn-primary shrink-0 gap-2 px-4 py-2.5 text-sm">
+          <FileSpreadsheet className="h-4 w-4" /> Importar historial de ventas
+        </Link>
+      </div>
+    </Card>
+  );
+}
 
 const HORIZONS = [
   { days: 30, label: "1 mes" },
@@ -196,7 +239,10 @@ function ForecastingFlow() {
               Ningún producto coincide con este alcance. Prueba con otro periodo, proveedor o categoría.
             </Card>
           ) : (
-            <ScopeAnalysis companyId={companyId} preview={preview} />
+            <>
+              {preview.totals.products_ready === 0 && <HistoryGuide totals={preview.totals} />}
+              <ScopeAnalysis companyId={companyId} preview={preview} />
+            </>
           )}
         </section>
       )}

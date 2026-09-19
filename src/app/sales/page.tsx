@@ -37,6 +37,10 @@ export default function SalesPage() {
   const companyId = useCompanyId();
   const { isSeller, isAdmin } = useRole();
   const [tab, setTab] = useState<"pos" | "imported">("pos");
+  // Deep link from the FTGM guide: /sales?tab=imported opens the history import.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "imported") setTab("imported");
+  }, []);
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">

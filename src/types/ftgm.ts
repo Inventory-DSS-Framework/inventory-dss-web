@@ -2,7 +2,7 @@
 
 export type ScopeType = "recent_sales" | "supplier" | "seller" | "category" | "products" | "all";
 export type FtgmFrequency = "auto" | "monthly" | "weekly";
-export type Readiness = "listo" | "pocos_datos" | "sin_ventas";
+export type Readiness = "listo" | "pocos_datos" | "sin_ventas" | "en_curso";
 export type TrackingStatus = "en_linea" | "sobre_pronostico" | "bajo_pronostico" | "pendiente";
 export type StockoutRisk = "alto" | "medio" | "bajo";
 
