@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   Area,
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -41,10 +42,12 @@ function outlookOf(history: number[], forecast: number[]): Outlook {
 }
 
 /**
- * History (observed / cleaned / fitted) + the probable range of what comes next.
- * The projected line itself is not drawn: the shaded range carries the future, and its
- * shape follows the recommendation — broken when there is nothing to project, flat for a
- * steady seller, rising for a strong one.
+ * History + what comes next, drawn like the engine scene of the intro: the sales you made
+ * as a filled curve, then the probable range as a soft band with the AI's own estimate as a
+ * dashed line running down its middle. The dashed line leaves exactly where the solid one
+ * ends, so the eye follows a single story; when there is nothing to project it breaks on
+ * purpose, and its slope follows the recommendation (flat for a steady seller, rising for a
+ * strong one).
  */
 export function ForecastDrilldownChart({
   result,
@@ -59,6 +62,8 @@ export function ForecastDrilldownChart({
 }) {
   const c = useBrandColors();
   const [range, setRange] = useState<"recent" | "all">("recent");
+  // Two of these charts can share a screen (normal + expert), so the gradients need own ids.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
 
   const { data, outlook } = useMemo(() => {
     const window = frequency === "weekly" ? 52 : 36;
@@ -87,10 +92,14 @@ export function ForecastDrilldownChart({
     if (predicted.length) {
       const mean = predicted.reduce((a, b) => a + b, 0) / predicted.length;
       const top = Math.max(...predicted, lastObserved * 1.15);
-      // Continuity: the range opens from the exact point where the sales line ends…
-      if (view !== "sin" && last) last.band = [lastObserved, lastObserved];
+      // Continuity: both the range and the dashed estimate open from the exact point where
+      // the sales line ends…
+      if (view !== "sin" && last) {
+        last.band = [lastObserved, lastObserved];
+        last.forecast = lastObserved;
+      }
       // …except when there is nothing to project, where the break itself is the message.
-      if (view === "sin" && last) rows.push({ name: `${last.name}~`, band: null });
+      if (view === "sin" && last) rows.push({ name: `${last.name}~`, band: null, forecast: null });
 
       result.points.forEach((p, k) => {
         const half = spread[k] ?? Math.max(0.4, predicted[k] * 0.18);
@@ -100,13 +109,19 @@ export function ForecastDrilldownChart({
             : view === "medio"
               ? mean
               : lastObserved + ((top - lastObserved) * (k + 1)) / predicted.length;
-        rows.push({ name: p.period_date, band: [Math.max(0, centre - half), centre + half] });
+        rows.push({
+          name: p.period_date,
+          band: [Math.max(0, centre - half), centre + half],
+          // La línea intermedia: lo que el motor espera que muevas, siempre dentro de la franja.
+          forecast: Math.max(0, centre),
+        });
       });
     }
     return { data: rows, outlook: view };
   }, [result, frequency, range]);
 
   const boundary = result.points[0]?.period_date;
+  const lastName = data.length ? String(data[data.length - 1].name) : undefined;
   const meta = OUTLOOK_META[outlook];
   const clean = (v: unknown) => String(v).replace(/~$/, "");
 
@@ -117,6 +132,7 @@ export function ForecastDrilldownChart({
           {simple ? (
             <>
               <LegendChip color={c.primary} label="Lo que vendiste" />
+              <LegendChip color={c.accent2} label="Lo que la IA espera" dashed />
               <LegendChip color={c.accent2} label="Rango probable" />
             </>
           ) : (
@@ -124,6 +140,7 @@ export function ForecastDrilldownChart({
               <LegendChip color={c.primary} label="Demanda observada" />
               <LegendChip color={c.warning} label="Demanda reparada" />
               <LegendChip color={c.muted} label="Ajuste del modelo" dashed />
+              <LegendChip color={c.accent2} label="Pronóstico" dashed />
               <LegendChip color={c.accent2} label="Rango probable" />
               <LegendChip color={c.danger} label="Quiebre" />
             </>
@@ -149,8 +166,19 @@ export function ForecastDrilldownChart({
       </div>
       <div style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 6" vertical={false} stroke={c.grid} />
+          <ComposedChart data={data} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`hist-${uid}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor={c.primary} stopOpacity={0.22} />
+                <stop offset="100%" stopColor={c.primary} stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id={`band-${uid}`} x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor={c.accent2} stopOpacity={0.38} />
+                <stop offset="100%" stopColor={c.accent2} stopOpacity={0.12} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={c.grid} />
             <XAxis
               dataKey="name"
               tickFormatter={(v) => periodLabel(clean(v), frequency)}
@@ -166,11 +194,12 @@ export function ForecastDrilldownChart({
                 <ChartTooltip
                   names={
                     simple
-                      ? { observed: "Vendiste", band: "Rango probable" }
+                      ? { observed: "Vendiste", forecast: "Esperamos", band: "Rango probable" }
                       : {
                           observed: "Observada",
                           cleaned: "Reparada / limpia",
                           fitted: "Ajuste",
+                          forecast: "Pronóstico",
                           band: "Rango probable",
                           stockout: "Quiebre",
                           outlier: "Atípico",
@@ -180,9 +209,54 @@ export function ForecastDrilldownChart({
                 />
               }
             />
-            {boundary && <ReferenceLine x={boundary} stroke={c.accent} strokeOpacity={0.35} strokeDasharray="3 3" />}
-            <Area type="natural" dataKey="band" stroke="none" fill={c.accent2} fillOpacity={0.3} isAnimationActive={false} connectNulls={false} />
-            <Area type="natural" dataKey="observed" stroke={c.primary} strokeWidth={2} fill={c.primary} fillOpacity={0.07} dot={false} connectNulls={false} />
+
+            {/* Lo que viene queda sobre un fondo apenas teñido, como en la escena del motor. */}
+            {boundary && lastName && (
+              <ReferenceArea x1={boundary} x2={lastName} fill={c.accent2} fillOpacity={0.05} ifOverflow="extendDomain" />
+            )}
+            {boundary && (
+              <ReferenceLine
+                x={boundary}
+                stroke={c.muted}
+                strokeOpacity={0.45}
+                strokeDasharray="3 4"
+                label={{ value: "HOY", position: "insideTopLeft", fill: c.muted, fontSize: 10, letterSpacing: 1.4, dy: -10 }}
+              />
+            )}
+
+            <Area
+              type="natural"
+              dataKey="band"
+              stroke="none"
+              fill={`url(#band-${uid})`}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+            {/* La línea intermedia: el valor que el motor espera, punteado para separarlo del pasado. */}
+            <Line
+              type="natural"
+              dataKey="forecast"
+              stroke={c.accent2}
+              strokeWidth={2.4}
+              strokeDasharray="6 5"
+              strokeLinecap="round"
+              dot={false}
+              activeDot={{ r: 4, fill: c.accent2, stroke: c.surface, strokeWidth: 2 }}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+            <Area
+              type="natural"
+              dataKey="observed"
+              stroke={c.primary}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              fill={`url(#hist-${uid})`}
+              dot={false}
+              activeDot={{ r: 4, fill: c.primary, stroke: c.surface, strokeWidth: 2 }}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
             {!simple && <Line type="natural" dataKey="cleaned" stroke={c.warning} strokeWidth={0} dot={{ r: 3.5, fill: c.warning }} />}
             {!simple && <Line type="natural" dataKey="fitted" stroke={c.muted} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />}
             {!simple && <Scatter dataKey="stockout" fill={c.danger} />}

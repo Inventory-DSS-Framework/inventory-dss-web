@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { Bar, BarChart, Cell, ErrorBar, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useId, useMemo } from "react";
+import { Bar, BarChart, CartesianGrid, Cell, ErrorBar, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertTriangle, CheckCircle2, Truck } from "lucide-react";
 import { useBrandColors } from "@/hooks/useBrandColors";
 import { cn } from "@/lib/utils";
@@ -62,6 +62,7 @@ export function ForecastBars({
   height?: number;
 }) {
   const c = useBrandColors();
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const data = useMemo(
     () =>
       result.points.map((p) => {
@@ -88,6 +89,13 @@ export function ForecastBars({
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`fb-${uid}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={c.accent2} stopOpacity={0.95} />
+              <stop offset="100%" stopColor={c.primary} stopOpacity={0.35} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={c.grid} />
           <XAxis
             dataKey="name"
             tickFormatter={(v) => periodLabel(String(v), frequency)}
@@ -121,11 +129,11 @@ export function ForecastBars({
               );
             }}
           />
-          <Bar dataKey="u" fill={c.primary} radius={[8, 8, 4, 4]} maxBarSize={46} isAnimationActive={false}>
+          <Bar dataKey="u" fill={`url(#fb-${uid})`} radius={[8, 8, 4, 4]} maxBarSize={46} isAnimationActive={false}>
             {data.map((d, i) => (
-              <Cell key={d.name} fill={c.primary} fillOpacity={0.45 + (0.5 * (i + 1)) / data.length} />
+              <Cell key={d.name} fillOpacity={0.55 + (0.45 * (i + 1)) / data.length} />
             ))}
-            <ErrorBar dataKey="err" width={5} strokeWidth={1.6} stroke={c.accent2} direction="y" />
+            <ErrorBar dataKey="err" width={5} strokeWidth={1.6} stroke={c.accent} direction="y" />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -337,6 +345,7 @@ const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "
  */
 export function SeasonalityBars({ result, height = 210 }: { result: ForecastResultDTO; height?: number }) {
   const c = useBrandColors();
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const { data, months } = useMemo(() => {
     const sum = new Array(12).fill(0);
     const count = new Array(12).fill(0);
@@ -364,6 +373,17 @@ export function SeasonalityBars({ result, height = 210 }: { result: ForecastResu
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 12, right: 8, left: -14, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sb-${uid}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={c.primary} stopOpacity={0.55} />
+              <stop offset="100%" stopColor={c.primary} stopOpacity={0.12} />
+            </linearGradient>
+            <linearGradient id={`sb-top-${uid}`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={c.accent2} stopOpacity={1} />
+              <stop offset="100%" stopColor={c.accent2} stopOpacity={0.4} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={c.grid} />
           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: c.muted, fontSize: 10.5 }} interval={0} dy={6} />
           <YAxis axisLine={false} tickLine={false} tick={{ fill: c.muted, fontSize: 11 }} width={44} />
           <Tooltip
@@ -387,7 +407,7 @@ export function SeasonalityBars({ result, height = 210 }: { result: ForecastResu
           />
           <Bar dataKey="u" radius={[8, 8, 4, 4]} maxBarSize={34} isAnimationActive={false}>
             {data.map((d) => (
-              <Cell key={d.name} fill={d.u >= top * 0.98 && d.u > 0 ? c.accent2 : c.primary} fillOpacity={d.u >= top * 0.98 && d.u > 0 ? 1 : 0.35} />
+              <Cell key={d.name} fill={d.u >= top * 0.98 && d.u > 0 ? `url(#sb-top-${uid})` : `url(#sb-${uid})`} />
             ))}
           </Bar>
         </BarChart>
