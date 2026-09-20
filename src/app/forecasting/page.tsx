@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
 import { RunResultView } from "@/components/ftgm/RunResultView";
 import { PredictingShow, SHOW_MS } from "@/components/ftgm/PredictingShow";
+import { ForecastIntro } from "@/components/ftgm/ForecastIntro";
 import { PremiumBackdrop } from "@/components/premium/PremiumBackdrop";
 import { prefersReducedMotion } from "@/components/premium/plan-data";
 import { BuyPanel } from "@/components/ftgm/panels/BuyPanel";
@@ -249,9 +250,15 @@ export default function ForecastingPage() {
   // would otherwise trap a `fixed` child inside the content area.
   const [mounted, setMounted] = useState(false);
   const [reduced, setReduced] = useState(false);
+  // The intro plays on arriving at the flow — not when a link drops you straight
+  // into a saved result, where the person already knows what they came for.
+  const [intro, setIntro] = useState(false);
   useEffect(() => {
     setMounted(true);
-    setReduced(prefersReducedMotion());
+    const soft = prefersReducedMotion();
+    setReduced(soft);
+    if (!soft && !runParam && !isView(vistaParam)) setIntro(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -581,6 +588,7 @@ export default function ForecastingPage() {
   if (!mounted) return null;
   return createPortal(
     <div className="ps-root fixed inset-0 z-[60] flex flex-col overflow-hidden">
+      {intro && <ForecastIntro onClose={() => setIntro(false)} />}
       <PremiumBackdrop />
       {step === "running" && (
         <div

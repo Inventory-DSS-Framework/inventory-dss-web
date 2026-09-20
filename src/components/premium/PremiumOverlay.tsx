@@ -19,13 +19,17 @@ interface Props {
   closeOnEsc?: boolean;
   /** Viewport point the stage grows out of (the button that was clicked). */
   origin?: { x: number; y: number } | null;
+  /** Wordmark shown top-left. Defaults to the Premium one. */
+  brand?: React.ReactNode;
+  /** Forces the dark palette while the stage is open (green on black). */
+  forceDark?: boolean;
 }
 
 /**
  * Full-screen stage above the app shell. Portaled to <body> so page transitions
  * (transforms on ancestors) never trap the fixed positioning.
  */
-export function PremiumOverlay({ children, onClose, actions, subheader, scroll = true, label, closeOnEsc = true, origin = null }: Props) {
+export function PremiumOverlay({ children, onClose, actions, subheader, scroll = true, label, closeOnEsc = true, origin = null, brand, forceDark = false }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -36,6 +40,18 @@ export function PremiumOverlay({ children, onClose, actions, subheader, scroll =
       document.body.style.overflow = prev;
     };
   }, []);
+
+  // Same green, black ground: the stage borrows the dark palette and gives it back.
+  useEffect(() => {
+    if (!forceDark) return;
+    const root = document.documentElement;
+    const previous = root.getAttribute("data-mode");
+    root.setAttribute("data-mode", "dark");
+    return () => {
+      if (previous) root.setAttribute("data-mode", previous);
+      else root.removeAttribute("data-mode");
+    };
+  }, [forceDark]);
 
   useEffect(() => {
     if (!closeOnEsc) return;
@@ -57,7 +73,7 @@ export function PremiumOverlay({ children, onClose, actions, subheader, scroll =
     <div role="dialog" aria-modal="true" aria-label={label} className="ps-root fixed inset-0 z-[150] flex flex-col" style={enter}>
       <PremiumBackdrop />
       <header className="relative z-20 flex items-center justify-between gap-4 px-5 pt-4 sm:px-8 sm:pt-6">
-        <PremiumWordmark />
+        {brand ?? <PremiumWordmark />}
         <div className="flex items-center gap-2">
           {actions}
           <button onClick={onClose} aria-label="Cerrar" className="btn ps-btn-ghost h-9 w-9 rounded-full p-0">
