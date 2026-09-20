@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Table";
+import { ScrollShadow } from "@/components/ui/ScrollShadow";
 import { Select } from "@/components/ui/Select";
 import { DataState } from "@/components/ui/DataState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -151,7 +152,7 @@ export default function InventoryPage() {
       key: "product",
       header: "Producto",
       cell: (r) => (
-        <div className="flex w-[300px] min-w-0 items-center gap-3">
+        <div className="flex w-[240px] min-w-0 items-center gap-3">
           <ProductThumb src={r.image_url} name={r.name} />
           <div className="min-w-0">
             <p className="truncate font-medium text-text-primary" title={r.name}>{r.name}</p>
@@ -251,7 +252,7 @@ export default function InventoryPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="mx-auto max-w-[1760px] space-y-6">
       <PageHeader
         title="Inventario"
         description="Mira cuánto te queda de cada producto y qué se está acabando."
@@ -336,12 +337,20 @@ export default function InventoryPage() {
             ))}
             <span className="ml-auto text-xs text-text-muted">{filtered.length} de {items.length} productos</span>
           </div>
-          <div className="overflow-x-auto">
+          <ScrollShadow hint="Desliza para ver más columnas →">
             <table className="w-max min-w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-border bg-surface-soft/60">
+                <tr className="border-b border-border bg-surface-soft">
                   {visibleColumns.map((c) => (
-                    <th key={c.key} className={cn("whitespace-nowrap px-3 py-3 first:pl-5", c.align === "right" && "text-right")}>
+                    <th
+                      key={c.key}
+                      className={cn(
+                        "whitespace-nowrap px-3 py-3 first:pl-5",
+                        c.align === "right" && "text-right",
+                        // The product name stays put while the rest of the row slides.
+                        c.key === "product" && "sticky left-0 z-20 border-r border-border-soft bg-surface-soft",
+                      )}
+                    >
                       <button
                         onClick={() => toggleSort(c.key)}
                         className={cn(
@@ -361,9 +370,20 @@ export default function InventoryPage() {
               </thead>
               <tbody className="divide-y divide-border-soft">
                 {filtered.map((r) => (
-                  <tr key={r.id} onClick={() => router.push(`/inventory/${r.id}`)} className="cursor-pointer transition-colors hover:bg-primary-softer/60">
+                  <tr
+                    key={r.id}
+                    onClick={() => router.push(`/inventory/${r.id}`)}
+                    className="group cursor-pointer transition-colors hover:bg-primary-softer"
+                  >
                     {visibleColumns.map((c) => (
-                      <td key={c.key} className={cn("whitespace-nowrap px-3 py-3 text-sm text-text-primary first:pl-5", c.align === "right" && "text-right")}>
+                      <td
+                        key={c.key}
+                        className={cn(
+                          "whitespace-nowrap px-3 py-3 text-sm text-text-primary first:pl-5",
+                          c.align === "right" && "text-right",
+                          c.key === "product" && "sticky left-0 z-10 border-r border-border-soft bg-surface transition-colors group-hover:bg-primary-softer",
+                        )}
+                      >
                         {c.cell(r)}
                       </td>
                     ))}
@@ -378,7 +398,7 @@ export default function InventoryPage() {
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollShadow>
         </Card>
       </DataState>
 
