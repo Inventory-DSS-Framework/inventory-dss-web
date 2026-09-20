@@ -1,18 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, ArrowRight, BarChart2, Calendar, Check, CheckSquare, ChevronDown, Crown,
-  FileText, Lightbulb, Loader2, Package, RotateCcw, Sparkles, Square, TrendingUp, Wand2, XCircle,
+  FileText, Lightbulb, Loader2, Minimize2, Package, RotateCcw, Sparkles, Square, TrendingUp, Wand2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
 import { RunResultView } from "@/components/ftgm/RunResultView";
-import { PredictingStage } from "@/components/ftgm/PredictingStage";
+import { EngineBackdrop, PredictingStage } from "@/components/ftgm/PredictingStage";
 import { BuyPanel } from "@/components/ftgm/panels/BuyPanel";
 import { NumbersPanel } from "@/components/ftgm/panels/NumbersPanel";
 import { ReportsPanel } from "@/components/ftgm/panels/ReportsPanel";
@@ -210,20 +211,33 @@ export default function ForecastingPage() {
   }, [step, run?.id, companyId]);
 
   const stepIdx = step === "what" ? 0 : step === "when" ? 1 : step === "running" ? 2 : 3;
+  // Steps 1-3 are the prediction flow itself: full screen, no app chrome, dark stage.
+  // The results (step 4) are a working screen, so they go back to the normal app.
+  const immersive = step !== "results";
 
-  return (
-    <div className="relative mx-auto max-w-[1400px] space-y-8">
-      {/* Light stage backdrop (premium-style, never dark). */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(50% 36% at 80% 0%, rgb(var(--c-accent) / 0.10), transparent 70%)," +
-            "radial-gradient(40% 30% at 6% 12%, rgb(var(--c-primary) / 0.08), transparent 70%)",
-        }}
-      />
+  // Dark theme + locked page while the flow is on, restoring whatever the person had.
+  useEffect(() => {
+    if (!immersive) return;
+    const root = document.documentElement;
+    const previous = root.getAttribute("data-mode");
+    const scroll = document.body.style.overflow;
+    root.setAttribute("data-mode", "dark");
+    document.body.style.overflow = "hidden";
+    return () => {
+      if (previous) root.setAttribute("data-mode", previous);
+      else root.removeAttribute("data-mode");
+      document.body.style.overflow = scroll;
+    };
+  }, [immersive]);
 
+  // The overlay is portaled to <body>: the page container animates transforms, which
+  // would otherwise trap a `fixed` child inside the content area.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+
+  const flow = (
+    <>
       <PageHeader
         eyebrow="Predice con IA"
         eyebrowTone="violet"
@@ -524,7 +538,53 @@ export default function ForecastingPage() {
           )}
         </div>
       )}
-    </div>
+    </>
+  );
+
+  if (!immersive) {
+    return (
+      <div className="relative mx-auto max-w-[1400px] space-y-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10"
+          style={{
+            background:
+              "radial-gradient(50% 36% at 80% 0%, rgb(var(--c-accent) / 0.10), transparent 70%)," +
+              "radial-gradient(40% 30% at 6% 12%, rgb(var(--c-primary) / 0.08), transparent 70%)",
+          }}
+        />
+        {flow}
+      </div>
+    );
+  }
+
+  // Full screen: covers sidebar and topbar, so nothing competes with the flow.
+  if (!mounted) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background text-text-primary">
+      <div className="relative min-h-full">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(55% 40% at 80% 0%, rgb(var(--c-accent) / 0.18), transparent 70%)," +
+              "radial-gradient(45% 35% at 5% 10%, rgb(var(--c-primary) / 0.14), transparent 70%)",
+          }}
+        />
+        {/* The engine keeps drawing behind every step; re-mounting replays it. */}
+        <EngineBackdrop key={step} />
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="absolute right-5 top-5 z-10 inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-surface/80 px-3.5 text-sm font-medium text-text-secondary backdrop-blur transition-colors hover:text-text-primary"
+        >
+          <Minimize2 className="h-4 w-4" /> Salir
+        </button>
+        <div className="relative z-[1] mx-auto max-w-[1100px] space-y-8 px-5 py-12 lg:px-8">{flow}</div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

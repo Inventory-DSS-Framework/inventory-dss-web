@@ -102,10 +102,7 @@ export function ActionPlan({ rows }: { rows: OverviewProduct[] }) {
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3">
-                <span className="text-xs text-text-muted" title="Qué tan acertado fue el cálculo con tus ventas pasadas">
-                  Confianza del cálculo: <strong className="text-text-secondary">{d.confidence}</strong>
-                  {p.accuracy_pct != null && <> · acertó {Math.round(p.accuracy_pct)}% en el pasado</>}
-                </span>
+                <span />
                 <div className="flex items-center gap-2">
                   <Link href={`/inventory/${p.product_id}`} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-text-secondary hover:bg-surface-soft hover:text-text-primary">
                     <PackageSearch className="h-3.5 w-3.5" /> Ver producto

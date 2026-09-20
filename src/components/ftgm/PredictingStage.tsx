@@ -5,12 +5,13 @@ import { Brain, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The "the AI is working" stage of /forecasting.
+ * The engine scene of the prediction flow.
  *
- * This is the showcase animation that used to open /premium, re-skinned for light mode:
- * the demand history draws itself, the stock-outs get repaired, the "HOY" line drops and
- * the forecast grows out of the last real point with its confidence band. It runs while
- * the run is being computed, in step with the four processing messages.
+ * This is the showcase animation that used to open /premium: the demand history draws
+ * itself, the stock-outs get repaired, the "HOY" line drops and the forecast grows out of
+ * the last real point with its confidence band. It runs as an ambient backdrop through the
+ * whole flow (`EngineBackdrop`) and takes the stage while the run is computed
+ * (`PredictingStage`), in step with the four processing messages.
  */
 
 type Style = React.CSSProperties & Record<`--${string}`, string>;
@@ -90,19 +91,132 @@ function Pill({ x, y, delay, children }: { x: number; y: number; delay: number; 
   );
 }
 
-export function PredictingStage({ stages, stage, products }: { stages: string[]; stage: number; products: number }) {
+/** The drawing itself. `labels` adds the axis captions and the callout pills. */
+export function EngineScene({ labels = true, className }: { labels?: boolean; className?: string }) {
   const c = useChart();
   const peak = c.histPts[16];
 
   return (
-    <div className="ia-stage relative overflow-hidden rounded-xl border border-border bg-surface p-6 sm:p-8">
+    <div className={cn("relative w-full", className)} style={{ aspectRatio: `${W} / ${H}` }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-label="La IA proyectando tu demanda">
+        <defs>
+          <linearGradient id="ia-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgb(var(--c-primary))" stopOpacity="0.20" />
+            <stop offset="100%" stopColor="rgb(var(--c-primary))" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="ia-band" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="rgb(var(--c-accent))" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="rgb(var(--c-accent))" stopOpacity="0.08" />
+          </linearGradient>
+        </defs>
+
+        {[0, 1, 2, 3, 4].map((k) => {
+          const y = TOP + (k * (BOTTOM - TOP)) / 4;
+          return <line key={k} x1={X0} x2={X1} y1={y} y2={y} stroke="rgb(var(--c-text))" strokeOpacity="0.07" strokeDasharray="2 6" />;
+        })}
+
+        <rect
+          x={X_TODAY}
+          y={TOP - 16}
+          width={X1 - X_TODAY + 16}
+          height={BOTTOM - TOP + 16}
+          fill="rgb(var(--c-accent))"
+          fillOpacity="0.04"
+          className="ps-fade"
+          style={d(1.5)}
+        />
+
+        <path d={c.area} fill="url(#ia-area)" className="ps-wipe" style={{ "--d": "0.3s", "--t": "1.7s" } as Style} />
+        <path
+          d={c.hist}
+          pathLength={1}
+          fill="none"
+          stroke="rgb(var(--c-primary))"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="ps-draw"
+          style={{ "--d": "0.3s", "--t": "1.7s" } as Style}
+        />
+
+        {c.corrections.map((p, k) => (
+          <path key={k} d={p} fill="none" stroke="rgb(var(--c-warning))" strokeWidth="2" strokeDasharray="4 5" className="ps-fade" style={d(2.3 + k * 0.15)} />
+        ))}
+
+        <g className="ps-fade" style={d(1.6)}>
+          <line x1={X_TODAY} x2={X_TODAY} y1={TOP - 12} y2={BOTTOM} stroke="rgb(var(--c-text))" strokeOpacity="0.25" strokeDasharray="3 4" />
+          {labels && (
+            <text x={X_TODAY} y={BOTTOM + 20} textAnchor="middle" fontSize="11" fill="rgb(var(--c-text))" fillOpacity="0.5" letterSpacing="1.5">
+              HOY
+            </text>
+          )}
+        </g>
+
+        <path d={c.band} fill="url(#ia-band)" className="ps-wipe" style={{ "--d": "1.85s", "--t": "1.2s" } as Style} />
+        <path
+          d={c.fc}
+          pathLength={1}
+          fill="none"
+          stroke="rgb(var(--c-accent))"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeDasharray="6 5"
+          className="ps-draw"
+          style={{ "--d": "1.85s", "--t": "1.2s" } as Style}
+        />
+
+        <circle cx={peak[0]} cy={peak[1]} r="4" fill="rgb(var(--c-accent))" className="ps-pop" style={d(2.1)} />
+        {labels && (
+          <>
+            <text x={X0} y={BOTTOM + 20} fontSize="11" fill="rgb(var(--c-text))" fillOpacity="0.4">
+              Tus ventas pasadas
+            </text>
+            <text x={X1} y={BOTTOM + 20} textAnchor="end" fontSize="11" fill="rgb(var(--c-accent))" fillOpacity="0.85">
+              Lo que viene
+            </text>
+          </>
+        )}
+      </svg>
+
+      {labels && (
+        <>
+          <Pill x={peak[0]} y={peak[1] - 12} delay={2.2}>
+            Estacionalidad detectada
+          </Pill>
+          <Pill x={hx(DIPS[1])} y={toY(trueDemand(DIPS[1])) - 16} delay={2.55}>
+            Quiebres corregidos
+          </Pill>
+          <Pill x={fx(7)} y={toY(trueDemand(HIST + 7) + 22)} delay={2.9}>
+            Banda de confianza
+          </Pill>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The same scene, dimmed, behind every step of the flow. Re-mounting it on each step
+ * (via `key`) replays the drawing, so the ambience never goes static.
+ */
+export function EngineBackdrop() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-0 opacity-[0.25]">
+      <EngineScene labels={false} className="mx-auto max-w-5xl" />
+    </div>
+  );
+}
+
+export function PredictingStage({ stages, stage, products }: { stages: string[]; stage: number; products: number }) {
+  return (
+    <div className="ia-stage relative overflow-hidden rounded-xl border border-border bg-surface/60 p-6 sm:p-8">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(45% 40% at 50% 0%, rgb(var(--c-accent) / 0.10), transparent 70%)," +
-            "radial-gradient(35% 35% at 92% 100%, rgb(var(--c-primary) / 0.08), transparent 70%)",
+            "radial-gradient(45% 40% at 50% 0%, rgb(var(--c-accent) / 0.12), transparent 70%)," +
+            "radial-gradient(35% 35% at 92% 100%, rgb(var(--c-primary) / 0.10), transparent 70%)",
         }}
       />
 
@@ -135,92 +249,7 @@ export function PredictingStage({ stages, stage, products }: { stages: string[];
         </div>
       </div>
 
-      {/* The engine scene: history draws, gaps get repaired, the forecast grows out of today. */}
-      <div className="relative mx-auto mt-8 w-full max-w-4xl" style={{ aspectRatio: `${W} / ${H}` }}>
-        <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible" aria-label="La IA proyectando tu demanda">
-          <defs>
-            <linearGradient id="ia-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="rgb(var(--c-primary))" stopOpacity="0.20" />
-              <stop offset="100%" stopColor="rgb(var(--c-primary))" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="ia-band" x1="0" x2="1" y1="0" y2="0">
-              <stop offset="0%" stopColor="rgb(var(--c-accent))" stopOpacity="0.30" />
-              <stop offset="100%" stopColor="rgb(var(--c-accent))" stopOpacity="0.08" />
-            </linearGradient>
-          </defs>
-
-          {[0, 1, 2, 3, 4].map((k) => {
-            const y = TOP + (k * (BOTTOM - TOP)) / 4;
-            return <line key={k} x1={X0} x2={X1} y1={y} y2={y} stroke="rgb(var(--c-text))" strokeOpacity="0.07" strokeDasharray="2 6" />;
-          })}
-
-          <rect
-            x={X_TODAY}
-            y={TOP - 16}
-            width={X1 - X_TODAY + 16}
-            height={BOTTOM - TOP + 16}
-            fill="rgb(var(--c-accent))"
-            fillOpacity="0.04"
-            className="ps-fade"
-            style={d(1.5)}
-          />
-
-          <path d={c.area} fill="url(#ia-area)" className="ps-wipe" style={{ "--d": "0.3s", "--t": "1.7s" } as Style} />
-          <path
-            d={c.hist}
-            pathLength={1}
-            fill="none"
-            stroke="rgb(var(--c-primary))"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="ps-draw"
-            style={{ "--d": "0.3s", "--t": "1.7s" } as Style}
-          />
-
-          {c.corrections.map((p, k) => (
-            <path key={k} d={p} fill="none" stroke="rgb(var(--c-warning))" strokeWidth="2" strokeDasharray="4 5" className="ps-fade" style={d(2.3 + k * 0.15)} />
-          ))}
-
-          <g className="ps-fade" style={d(1.6)}>
-            <line x1={X_TODAY} x2={X_TODAY} y1={TOP - 12} y2={BOTTOM} stroke="rgb(var(--c-text))" strokeOpacity="0.25" strokeDasharray="3 4" />
-            <text x={X_TODAY} y={BOTTOM + 20} textAnchor="middle" fontSize="11" fill="rgb(var(--c-text))" fillOpacity="0.5" letterSpacing="1.5">
-              HOY
-            </text>
-          </g>
-
-          <path d={c.band} fill="url(#ia-band)" className="ps-wipe" style={{ "--d": "1.85s", "--t": "1.2s" } as Style} />
-          <path
-            d={c.fc}
-            pathLength={1}
-            fill="none"
-            stroke="rgb(var(--c-accent))"
-            strokeWidth="2.6"
-            strokeLinecap="round"
-            strokeDasharray="6 5"
-            className="ps-draw"
-            style={{ "--d": "1.85s", "--t": "1.2s" } as Style}
-          />
-
-          <circle cx={peak[0]} cy={peak[1]} r="4" fill="rgb(var(--c-accent))" className="ps-pop" style={d(2.1)} />
-          <text x={X0} y={BOTTOM + 20} fontSize="11" fill="rgb(var(--c-text))" fillOpacity="0.4">
-            Tus ventas pasadas
-          </text>
-          <text x={X1} y={BOTTOM + 20} textAnchor="end" fontSize="11" fill="rgb(var(--c-accent))" fillOpacity="0.85">
-            Lo que viene
-          </text>
-        </svg>
-
-        <Pill x={peak[0]} y={peak[1] - 12} delay={2.2}>
-          Estacionalidad detectada
-        </Pill>
-        <Pill x={hx(DIPS[1])} y={toY(trueDemand(DIPS[1])) - 16} delay={2.55}>
-          Quiebres corregidos
-        </Pill>
-        <Pill x={fx(7)} y={toY(trueDemand(HIST + 7) + 22)} delay={2.9}>
-          Banda de confianza
-        </Pill>
-      </div>
+      <EngineScene className="mx-auto mt-8 max-w-4xl" />
     </div>
   );
 }

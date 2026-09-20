@@ -144,7 +144,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
             <div className="space-y-6">
               <MockNotice diagnostics={ov.diagnostics} />
 
-              <Reliability accuracy={ov.summary.accuracy_pct ?? null} products={ov.summary.products} />
+              {/* "Confianza X en este cálculo": oculto a pedido del negocio. */}
 
               <ActionPlan rows={rows} />
 
@@ -155,7 +155,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
                     <div>
                       <h3 className="font-display text-base font-semibold text-text-primary">Así irían tus ventas</h3>
                       <p className="text-xs text-text-muted">
-                        La línea sólida es lo que vendiste; la punteada, lo que venderías. La franja es el rango probable.
+                        La línea sólida es lo que vendiste; la franja es el rango probable de lo que viene.
                       </p>
                     </div>
                     <div className="w-60 max-w-full">
@@ -377,10 +377,7 @@ function RestockCard({ p, diag }: { p: OverviewProduct; diag?: ProductDiagnostic
       )}
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-        <span className="text-[11px] text-text-muted">
-          Confianza: <strong className="text-text-secondary">{d.confidence}</strong>
-          {p.accuracy_pct != null && <> · acertó {Math.round(p.accuracy_pct)}%</>}
-        </span>
+        <span />
         {buy && (
           <Link href="/purchases/new" className="btn btn-primary h-9 gap-1.5 px-3 text-xs">
             Registrar compra <ArrowRight className="h-3.5 w-3.5" />
