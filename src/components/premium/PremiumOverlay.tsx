@@ -17,13 +17,15 @@ interface Props {
   scroll?: boolean;
   label: string;
   closeOnEsc?: boolean;
+  /** Viewport point the stage grows out of (the button that was clicked). */
+  origin?: { x: number; y: number } | null;
 }
 
 /**
  * Full-screen stage above the app shell. Portaled to <body> so page transitions
  * (transforms on ancestors) never trap the fixed positioning.
  */
-export function PremiumOverlay({ children, onClose, actions, subheader, scroll = true, label, closeOnEsc = true }: Props) {
+export function PremiumOverlay({ children, onClose, actions, subheader, scroll = true, label, closeOnEsc = true, origin = null }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -46,8 +48,13 @@ export function PremiumOverlay({ children, onClose, actions, subheader, scroll =
 
   if (!mounted) return null;
 
+  // From the button it was opened with, when we know it; otherwise a plain fade.
+  const enter: React.CSSProperties = origin
+    ? ({ animation: "iris 0.72s var(--ease-out) both", "--ix": `${origin.x}px`, "--iy": `${origin.y}px` } as React.CSSProperties)
+    : { animation: "ps-fade 0.5s var(--ease-out) both" };
+
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={label} className="ps-root fixed inset-0 z-[150] flex flex-col" style={{ animation: "ps-fade 0.5s var(--ease-out) both" }}>
+    <div role="dialog" aria-modal="true" aria-label={label} className="ps-root fixed inset-0 z-[150] flex flex-col" style={enter}>
       <PremiumBackdrop />
       <header className="relative z-20 flex items-center justify-between gap-4 px-5 pt-4 sm:px-8 sm:pt-6">
         <PremiumWordmark />

@@ -11,6 +11,7 @@ import { DataState } from "@/components/ui/DataState";
 import { ChartTooltip, LegendChip } from "@/components/ftgm/ChartTooltip";
 import { dateLabel, horizonLabel, num, runStatusMeta, forWhen } from "@/components/ftgm/labels";
 import { cn } from "@/lib/utils";
+import { markPremiumOrigin } from "@/lib/premium-origin";
 import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
 import { useBrandColors } from "@/hooks/useBrandColors";
@@ -522,7 +523,7 @@ function FtgmCard({
           </Link>
         )}
         {!isPremium && (
-          <Link href="/premium" className="btn btn-ghost h-10 gap-2 px-4 text-sm">
+          <Link href="/premium" onClick={markPremiumOrigin} className="btn btn-ghost h-10 gap-2 px-4 text-sm">
             <Crown className="h-4 w-4" /> Premium
           </Link>
         )}

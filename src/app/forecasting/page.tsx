@@ -13,14 +13,18 @@ import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
 import { RunResultView } from "@/components/ftgm/RunResultView";
-import { EngineBackdrop, PredictingStage } from "@/components/ftgm/PredictingStage";
+import { PredictingShow, SHOW_MS } from "@/components/ftgm/PredictingShow";
+import { PremiumBackdrop } from "@/components/premium/PremiumBackdrop";
+import { prefersReducedMotion } from "@/components/premium/plan-data";
 import { BuyPanel } from "@/components/ftgm/panels/BuyPanel";
 import { NumbersPanel } from "@/components/ftgm/panels/NumbersPanel";
 import { ReportsPanel } from "@/components/ftgm/panels/ReportsPanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
+import { markPremiumOrigin } from "@/lib/premium-origin";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
+import { usePlan } from "@/hooks/usePlan";
 import { ftgmApi } from "@/lib/apis/ftgm";
 import type { FtgmRun, PreviewProduct } from "@/types/ftgm";
 
@@ -40,15 +44,6 @@ const HORIZONS = [
   { days: 60, label: "2 meses", hint: "Para planear con calma" },
   { days: 90, label: "3 meses", hint: "Para campañas y temporadas" },
 ];
-
-const STAGES = ["Procesando la data…", "Haciendo cálculos…", "Limpiando ruido…", "Generando recomendaciones…"];
-
-/**
- * The processing stage is part of the experience: it explains what the AI is doing while
- * it works. The demo engine answers almost instantly, so hold the stage long enough for
- * its four steps to be read (the real engine usually takes longer than this on its own).
- */
-const MIN_STAGE_MS = 8000;
 
 const STEP_RAIL = [
   { id: "what", label: "¿Qué quieres predecir?" },
@@ -81,12 +76,14 @@ export default function ForecastingPage() {
   const [horizon, setHorizon] = useState(30);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<FtgmRun | null>(null);
-  const [stage, setStage] = useState(0);
+  // The finished run, waiting for the show to end (or for the person to skip ahead).
+  const [readyRun, setReadyRun] = useState<string | null>(null);
 
   const preview = useApi(
     () => (companyId ? ftgmApi.previewScope(companyId, { scope: { type: "all" } }) : Promise.resolve(null)),
     [companyId],
   );
+  const plan = usePlan();
   const quota = useApi(
     () => (companyId ? ftgmApi.quota(companyId).catch(() => null) : Promise.resolve(null)),
     [companyId],
@@ -140,19 +137,41 @@ export default function ForecastingPage() {
   const q = quota.data;
   const outOfQuota = q?.remaining === 0;
 
+  // Only hand the results over once: the show's timer and the "ver resultados"
+  // button race each other on purpose.
+  const handedOver = useRef(false);
+
   const startOver = useCallback(() => {
+    handedOver.current = false;
     setStep("what");
     setRun(null);
+    setReadyRun(null);
     setError(null);
     setSelected(new Set());
     router.replace("/forecasting", { scroll: false });
   }, [router]);
 
+  const finish = useCallback(
+    (id: string) => {
+      if (handedOver.current) return;
+      handedOver.current = true;
+      setActiveRun(id);
+      setView("prediccion");
+      setStep("results");
+      runs.reload();
+      quota.reload();
+      router.replace(`/forecasting?run=${id}`, { scroll: false });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [router],
+  );
+
   const launch = async () => {
     if (!companyId || selected.size === 0) return;
     setError(null);
     setStep("running");
-    setStage(0);
+    setReadyRun(null);
+    handedOver.current = false;
     startedAt.current = Date.now();
     try {
       const created = await ftgmApi.createRun(companyId, {
@@ -172,28 +191,17 @@ export default function ForecastingPage() {
   useEffect(() => {
     if (step !== "running" || !run || !companyId) return;
     const timers: number[] = [];
-    const stages = window.setInterval(() => setStage((v) => (v + 1) % STAGES.length), 2000);
     const poll = window.setInterval(async () => {
       try {
         const r = await ftgmApi.getRun(companyId, run.id);
         if (r.status === "success") {
           window.clearInterval(poll);
-          // Let the stage finish telling its story before handing over the results.
-          const left = Math.max(0, MIN_STAGE_MS - (Date.now() - startedAt.current));
-          timers.push(
-            window.setTimeout(() => {
-              window.clearInterval(stages);
-              setActiveRun(r.id);
-              setView("prediccion");
-              setStep("results");
-              runs.reload();
-              quota.reload();
-              router.replace(`/forecasting?run=${r.id}`, { scroll: false });
-            }, left),
-          );
+          setReadyRun(r.id);
+          // Let the show finish telling its story before handing over the results.
+          const left = Math.max(0, SHOW_MS - (Date.now() - startedAt.current));
+          timers.push(window.setTimeout(() => finish(r.id), left));
         } else if (r.status === "failed" || r.status === "cancelled") {
           window.clearInterval(poll);
-          window.clearInterval(stages);
           setError(r.error_message ?? "La predicción no pudo completarse. Inténtalo de nuevo.");
           setStep("when");
           quota.reload();
@@ -204,7 +212,6 @@ export default function ForecastingPage() {
     }, 1500);
     return () => {
       window.clearInterval(poll);
-      window.clearInterval(stages);
       timers.forEach((t) => window.clearTimeout(t));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -233,7 +240,11 @@ export default function ForecastingPage() {
   // The overlay is portaled to <body>: the page container animates transforms, which
   // would otherwise trap a `fixed` child inside the content area.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    setReduced(prefersReducedMotion());
+  }, []);
 
 
   const flow = (
@@ -454,7 +465,7 @@ export default function ForecastingPage() {
               <p className="text-sm text-text-primary">
                 Usaste tus {q?.monthly_limit} predicciones gratis de este mes. Con Premium predices sin límites.
               </p>
-              <Link href="/premium" className="btn btn-primary h-10 gap-2 px-4 text-sm">
+              <Link href="/premium" onClick={markPremiumOrigin} className="btn btn-primary h-10 gap-2 px-4 text-sm">
                 <Crown className="h-4 w-4" /> Ver Premium
               </Link>
             </Card>
@@ -473,13 +484,6 @@ export default function ForecastingPage() {
               <Sparkles className="h-4 w-4" /> Predecir con IA
             </button>
           </div>
-        </div>
-      )}
-
-      {/* ── Paso 3 · La IA trabaja ──────────────────────────────── */}
-      {step === "running" && (
-        <div style={rise(0)}>
-          <PredictingStage stages={STAGES} stage={stage} products={selected.size} />
         </div>
       )}
 
@@ -558,31 +562,36 @@ export default function ForecastingPage() {
     );
   }
 
-  // Full screen: covers sidebar and topbar, so nothing competes with the flow.
+  // Full screen: covers sidebar and topbar, so nothing competes with the flow. The
+  // premium stage ground (slow glows, grain and demand curves that keep drawing)
+  // stays under every step, so the screen is never a flat black.
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background text-text-primary">
-      <div className="relative min-h-full">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(55% 40% at 80% 0%, rgb(var(--c-accent) / 0.18), transparent 70%)," +
-              "radial-gradient(45% 35% at 5% 10%, rgb(var(--c-primary) / 0.14), transparent 70%)",
-          }}
+    <div className="ps-root fixed inset-0 z-[60] flex flex-col overflow-hidden">
+      <PremiumBackdrop />
+      <button
+        type="button"
+        onClick={() => router.push("/dashboard")}
+        className="absolute right-5 top-5 z-20 inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium ps-glass ps-fg-2 backdrop-blur transition-colors hover:text-[rgb(var(--ps-fg))]"
+      >
+        <Minimize2 className="h-4 w-4" /> Salir
+      </button>
+
+      {step === "running" ? (
+        <PredictingShow
+          products={selected.size}
+          horizonLabel={HORIZONS.find((h) => h.days === horizon)?.label ?? "1 mes"}
+          quota={q ? { remaining: q.remaining, monthly_limit: q.monthly_limit } : null}
+          isPremium={plan.isPremium}
+          ready={!!readyRun}
+          onSkip={readyRun ? () => finish(readyRun) : undefined}
+          reduced={reduced}
         />
-        {/* The engine keeps drawing behind every step; re-mounting replays it. */}
-        <EngineBackdrop key={step} />
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard")}
-          className="absolute right-5 top-5 z-10 inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-surface/80 px-3.5 text-sm font-medium text-text-secondary backdrop-blur transition-colors hover:text-text-primary"
-        >
-          <Minimize2 className="h-4 w-4" /> Salir
-        </button>
-        <div className="relative z-[1] mx-auto max-w-[1100px] space-y-8 px-5 py-12 lg:px-8">{flow}</div>
-      </div>
+      ) : (
+        <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-[1100px] space-y-8 px-5 py-12 lg:px-8">{flow}</div>
+        </div>
+      )}
     </div>,
     document.body,
   );

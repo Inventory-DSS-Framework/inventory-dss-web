@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { Brain, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,9 +8,8 @@ import { cn } from "@/lib/utils";
  *
  * This is the showcase animation that used to open /premium: the demand history draws
  * itself, the stock-outs get repaired, the "HOY" line drops and the forecast grows out of
- * the last real point with its confidence band. It runs as an ambient backdrop through the
- * whole flow (`EngineBackdrop`) and takes the stage while the run is computed
- * (`PredictingStage`), in step with the four processing messages.
+ * the last real point with its confidence band. `PredictingShow` gives it the whole
+ * screen while the run is computed.
  */
 
 type Style = React.CSSProperties & Record<`--${string}`, string>;
@@ -191,65 +189,6 @@ export function EngineScene({ labels = true, className }: { labels?: boolean; cl
           </Pill>
         </>
       )}
-    </div>
-  );
-}
-
-/**
- * The same scene, dimmed, behind every step of the flow. Re-mounting it on each step
- * (via `key`) replays the drawing, so the ambience never goes static.
- */
-export function EngineBackdrop() {
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-0 opacity-[0.25]">
-      <EngineScene labels={false} className="mx-auto max-w-5xl" />
-    </div>
-  );
-}
-
-export function PredictingStage({ stages, stage, products }: { stages: string[]; stage: number; products: number }) {
-  return (
-    <div className="ia-stage relative overflow-hidden rounded-xl border border-border bg-surface/60 p-6 sm:p-8">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(45% 40% at 50% 0%, rgb(var(--c-accent) / 0.12), transparent 70%)," +
-            "radial-gradient(35% 35% at 92% 100%, rgb(var(--c-primary) / 0.10), transparent 70%)",
-        }}
-      />
-
-      <div className="relative text-center">
-        <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-xl bg-gradient-to-br from-accent-violet to-primary shadow-[0_18px_50px_-14px_rgb(var(--c-accent)/0.55)]">
-          <span className="absolute inset-0 rounded-xl bg-accent-violet/30" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
-          <Sparkles className="star-twinkle absolute -right-2 -top-2 h-4 w-4 text-warning" />
-          <Sparkles className="star-twinkle absolute -bottom-2 -left-2.5 h-3.5 w-3.5 text-accent-violet" style={{ animationDelay: "0.7s" }} />
-          <Brain className="relative z-10 h-8 w-8 text-white" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
-        </div>
-
-        <p key={stage} className="mt-5 font-display text-2xl font-semibold tracking-[-0.02em] text-text-primary">
-          {stages[stage].split(" ").map((w, i) => (
-            <span key={`${stage}-${i}`} className="ps-word mr-[0.24em] last:mr-0" style={d(i * 0.09)}>
-              {w}
-            </span>
-          ))}
-        </p>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
-          La IA está leyendo {products} producto(s) de tus ventas. Esto toma menos de un minuto.
-        </p>
-
-        <div className="mx-auto mt-5 flex max-w-[260px] items-center gap-1.5">
-          {stages.map((s, i) => (
-            <span
-              key={s}
-              className={cn("h-1.5 flex-1 rounded-full transition-colors duration-500", i <= stage ? "bg-accent-violet" : "bg-surface-muted")}
-            />
-          ))}
-        </div>
-      </div>
-
-      <EngineScene className="mx-auto mt-8 max-w-4xl" />
     </div>
   );
 }

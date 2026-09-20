@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronRight, LogOut, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { markPremiumOrigin } from "@/lib/premium-origin";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { initialsOf, useProfile } from "@/hooks/useProfile";
@@ -103,6 +104,7 @@ export function Topbar() {
         {!onStage && !isSeller && q?.monthly_limit != null && (
           <Link
             href={q.remaining === 0 ? "/premium" : "/forecasting"}
+            onClick={(e) => q.remaining === 0 && markPremiumOrigin(e)}
             title="Predicciones con IA disponibles este mes en el plan gratis"
             className={cn(
               "hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors md:inline-flex",
@@ -119,6 +121,7 @@ export function Topbar() {
         {!onStage && !isSeller && !isPremium && (
           <Link
             href="/premium"
+            onClick={markPremiumOrigin}
             className="hidden h-9 items-center gap-1.5 rounded-xl border border-accent-violet/30 bg-accent-violet-soft/40 px-3 text-xs font-semibold text-accent-violet transition-colors hover:bg-accent-violet-soft lg:inline-flex"
           >
             <Sparkles className="star-twinkle h-3.5 w-3.5" />

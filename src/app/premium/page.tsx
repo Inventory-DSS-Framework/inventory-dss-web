@@ -12,11 +12,15 @@ import { billingPlansApi } from "@/lib/apis/billing";
 import type { BillingCycle, PaymentDTO, PlanDTO } from "@/types/billing";
 import { PremiumManage } from "@/components/premium/PremiumManage";
 import { PricingCards } from "@/components/premium/PricingCards";
-import { FALLBACK_PLANS } from "@/components/premium/plan-data";
+import { PremiumTeaser } from "@/components/premium/PremiumTeaser";
+import { FALLBACK_PLANS, prefersReducedMotion } from "@/components/premium/plan-data";
+import { clearPremiumOrigin, peekPremiumOrigin, type Origin } from "@/lib/premium-origin";
 
 /**
- * Plans, plainly. A sober page inside the app: the price table and nothing else —
- * the showy scenes moved to /forecasting, where the AI actually does the work.
+ * Plans, plainly. A sober page inside the app: the price table and nothing else.
+ *
+ * When the person got here by pressing a Premium button, a short intro grows out of
+ * that button — two slides and the prices — and leaves this same page behind it.
  */
 export default function PremiumPage() {
   const router = useRouter();
@@ -27,6 +31,22 @@ export default function PremiumPage() {
   const [plans, setPlans] = useState<PlanDTO[]>(FALLBACK_PLANS);
   const [payments, setPayments] = useState<PaymentDTO[] | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
+
+  // The intro only plays for a fresh click on a Premium CTA, and only for someone
+  // who doesn't have the plan yet.
+  const [origin, setOrigin] = useState<Origin | null>(null);
+  const [teaser, setTeaser] = useState(false);
+  const [teaserDone, setTeaserDone] = useState(false);
+  useEffect(() => {
+    const o = peekPremiumOrigin();
+    setOrigin(o);
+    if (!o || prefersReducedMotion()) setTeaserDone(true);
+  }, []);
+  useEffect(() => {
+    if (teaserDone || !origin || plan.loading || plan.isPremium) return;
+    clearPremiumOrigin();
+    setTeaser(true);
+  }, [teaserDone, origin, plan.loading, plan.isPremium]);
 
   useEffect(() => {
     billingPlansApi.plans().then((p) => p.length && setPlans(p)).catch(() => undefined);
@@ -45,6 +65,19 @@ export default function PremiumPage() {
 
   return (
     <div className="ps-light mx-auto max-w-[1100px] space-y-8">
+      {teaser && (
+        <PremiumTeaser
+          plans={plans}
+          cycle={cycle}
+          onCycle={setCycle}
+          onCheckout={checkout}
+          origin={origin}
+          onClose={() => {
+            setTeaser(false);
+            setTeaserDone(true);
+          }}
+        />
+      )}
       <PageHeader
         eyebrow="Planes"
         title="Premium"

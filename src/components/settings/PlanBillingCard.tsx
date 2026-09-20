@@ -8,6 +8,7 @@ import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { usePlan } from "@/hooks/usePlan";
 import { billingPlansApi } from "@/lib/apis/billing";
+import { markPremiumOrigin } from "@/lib/premium-origin";
 import { CYCLE_LABEL, METHOD_LABEL, fmtDate, fmtSoles } from "@/components/premium/plan-data";
 import type { PaymentMethod } from "@/types/billing";
 
@@ -103,7 +104,7 @@ export function PlanBillingCard() {
             <p className="text-sm font-semibold text-text-primary">Calcula cuánto venderás de todos tus productos</p>
             <p className="text-xs text-text-secondary">Paga con tarjeta, Yape o transferencia. IGV incluido y cancelas cuando quieras.</p>
           </div>
-          <Link href="/premium" className="btn btn-primary h-10 gap-2 px-4 text-sm">
+          <Link href="/premium" onClick={markPremiumOrigin} className="btn btn-primary h-10 gap-2 px-4 text-sm">
             <Crown className="h-4 w-4" /> Ver Premium
           </Link>
         </div>
