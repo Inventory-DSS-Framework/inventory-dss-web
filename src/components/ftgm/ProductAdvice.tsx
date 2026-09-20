@@ -86,7 +86,7 @@ export function ProductAdvice({ companyId, productId }: { companyId: string | nu
           )}
           {advice.data?.runId && (
             <Link
-              href={`/forecasting/${advice.data.runId}`}
+              href={`/forecasting?run=${advice.data.runId}`}
               className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-semibold text-text-secondary hover:bg-surface hover:text-text-primary"
             >
               Ver cálculo

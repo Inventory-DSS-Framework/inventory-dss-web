@@ -212,7 +212,7 @@ function ProductDetail({ companyId, product: p }: { companyId: string; product: 
               <h4 className="font-display text-sm font-semibold text-text-primary">Lo que pronosticamos vs lo que pasó</h4>
               <p className="text-xs text-text-muted">
                 Ejecución del {dateLabel(lastTracked.run.created_at)} ·{" "}
-                <Link href={`/forecasting/${lastTracked.run.id}`} className="font-semibold text-accent-violet hover:opacity-80">
+                <Link href={`/forecasting?run=${lastTracked.run.id}`} className="font-semibold text-accent-violet hover:opacity-80">
                   ver resultado
                 </Link>
               </p>

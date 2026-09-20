@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Compass, Crown, CornerDownLeft, LogOut, Moon, PlayCircle, Search, type LucideIcon } from "lucide-react";
+import { ArrowRight, BarChart2, Compass, Crown, CornerDownLeft, FileText, Lightbulb, LogOut, Moon, PlayCircle, Search, type LucideIcon } from "lucide-react";
 import { startGuidedTour } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { adminNav, sellerNav } from "@/components/layout/Sidebar";
@@ -67,6 +67,10 @@ export function CommandPalette() {
       ...(isSeller
         ? []
         : [
+            // The AI page is one screen with four views: keep each one reachable by name.
+            { id: "ia-comprar", label: "Qué comprar (con IA)", group: "Predice con IA", icon: Lightbulb, href: "/forecasting?vista=comprar" },
+            { id: "ia-numeros", label: "Mis números (con IA)", group: "Predice con IA", icon: BarChart2, href: "/forecasting?vista=numeros" },
+            { id: "ia-reportes", label: "Reportes", group: "Predice con IA", icon: FileText, href: "/forecasting?vista=reportes" },
             { id: "premium", label: "Ver plan Premium", group: "Acciones", icon: Crown, href: "/premium" },
             { id: "welcome", label: "Ver bienvenida y demo", group: "Ayuda", icon: PlayCircle, href: "/welcome?replay=1" },
             {

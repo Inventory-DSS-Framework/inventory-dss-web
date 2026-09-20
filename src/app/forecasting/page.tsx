@@ -1,23 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, Brain, Calendar, Check, CheckSquare, ChevronDown, Crown,
-  Loader2, Package, Sparkles, Square, Wand2, XCircle,
+  ArrowLeft, ArrowRight, BarChart2, Brain, Calendar, Check, CheckSquare, ChevronDown, Crown,
+  FileText, Lightbulb, Loader2, Package, RotateCcw, Sparkles, Square, TrendingUp, Wand2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
+import { RunResultView } from "@/components/ftgm/RunResultView";
+import { BuyPanel } from "@/components/ftgm/panels/BuyPanel";
+import { NumbersPanel } from "@/components/ftgm/panels/NumbersPanel";
+import { ReportsPanel } from "@/components/ftgm/panels/ReportsPanel";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { ftgmApi } from "@/lib/apis/ftgm";
 import type { FtgmRun, PreviewProduct } from "@/types/ftgm";
 
-type Step = "what" | "when" | "running";
+type Step = "what" | "when" | "running" | "results";
+type View = "prediccion" | "comprar" | "numeros" | "reportes";
+
+const VIEWS: { id: View; label: string; icon: typeof TrendingUp }[] = [
+  { id: "prediccion", label: "Cuánto venderás", icon: TrendingUp },
+  { id: "comprar", label: "Qué comprar", icon: Lightbulb },
+  { id: "numeros", label: "Mis números", icon: BarChart2 },
+  { id: "reportes", label: "Reportes", icon: FileText },
+];
+const isView = (v: string | null): v is View => VIEWS.some((x) => x.id === v);
 
 const HORIZONS = [
   { days: 30, label: "1 mes", hint: "Para tu próxima compra" },
@@ -25,22 +39,34 @@ const HORIZONS = [
   { days: 90, label: "3 meses", hint: "Para campañas y temporadas" },
 ];
 
-const STAGES = ["Procesando tu data…", "Haciendo cálculos…", "Limpiando ruido…", "Generando recomendaciones…"];
+const STAGES = ["Procesando la data…", "Haciendo cálculos…", "Limpiando ruido…", "Generando recomendaciones…"];
+
+const STEP_RAIL = [
+  { id: "what", label: "¿Qué quieres predecir?" },
+  { id: "when", label: "¿Para cuánto tiempo?" },
+  { id: "running", label: "La IA trabaja" },
+  { id: "results", label: "Resultados" },
+];
 
 const rise = (i: number): React.CSSProperties => ({ animation: `fade-up 0.55s var(--ease-out) ${0.05 + i * 0.06}s both` });
 
 /**
- * Predicting in 3 questions, always with the "con IA" frame:
+ * Everything the AI does, on one page and in one flow:
  * 1) what do you want to predict (only items with enough sales are offered),
- * 2) for how long, 3) a light, staged "the AI is working" screen that lands on the result.
+ * 2) for how long, 3) a light, staged "the AI is working" screen, and
+ * 4) the results: the projection, what to buy, your numbers and the downloadable reports.
  */
 export default function ForecastingPage() {
   const router = useRouter();
   const companyId = useCompanyId();
   const search = useSearchParams();
   const deepLinkProduct = search.get("product");
+  const runParam = search.get("run");
+  const vistaParam = search.get("vista");
 
-  const [step, setStep] = useState<Step>("what");
+  const [step, setStep] = useState<Step>(runParam || isView(vistaParam) ? "results" : "what");
+  const [view, setView] = useState<View>(isView(vistaParam) ? vistaParam : "prediccion");
+  const [activeRun, setActiveRun] = useState<string | null>(runParam);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [horizon, setHorizon] = useState(30);
@@ -59,9 +85,25 @@ export default function ForecastingPage() {
   const runs = useApi(() => (companyId ? ftgmApi.listRuns(companyId, 8) : Promise.resolve([])), [companyId]);
 
   const products = preview.data?.products ?? [];
-  // "Disponible" = el motor puede procesarlo (readiness listo o pocos datos pero incluido).
+  // "Disponible" = el motor puede procesarlo: incluido en el alcance y con ventas suficientes
+  // (un producto vendido una sola vez no da patrón que aprender).
   const available = useMemo(() => products.filter((p) => p.included && p.sales_count > 2), [products]);
   const unavailable = useMemo(() => products.filter((p) => !p.included || p.sales_count <= 2), [products]);
+
+  // The run shown in the results step: the one asked for, else the latest successful one.
+  const lastSuccess = (runs.data ?? []).find((r) => r.status === "success") ?? null;
+  const shownRun = activeRun ?? lastSuccess?.id ?? null;
+
+  // Deep links: /forecasting?run=… opens that result, ?vista=… opens that panel.
+  useEffect(() => {
+    if (runParam) {
+      setActiveRun(runParam);
+      setStep("results");
+    } else if (isView(vistaParam)) {
+      setView(vistaParam);
+      setStep("results");
+    }
+  }, [runParam, vistaParam]);
 
   // Deep link (/forecasting?product=id): preselect that product if it is predictable.
   const preselected = useRef(false);
@@ -86,6 +128,14 @@ export default function ForecastingPage() {
   const q = quota.data;
   const outOfQuota = q?.remaining === 0;
 
+  const startOver = useCallback(() => {
+    setStep("what");
+    setRun(null);
+    setError(null);
+    setSelected(new Set());
+    router.replace("/forecasting", { scroll: false });
+  }, [router]);
+
   const launch = async () => {
     if (!companyId || selected.size === 0) return;
     setError(null);
@@ -105,7 +155,7 @@ export default function ForecastingPage() {
     }
   };
 
-  // While running: cycle the stage copy and poll the run until it finishes.
+  // While running: cycle the stage copy and poll the run until it lands on the results step.
   useEffect(() => {
     if (step !== "running" || !run || !companyId) return;
     const stages = window.setInterval(() => setStage((v) => (v + 1) % STAGES.length), 2600);
@@ -115,7 +165,12 @@ export default function ForecastingPage() {
         if (r.status === "success") {
           window.clearInterval(poll);
           window.clearInterval(stages);
-          router.push(`/forecasting/${r.id}`);
+          setActiveRun(r.id);
+          setView("prediccion");
+          setStep("results");
+          runs.reload();
+          quota.reload();
+          router.replace(`/forecasting?run=${r.id}`, { scroll: false });
         } else if (r.status === "failed" || r.status === "cancelled") {
           window.clearInterval(poll);
           window.clearInterval(stages);
@@ -134,8 +189,10 @@ export default function ForecastingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, run?.id, companyId]);
 
+  const stepIdx = step === "what" ? 0 : step === "when" ? 1 : step === "running" ? 2 : 3;
+
   return (
-    <div className="relative mx-auto max-w-[1100px] space-y-8">
+    <div className="relative mx-auto max-w-[1400px] space-y-8">
       {/* Light stage backdrop (premium-style, never dark). */}
       <div
         aria-hidden
@@ -151,7 +208,7 @@ export default function ForecastingPage() {
         eyebrow="Predice con IA"
         eyebrowTone="violet"
         title="Predice tus ventas"
-        description="La IA analiza tus ventas pasadas y te dice cuánto venderás y qué te conviene comprar."
+        description="La IA analiza tus ventas pasadas y te dice cuánto venderás, qué te conviene comprar y cómo están tus números."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <HowItWorksButton />
@@ -170,16 +227,11 @@ export default function ForecastingPage() {
         }
       />
 
+      {/* Stepper rail: the same four steps, always visible except while the AI works. */}
       {step !== "running" && (
         <>
-          {/* Stepper rail */}
           <ol className="flex items-center gap-2" style={rise(0)}>
-            {[
-              { id: "what", label: "¿Qué quieres predecir?" },
-              { id: "when", label: "¿Para cuánto tiempo?" },
-              { id: "go", label: "La IA trabaja" },
-            ].map((s, i) => {
-              const stepIdx = step === "what" ? 0 : 1;
+            {STEP_RAIL.map((s, i) => {
               const state = i < stepIdx ? "done" : i === stepIdx ? "active" : "todo";
               return (
                 <li key={s.id} className="flex flex-1 items-center gap-2">
@@ -196,7 +248,7 @@ export default function ForecastingPage() {
                   <span className={cn("hidden truncate text-sm font-medium sm:block", state === "active" ? "text-text-primary" : "text-text-muted")}>
                     {s.label}
                   </span>
-                  {i < 2 && <span className="h-px flex-1 bg-border" />}
+                  {i < STEP_RAIL.length - 1 && <span className="h-px flex-1 bg-border" />}
                 </li>
               );
             })}
@@ -221,7 +273,7 @@ export default function ForecastingPage() {
                 </p>
                 <h2 className="mt-1.5 font-display text-xl font-semibold text-text-primary">¿Qué quieres predecir?</h2>
                 <p className="mt-1 text-sm text-text-secondary">
-                  Estos son tus productos <span className="font-semibold text-text-primary">disponibles para predicción</span>:
+                  Estos son tus <span className="font-semibold text-text-primary">ítems disponibles para aplicar predicción</span>:
                   los que tienen suficientes ventas para que la IA aprenda su ritmo.
                 </p>
               </div>
@@ -306,7 +358,14 @@ export default function ForecastingPage() {
             )}
           </Card>
 
-          <div className="flex justify-end" style={rise(2)}>
+          <div className="flex flex-wrap items-center justify-between gap-3" style={rise(2)}>
+            {lastSuccess ? (
+              <button type="button" onClick={() => setStep("results")} className="btn btn-ghost h-11 gap-1.5 px-4 text-sm">
+                Ver mis últimos resultados <ArrowRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <span />
+            )}
             <button
               type="button"
               onClick={() => setStep("when")}
@@ -319,7 +378,7 @@ export default function ForecastingPage() {
 
           <div className="space-y-3" style={rise(3)}>
             <h3 className="font-display text-base font-semibold text-text-primary">Predicciones anteriores</h3>
-            <RunsHistory runs={runs.data ?? []} />
+            <RunsHistory runs={runs.data ?? []} onSelect={(id) => { setActiveRun(id); setView("prediccion"); setStep("results"); }} />
           </div>
         </div>
       )}
@@ -413,6 +472,62 @@ export default function ForecastingPage() {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* ── Paso 4 · Resultados y recomendaciones ───────────────── */}
+      {step === "results" && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3" style={rise(1)}>
+            <nav className="flex flex-wrap gap-1.5 rounded-xl border border-border bg-surface p-1">
+              {VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setView(v.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-colors",
+                    view === v.id ? "bg-accent-violet text-white shadow-[0_6px_18px_-8px_rgb(var(--c-accent)/0.8)]" : "text-text-secondary hover:bg-surface-soft hover:text-text-primary",
+                  )}
+                >
+                  <v.icon className="h-4 w-4" /> {v.label}
+                </button>
+              ))}
+            </nav>
+            <button type="button" onClick={startOver} className="btn btn-secondary h-11 gap-2 px-4 text-sm">
+              <RotateCcw className="h-4 w-4" /> Hacer otra predicción
+            </button>
+          </div>
+
+          <div key={view} className="animate-fade-up">
+            {view === "prediccion" &&
+              (shownRun ? (
+                <RunResultView companyId={companyId} runId={shownRun} />
+              ) : (
+                <EmptyState
+                  icon={Sparkles}
+                  title="Todavía no hiciste ninguna predicción"
+                  description="Elige tus productos y deja que la IA calcule cuánto venderás en las próximas semanas."
+                  action={{ label: "Predecir con IA", onClick: startOver }}
+                />
+              ))}
+            {view === "comprar" && <BuyPanel companyId={companyId} onNewRun={startOver} />}
+            {view === "numeros" && <NumbersPanel companyId={companyId} onNewRun={startOver} onGoToBuy={() => setView("comprar")} />}
+            {view === "reportes" && <ReportsPanel companyId={companyId} />}
+          </div>
+
+          {view === "prediccion" && (runs.data?.length ?? 0) > 1 && (
+            <div className="space-y-3 pt-2">
+              <h3 className="font-display text-base font-semibold text-text-primary">Predicciones anteriores</h3>
+              <RunsHistory
+                runs={runs.data ?? []}
+                onSelect={(id) => {
+                  setActiveRun(id);
+                  setView("prediccion");
+                }}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

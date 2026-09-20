@@ -99,7 +99,7 @@ const NAV_GROUPS: NavGroupMock[] = [
   { label: "Ventas", items: [{ href: "/sales/new", name: "Nueva venta" }, { href: "/sales", name: "Ventas" }] },
   { label: "Compras", items: [{ href: "/purchases/new", name: "Nueva compra" }, { href: "/suppliers", name: "Proveedores" }] },
   { label: "Inventario", items: [{ href: "/inventory", name: "Inventario" }, { href: "/products", name: "Catálogo" }] },
-  { label: "Predicciones con IA", brand: true, items: [{ href: "/forecasting", name: "¿Cuánto venderé?" }, { href: "/recommendations", name: "Qué comprar" }] },
+  { label: "Predicciones con IA", brand: true, items: [{ href: "/forecasting", name: "¿Cuánto venderé?" }, { href: "/forecasting?vista=comprar", name: "Qué comprar" }] },
 ];
 
 /** Deterministic sidebar layout, so scenes can aim the cursor at a nav item. */

@@ -2,8 +2,8 @@
 
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { getCompanyId, getRole, isAuthenticated } from "@/lib/auth";
 import { isSellerRoute } from "@/hooks/useRole";
 import { ONBOARDING_PREF, isOnboardingPending, markOnboardingPending } from "@/lib/onboarding";
@@ -14,33 +14,54 @@ import { AmbientBackground } from "@/components/experience/AmbientBackground";
 import { CommandPalette } from "@/components/experience/CommandPalette";
 import { GuidedTour } from "@/components/onboarding/GuidedTour";
 
+/** Layout effects commit before paint, so the guard never lets a wrong screen flash. */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+type Gate = "checking" | "redirecting" | "ok";
+
+/**
+ * Where this pathname should really send the person, or null if they belong here.
+ * Session state only lives in localStorage, so this can only run on the client.
+ */
+function redirectTargetFor(pathname: string): string | null {
+  if (!isAuthenticated()) return pathname === "/login" ? null : "/login";
+  // Signed in: the login page hands off by itself (it knows where the person goes next).
+  if (pathname === "/login") return null;
+  // Sellers only run the till: anything outside their routes sends them back to it.
+  if (getRole() === "seller") return isSellerRoute(pathname) ? null : "/sales/new";
+  // A freshly created account goes through the welcome flow first.
+  const onAppScreen = pathname !== "/welcome" && !pathname.startsWith("/premium");
+  if (onAppScreen && isOnboardingPending()) return "/welcome";
+  return null;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [isMounted, setIsMounted] = useState(false);
+  const router = useRouter();
+  const [gate, setGate] = useState<Gate>("checking");
 
+  // Decide before the first paint: either this screen is the right one, or we are on our
+  // way somewhere else and nothing of this one is ever shown (no flash, no bounce).
+  useIsomorphicLayoutEffect(() => {
+    const target = redirectTargetFor(pathname);
+    if (target && target !== pathname) {
+      setGate("redirecting");
+      router.replace(target);
+      return;
+    }
+    setGate("ok");
+  }, [pathname, router]);
+
+  // Same on any device/browser: an account that never finished (or skipped) the welcome
+  // flow and still has no products starts there. Checked once per session.
   useEffect(() => {
-    setIsMounted(true);
-    if (!isAuthenticated() && pathname !== "/login") {
-      window.location.replace("/login");
-      return;
-    }
-    // Sellers only run the till: anything outside their routes sends them back to it.
-    if (getRole() === "seller" && !isSellerRoute(pathname)) {
-      window.location.replace("/sales/new");
-      return;
-    }
-    // A freshly created account goes through the welcome flow first.
+    if (gate !== "ok") return;
     const onAppScreen = pathname !== "/login" && pathname !== "/welcome" && !pathname.startsWith("/premium");
-    if (onAppScreen && getRole() !== "seller" && isOnboardingPending()) {
-      window.location.replace("/welcome");
-      return;
-    }
-    // Same on any device/browser: an account that never finished (or skipped) the welcome
-    // flow and still has no products starts there. Checked once per session.
-    if (onAppScreen && getRole() !== "seller") checkServerOnboarding();
-  }, [pathname]);
+    if (onAppScreen && getRole() !== "seller") void checkServerOnboarding((to) => router.replace(to));
+  }, [gate, pathname, router]);
 
-  if (!isMounted) return null;
+  // Neutral ground while deciding: same background as the app, so the hand-off is invisible.
+  if (gate !== "ok") return <div aria-hidden className="min-h-screen bg-background" />;
 
   if (pathname === "/login") {
     return <>{children}</>;
@@ -96,7 +117,7 @@ function Shell({ pathname, children }: { pathname: string; children: React.React
 
 const ONBOARDING_CHECKED = "dss-onboarding-checked";
 
-async function checkServerOnboarding() {
+async function checkServerOnboarding(go: (to: string) => void) {
   try {
     if (window.sessionStorage.getItem(ONBOARDING_CHECKED)) return;
     window.sessionStorage.setItem(ONBOARDING_CHECKED, "1");
@@ -112,7 +133,7 @@ async function checkServerOnboarding() {
     ]);
     if (!pref.value && products.length === 0) {
       markOnboardingPending();
-      window.location.replace("/welcome");
+      go("/welcome");
     }
   } catch {
     /* offline or no access: never block the app on this */

@@ -6,7 +6,7 @@ import {
   ArrowRight, Building2, Check, Eye, EyeOff, Hash, Loader2, Lock, Mail, User, type LucideIcon,
 } from "lucide-react";
 import { getRole, login, logout, register } from "@/lib/auth";
-import { markOnboardingPending } from "@/lib/onboarding";
+import { isOnboardingPending, markOnboardingPending } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { DotField } from "@/components/login/DotField";
@@ -81,9 +81,12 @@ export default function Login() {
         window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
         document.documentElement.getAttribute("data-motion") === "reduced";
       window.setTimeout(() => setLeaving(true), reduced ? 0 : 420);
-      // Sellers (cashiers) land straight on the till; a fresh account starts on the welcome tour.
-      const home = getRole() === "seller" ? "/sales/new" : "/dashboard";
-      window.setTimeout(() => router.push(home), reduced ? 0 : 1000);
+      // Sellers (cashiers) land straight on the till; a fresh account starts on the welcome
+      // tour — going there directly avoids a bounce through the dashboard. `replace` keeps
+      // /login out of the history, so "back" never returns to the form after signing in.
+      const home =
+        getRole() === "seller" ? "/sales/new" : isOnboardingPending() ? "/welcome" : "/dashboard";
+      window.setTimeout(() => router.replace(home), reduced ? 0 : 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo completar la operación");
       setLoading(false);

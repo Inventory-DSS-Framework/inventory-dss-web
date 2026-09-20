@@ -808,3 +808,7 @@ input:-webkit-autofill:focus {
   85% { opacity: 1; }
   100% { top: calc(100% - 4px); opacity: 0; }
 }
+/* The Bézier curves that carry inventory + sales into the AI box. */
+@keyframes ia-flow {
+  to { stroke-dashoffset: -24; }
+}

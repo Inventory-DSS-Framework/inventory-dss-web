@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import {
-  LayoutDashboard, Package, Settings, Activity, BarChart2, Bell, FileText, ChevronsUpDown,
-  LogOut, Archive, Lightbulb, BrainCircuit, ScanBarcode, Receipt, PackagePlus,
+  LayoutDashboard, Package, Settings, Activity, Bell, ChevronsUpDown,
+  LogOut, Archive, BrainCircuit, ScanBarcode, Receipt, PackagePlus,
   Truck, Users, Search, ShoppingBag, Boxes, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { logout } from "@/lib/auth";
@@ -15,7 +15,8 @@ import { initialsOf, useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
 
 const FTGM_KEY = "dss-ftgm-open";
-const FTGM_HREFS = ["/forecasting", "/recommendations", "/kpis", "/reports"];
+// Predictions, what to buy, your numbers and the reports all live on /forecasting now.
+const FTGM_HREFS = ["/forecasting"];
 
 export type NavItem = {
   name: string;
@@ -55,13 +56,9 @@ export const adminNav: NavGroup[] = [
     label: "Predice con IA",
     icon: BrainCircuit,
     tone: "brand",
-    hint: "La IA analiza tus ventas: cuánto venderás y qué comprar",
-    items: [
-      { name: "Predecir mis ventas", href: "/forecasting", icon: Activity },
-      { name: "Qué comprar", href: "/recommendations", icon: Lightbulb },
-      { name: "Mis números", href: "/kpis", icon: BarChart2 },
-      { name: "Reportes", href: "/reports", icon: FileText },
-    ],
+    hint: "La IA analiza tus ventas: cuánto venderás, qué comprar y tus números",
+    // One screen, guided step by step: predicción → qué comprar → mis números → reportes.
+    items: [{ name: "Predecir mis ventas", href: "/forecasting", icon: Activity }],
   },
   {
     key: "system",
@@ -288,11 +285,11 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             } catch {}
           }}
           className={cn(
-            "flex items-center rounded-xl bg-danger text-[13.5px] font-semibold text-white transition-colors hover:bg-danger/85",
+            "group relative flex items-center rounded-xl border border-transparent text-[13.5px] font-medium text-text-secondary transition-all duration-200 hover:bg-surface/60 hover:text-text-primary",
             collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2",
           )}
         >
-          <LogOut className="h-[18px] w-[18px] text-white" />
+          <LogOut className="h-[18px] w-[18px] shrink-0 text-text-muted transition-all duration-200 group-hover:scale-110 group-hover:text-text-secondary" />
           {!collapsed && "Salir"}
         </Link>
       </div>

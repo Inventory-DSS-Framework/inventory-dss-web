@@ -289,7 +289,7 @@ export default function InventoryPage() {
       {counts && counts.sin_stock + counts.reordenar + counts.critico > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-text-primary">
           <span>Tienes {counts.sin_stock + counts.reordenar + counts.critico} productos que necesitan compra.</span>
-          <button className="text-sm font-semibold text-primary hover:underline" onClick={() => router.push("/recommendations")}>
+          <button className="text-sm font-semibold text-primary hover:underline" onClick={() => router.push("/forecasting?vista=comprar")}>
             Ver qué comprar →
           </button>
         </div>

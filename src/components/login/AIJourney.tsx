@@ -48,18 +48,20 @@ export function AIJourney({ className, compact = false }: { className?: string; 
           />
         </div>
 
-        {/* Connectors down into the brain */}
-        <div className="relative mx-auto flex h-10 w-full max-w-[320px] items-stretch justify-between px-[52px]">
-          <Connector active={on(2)} tilt="right" />
-          <Connector active={on(2)} tilt="left" />
-        </div>
+        {/* Two flowing curves leave the sources and converge on the box below. */}
+        <FlowCurves active={on(2)} compact={compact} />
 
-        {/* The AI brain: a pumping square with stars */}
-        <div className="flex justify-center">
+        {/* The AI box the curves plug into: a pumping brain with stars + its label */}
+        <div
+          className={cn(
+            "mx-auto flex max-w-[420px] flex-col items-center gap-2.5 rounded-xl border p-4 transition-all duration-700",
+            on(2) ? "border-accent-violet/30 bg-accent-violet-soft/25 shadow-soft" : "border-border bg-surface-soft/50",
+          )}
+        >
           <div
             className={cn(
               "relative grid place-items-center rounded-xl transition-all duration-700",
-              compact ? "h-20 w-20" : "h-24 w-24",
+              compact ? "h-16 w-16" : "h-20 w-20",
               on(2)
                 ? "bg-gradient-to-br from-accent-violet to-primary shadow-[0_18px_50px_-14px_rgb(var(--c-accent)/0.55)]"
                 : "bg-surface-muted",
@@ -76,22 +78,21 @@ export function AIJourney({ className, compact = false }: { className?: string; 
             <Brain
               className={cn(
                 "relative z-10 transition-colors duration-500",
-                compact ? "h-9 w-9" : "h-11 w-11",
+                compact ? "h-8 w-8" : "h-10 w-10",
                 on(2) ? "text-white" : "text-text-muted",
               )}
               style={on(2) ? { animation: "brain-pump 2.2s ease-in-out infinite" } : undefined}
             />
           </div>
+          <p
+            className={cn(
+              "text-center text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors duration-500",
+              on(2) ? "text-accent-violet" : "text-text-muted",
+            )}
+          >
+            IA analizando tus datos…
+          </p>
         </div>
-
-        <p
-          className={cn(
-            "mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors duration-500",
-            on(2) ? "text-accent-violet" : "text-text-muted",
-          )}
-        >
-          IA analizando tus datos…
-        </p>
 
         {/* Connector down to the answer */}
         <div className="relative mx-auto h-8 w-px">
@@ -167,6 +168,51 @@ function SourceCard({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The two sources feeding the AI: one Bézier curve from each card, both landing on the
+ * same point at the top of the "IA analizando tus datos…" box right below.
+ */
+function FlowCurves({ active, compact }: { active: boolean; compact?: boolean }) {
+  const h = compact ? 44 : 56;
+  // viewBox is stretched horizontally (preserveAspectRatio="none"); non-scaling strokes
+  // keep the line weight honest at any width.
+  const paths = [
+    `M 75 0 C 75 ${h * 0.55}, 150 ${h * 0.35}, 150 ${h}`,
+    `M 225 0 C 225 ${h * 0.55}, 150 ${h * 0.35}, 150 ${h}`,
+  ];
+  return (
+    <svg
+      aria-hidden
+      viewBox={`0 0 300 ${h}`}
+      preserveAspectRatio="none"
+      className="mx-auto block w-full"
+      style={{ height: h }}
+    >
+      {paths.map((d, i) => (
+        <path
+          key={d}
+          d={d}
+          fill="none"
+          vectorEffect="non-scaling-stroke"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeDasharray="6 6"
+          className={cn("transition-[stroke] duration-500", active ? "stroke-accent-violet/60" : "stroke-border")}
+          style={active ? { animation: `ia-flow 1.6s linear infinite ${i * 0.3}s` } : undefined}
+        />
+      ))}
+      {/* The joint: where both curves plug into the box below. */}
+      <circle
+        cx={150}
+        cy={h - 1}
+        r={3}
+        className={cn("transition-colors duration-500", active ? "fill-accent-violet" : "fill-border")}
+        style={active ? { animation: "brain-pump 2.2s ease-in-out infinite" } : undefined}
+      />
+    </svg>
   );
 }
 

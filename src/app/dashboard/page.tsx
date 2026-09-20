@@ -513,7 +513,7 @@ function FtgmCard({
       </div>
       <div className="flex flex-wrap gap-2">
         {latest ? (
-          <Link href={`/forecasting/${latest.id}`} className="btn btn-violet h-10 gap-2 px-4 text-sm">
+          <Link href={`/forecasting?run=${latest.id}`} className="btn btn-violet h-10 gap-2 px-4 text-sm">
             Ver el resultado <ArrowRight className="h-4 w-4" />
           </Link>
         ) : (

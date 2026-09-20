@@ -88,9 +88,9 @@ function buildTips(s: ErpSummary, pendingRecs: RecommendationDTO[], urgentRecs: 
   if (s.out_of_stock_count > 0)
     add("out", "danger", 1, `${s.out_of_stock_count} producto(s) están en cero: cada día sin stock son ventas que pierdes. Te recomendamos reponerlos ya.`, "/inventory?filtro=sin-stock", "Ver cuáles");
   if (urgentRecs > 0)
-    add("urgent", "danger", 2, `Detectamos ${urgentRecs} producto(s) que debes reponer con urgencia según lo que venderás.`, "/recommendations", "Ver qué comprar");
+    add("urgent", "danger", 2, `Detectamos ${urgentRecs} producto(s) que debes reponer con urgencia según lo que venderás.`, "/forecasting?vista=comprar", "Ver qué comprar");
   if (s.lost_sales_30d_attempts > 0)
-    add("lost", "danger", 3, `Este mes te pidieron ${s.lost_sales_30d_units} unidad(es) que no tenías. Repón a tiempo para no repetirlo.`, "/recommendations", "Planificar compras");
+    add("lost", "danger", 3, `Este mes te pidieron ${s.lost_sales_30d_units} unidad(es) que no tenías. Repón a tiempo para no repetirlo.`, "/forecasting?vista=comprar", "Planificar compras");
   if (s.low_stock_count > 0 && s.out_of_stock_count === 0)
     add("low", "warning", 4, `${s.low_stock_count} producto(s) están por acabarse. Repón antes de que lleguen a cero.`, "/inventory", "Revisar stock");
 
@@ -100,13 +100,13 @@ function buildTips(s: ErpSummary, pendingRecs: RecommendationDTO[], urgentRecs: 
   else if (dead)
     add("dead", "warning", 6, `«${dead.name}» no vendió nada en 30 días. No compres más por ahora; una oferta ayuda a moverlo.`, `/inventory/${dead.product_id}`, "Ver producto");
   if (pendingRecs.length > 0 && urgentRecs === 0)
-    add("recs", "info", 7, `Tienes ${pendingRecs.length} sugerencia(s) de compra listas, calculadas con tus ventas.`, "/recommendations", "Ver la lista");
+    add("recs", "info", 7, `Tienes ${pendingRecs.length} sugerencia(s) de compra listas, calculadas con tus ventas.`, "/forecasting?vista=comprar", "Ver la lista");
 
   // 9-12 · margin
   if (s.margin_pct_30d != null && s.margin_pct_30d < 15 && s.revenue_30d > 0)
-    add("margin-low", "warning", 8, `Tu margen bruto del mes es ${s.margin_pct_30d}%: bajo para retail. Revisa costos y precios de lo que más vendes.`, "/kpis", "Ver mis números");
+    add("margin-low", "warning", 8, `Tu margen bruto del mes es ${s.margin_pct_30d}%: bajo para retail. Revisa costos y precios de lo que más vendes.`, "/forecasting?vista=numeros", "Ver mis números");
   if (s.margin_pct_30d != null && s.margin_pct_30d >= 40)
-    add("margin-ok", "success", 12, `Buen margen: te queda ${s.margin_pct_30d}% de cada sol vendido (${soles(s.gross_margin_30d)} este mes).`, "/kpis", "Ver mis números");
+    add("margin-ok", "success", 12, `Buen margen: te queda ${s.margin_pct_30d}% de cada sol vendido (${soles(s.gross_margin_30d)} este mes).`, "/forecasting?vista=numeros", "Ver mis números");
 
   // 13-15 · sales trend
   if (s.revenue_change_pct != null && s.revenue_change_pct <= -20)
@@ -126,13 +126,13 @@ function buildTips(s: ErpSummary, pendingRecs: RecommendationDTO[], urgentRecs: 
 
   // 19 · seasonal (Peru retail calendar)
   if (month === 10 || month === 11)
-    add("navidad", "info", 13, "Campaña navideña: adelanta tus compras de lo que más rota; los proveedores se demoran más en diciembre.", "/recommendations", "Planificar compras");
+    add("navidad", "info", 13, "Campaña navideña: adelanta tus compras de lo que más rota; los proveedores se demoran más en diciembre.", "/forecasting?vista=comprar", "Planificar compras");
   else if (month === 6)
     add("fiestas", "info", 13, "Fiestas Patrias: julio suele mover más ventas. Revisa el stock de tus productos estrella.", "/inventory", "Revisar stock");
 
   // 20 · all clear
   if (tips.length === 0)
-    add("ok", "success", 20, "Todo en orden: stock sano, ventas al día y nada urgente por comprar. Sigue registrando tus ventas para afinar las predicciones.", latestRun ? `/forecasting/${latestRun.id}` : "/forecasting", "Ver predicciones");
+    add("ok", "success", 20, "Todo en orden: stock sano, ventas al día y nada urgente por comprar. Sigue registrando tus ventas para afinar las predicciones.", latestRun ? `/forecasting?run=${latestRun.id}` : "/forecasting", "Ver predicciones");
 
   return tips.sort((a, b) => a.rank - b.rank);
 }

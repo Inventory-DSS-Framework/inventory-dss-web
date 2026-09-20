@@ -4,12 +4,16 @@ import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/Table";
 import { Card } from "@/components/ui/Card";
+import { cn } from "@/lib/utils";
 import { useExpertMode } from "@/hooks/useExpertMode";
 import type { FtgmRun } from "@/types/ftgm";
 import { dateLabel, forWhen, frequencyLabel, horizonLabel, num, runStatusMeta } from "./labels";
 
-/** Runs list with scope, status and summary. */
-export function RunsHistory({ runs }: { runs: FtgmRun[] }) {
+/**
+ * Runs list with scope, status and summary. On /forecasting it opens the run in place
+ * (`onSelect`); anywhere else it links to the same page with the run already chosen.
+ */
+export function RunsHistory({ runs, onSelect }: { runs: FtgmRun[]; onSelect?: (runId: string) => void }) {
   const [expert] = useExpertMode();
   if (runs.length === 0) {
     return (
@@ -29,9 +33,10 @@ export function RunsHistory({ runs }: { runs: FtgmRun[] }) {
           const s = runStatusMeta[r.status] ?? runStatusMeta.pending;
           const sum = r.summary;
           return (
-            <Link
+            <RowShell
               key={r.id}
-              href={`/forecasting/${r.id}`}
+              runId={r.id}
+              onSelect={onSelect}
               className="group grid grid-cols-1 items-center gap-2 px-6 py-4 transition-colors hover:bg-accent-violet-soft/15 md:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_120px_20px] md:gap-5"
             >
               <div className="min-w-0">
@@ -72,10 +77,35 @@ export function RunsHistory({ runs }: { runs: FtgmRun[] }) {
                 {s.label}
               </Badge>
               <ArrowRight className="hidden h-4 w-4 text-text-muted transition-transform group-hover:translate-x-0.5 md:block" />
-            </Link>
+            </RowShell>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+function RowShell({
+  runId,
+  onSelect,
+  className,
+  children,
+}: {
+  runId: string;
+  onSelect?: (runId: string) => void;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (onSelect) {
+    return (
+      <button type="button" onClick={() => onSelect(runId)} className={cn(className, "w-full text-left")}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link href={`/forecasting?run=${runId}`} className={className}>
+      {children}
+    </Link>
   );
 }
