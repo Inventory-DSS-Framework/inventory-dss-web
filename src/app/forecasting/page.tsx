@@ -78,6 +78,8 @@ export default function ForecastingPage() {
   const [run, setRun] = useState<FtgmRun | null>(null);
   // The finished run, waiting for the show to end (or for the person to skip ahead).
   const [readyRun, setReadyRun] = useState<string | null>(null);
+  // "Omitir": drop the presentation and wait bare-bones for the engine.
+  const [skipped, setSkipped] = useState(false);
 
   const preview = useApi(
     () => (companyId ? ftgmApi.previewScope(companyId, { scope: { type: "all" } }) : Promise.resolve(null)),
@@ -146,6 +148,7 @@ export default function ForecastingPage() {
     setStep("what");
     setRun(null);
     setReadyRun(null);
+    setSkipped(false);
     setError(null);
     setSelected(new Set());
     router.replace("/forecasting", { scroll: false });
@@ -171,6 +174,7 @@ export default function ForecastingPage() {
     setError(null);
     setStep("running");
     setReadyRun(null);
+    setSkipped(false);
     handedOver.current = false;
     startedAt.current = Date.now();
     try {
@@ -216,6 +220,10 @@ export default function ForecastingPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, run?.id, companyId]);
+
+  useEffect(() => {
+    if (skipped && readyRun) finish(readyRun);
+  }, [skipped, readyRun, finish]);
 
   const stepIdx = step === "what" ? 0 : step === "when" ? 1 : step === "running" ? 2 : 3;
   // Steps 1-3 are the prediction flow itself: full screen, no app chrome, dark stage.
@@ -574,13 +582,22 @@ export default function ForecastingPage() {
   return createPortal(
     <div className="ps-root fixed inset-0 z-[60] flex flex-col overflow-hidden">
       <PremiumBackdrop />
-      <button
-        type="button"
-        onClick={() => router.push("/dashboard")}
-        className="absolute right-5 top-5 z-20 inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium ps-glass ps-fg-2 backdrop-blur transition-colors hover:text-[rgb(var(--ps-fg))]"
-      >
-        <Minimize2 className="h-4 w-4" /> Salir
-      </button>
+      {step === "running" && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(68% 55% at 50% 46%, rgb(var(--ps-bg) / 0.72), transparent 76%)" }}
+        />
+      )}
+      {step !== "running" && (
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="absolute right-5 top-5 z-20 inline-flex h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium ps-glass ps-fg-2 backdrop-blur transition-colors hover:text-[rgb(var(--ps-fg))]"
+        >
+          <Minimize2 className="h-4 w-4" /> Salir
+        </button>
+      )}
 
       {step === "running" ? (
         <PredictingShow
@@ -588,8 +605,8 @@ export default function ForecastingPage() {
           horizonLabel={HORIZONS.find((h) => h.days === horizon)?.label ?? "1 mes"}
           quota={q ? { remaining: q.remaining, monthly_limit: q.monthly_limit } : null}
           isPremium={plan.isPremium}
-          ready={!!readyRun}
-          onSkip={readyRun ? () => finish(readyRun) : undefined}
+          skipped={skipped}
+          onSkip={() => (readyRun ? finish(readyRun) : setSkipped(true))}
           reduced={reduced}
         />
       ) : (

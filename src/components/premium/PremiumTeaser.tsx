@@ -6,7 +6,7 @@ import type { BillingCycle, PlanDTO } from "@/types/billing";
 import { PremiumOverlay } from "./PremiumOverlay";
 import { PlanComparison } from "./PlanComparison";
 import { PREMIUM_FEATURES } from "./plan-data";
-import { Eyebrow, SceneRail, Words, d, useSceneSequence } from "./scene-kit";
+import { Eyebrow, FitToScreen, SceneRail, Words, d, useSceneSequence } from "./scene-kit";
 import type { Origin } from "@/lib/premium-origin";
 
 /**
@@ -44,12 +44,12 @@ export function PremiumTeaser({ plans, cycle, onCycle, onCheckout, onClose, orig
   );
 
   return (
-    <PremiumOverlay label="Plan Premium" onClose={onClose} actions={skip} subheader={rail} origin={reduced ? null : origin}>
-      <div key={`${run}-${scene}`} className={cn("min-h-full", scene < PRICES && "h-full", leaving ? "ps-scene-out" : "ps-scene-in")}>
-        {scene === 0 && <SceneWhy />}
-        {scene === 1 && <SceneWhat />}
-        {scene === PRICES && (
-          <div className="flex min-h-full items-center">
+    <PremiumOverlay label="Plan Premium" onClose={onClose} actions={skip} subheader={rail} origin={reduced ? null : origin} scroll={false}>
+      <div key={`${run}-${scene}`} className={cn("h-full", leaving ? "ps-scene-out" : "ps-scene-in")}>
+        <FitToScreen>
+          {scene === 0 && <SceneWhy />}
+          {scene === 1 && <SceneWhat />}
+          {scene === PRICES && (
             <PlanComparison
               plans={plans}
               cycle={cycle}
@@ -58,8 +58,8 @@ export function PremiumTeaser({ plans, cycle, onCycle, onCheckout, onClose, orig
               onBack={onClose}
               onReplay={reduced ? undefined : replay}
             />
-          </div>
-        )}
+          )}
+        </FitToScreen>
       </div>
     </PremiumOverlay>
   );
@@ -74,7 +74,7 @@ const RISKS = [
 
 function SceneWhy() {
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col justify-center px-6 text-center">
+    <div className="mx-auto flex w-full max-w-3xl flex-col justify-center px-6 text-center">
       <Eyebrow>Decidir a ojo</Eyebrow>
       <h2 className="mt-4 font-display text-[clamp(1.9rem,5vw,3.4rem)] font-semibold leading-[1.1] tracking-[-0.035em]">
         <Words text="Equivocarte en la compra" start={0.12} step={0.11} className="block ps-fg-2" />
@@ -99,7 +99,7 @@ function SceneWhy() {
 
 function SceneWhat() {
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col justify-center px-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col justify-center px-6">
       <div className="text-center">
         <Eyebrow>Con Premium</Eyebrow>
         <h2 className="mt-4 font-display text-[clamp(1.7rem,4.4vw,3rem)] font-semibold leading-[1.12] tracking-[-0.035em]">

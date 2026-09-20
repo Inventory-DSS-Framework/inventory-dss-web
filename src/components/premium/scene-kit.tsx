@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,6 +13,41 @@ export type Style = React.CSSProperties & Record<`--${string}`, string>;
 
 /** Animation delay, in seconds, for any `ps-*` helper. */
 export const d = (s: number): Style => ({ "--d": `${s}s` });
+
+/**
+ * Keeps a scene inside the screen: if the content is taller (or wider) than the space
+ * it has, it shrinks to fit. A presentation never scrolls and never gets cut — on a
+ * short laptop it simply reads a little smaller.
+ */
+export function FitToScreen({ children, className }: { children: React.ReactNode; className?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const b = box.current;
+      const i = inner.current;
+      if (!b || !i || !i.offsetHeight || !i.offsetWidth) return;
+      // offsetWidth/Height are layout sizes, so the transform never feeds back into them.
+      const k = Math.min(1, b.clientHeight / i.offsetHeight, b.clientWidth / i.offsetWidth);
+      setScale(k > 0 ? k : 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (box.current) ro.observe(box.current);
+    if (inner.current) ro.observe(inner.current);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={box} className={cn("flex h-full w-full items-center justify-center overflow-hidden", className)}>
+      <div ref={inner} className="w-full" style={{ transform: scale < 1 ? `scale(${scale})` : undefined, transformOrigin: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /** How long a scene takes to blur out before the next one takes over. */
 export const OUT_MS = 420;
