@@ -176,6 +176,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
                 <ChartCard
                   icon={LineChart}
+                  delay={0.05}
                   title="Así irían tus ventas"
                   hint="La línea sólida es lo que vendiste; la franja es el rango probable de lo que viene."
                 >
@@ -185,7 +186,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
                     <NoData />
                   )}
                 </ChartCard>
-                <ChartCard icon={PieChart} title="¿Te alcanza el stock?" hint="Cuánto de lo que venderás ya está en tu almacén.">
+                <ChartCard icon={PieChart} delay={0.12} title="¿Te alcanza el stock?" hint="Cuánto de lo que venderás ya está en tu almacén.">
                   {activeRow ? <StockCoverCard p={activeRow} /> : <NoData />}
                 </ChartCard>
               </div>
@@ -193,6 +194,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <ChartCard
                   icon={BarChart3}
+                  delay={0.19}
                   title="Cuánto venderás cada periodo"
                   hint="La barra es lo esperado; la marca vertical, el rango probable."
                 >
@@ -200,6 +202,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
                 </ChartCard>
                 <ChartCard
                   icon={CalendarRange}
+                  delay={0.26}
                   title="En qué meses vendes más"
                   hint="Promedio de cada mes en tu historia: la barra resaltada es tu temporada alta."
                 >
@@ -209,6 +212,7 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
 
               <ChartCard
                 icon={Gauge}
+                delay={0.33}
                 title="Hasta cuándo te alcanza"
                 hint="Los días que dura tu stock frente a lo que demora tu proveedor y hasta dónde mira la predicción."
               >
@@ -355,22 +359,37 @@ function MockNotice({ diagnostics }: { diagnostics: Record<string, ProductDiagno
   );
 }
 
-/** Every visual of the result sits in the same frame, so the grid reads as one block. */
+/**
+ * Every visual of the result sits in the same frame, so the grid reads as one block: the
+ * same header, a corner glow for depth, and a staggered entrance that lets the cards land
+ * one after another instead of all at once.
+ */
 function ChartCard({
   icon: Icon,
   title,
   hint,
+  delay = 0,
   children,
 }: {
   icon: typeof TrendingUp;
   title: string;
   hint: string;
+  delay?: number;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="flex flex-col">
-      <div className="mb-4 flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-soft text-text-secondary">
+    <Card
+      interactive
+      className="relative flex flex-col overflow-hidden"
+      style={{ animation: "fade-up 0.6s var(--ease-out) both", animationDelay: `${delay}s` }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-20 -top-20 h-44 w-44 rounded-full"
+        style={{ background: "radial-gradient(circle, rgb(var(--c-accent) / 0.10), transparent 70%)" }}
+      />
+      <div className="relative mb-4 flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-surface-soft to-surface-muted text-text-secondary shadow-soft ring-1 ring-border-soft">
           <Icon className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
@@ -378,7 +397,7 @@ function ChartCard({
           <p className="text-xs leading-relaxed text-text-muted">{hint}</p>
         </div>
       </div>
-      <div className="flex-1">{children}</div>
+      <div className="relative flex-1">{children}</div>
     </Card>
   );
 }

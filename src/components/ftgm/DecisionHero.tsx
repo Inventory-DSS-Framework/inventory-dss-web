@@ -80,6 +80,7 @@ export function DecisionHero({
         <Tile
           icon={TrendingUp}
           label="Vendes"
+          index={0}
           value={d.rate}
           hint={diag?.units_per_month != null ? `≈ ${Math.round(diag.units_per_month)} u al mes` : `ritmo ${perLabel}`}
           visual={<Spark values={recent} />}
@@ -87,6 +88,7 @@ export function DecisionHero({
         <Tile
           icon={Boxes}
           label="Tienes"
+          index={1}
           value={`${Math.round(p.on_hand)} u`}
           hint={p.safety_stock > 0 ? `mínimo recomendado ${p.safety_stock} u` : "en tu almacén hoy"}
           visual={<Gauge value={p.on_hand} target={Math.max(p.safety_stock, 1)} good={p.on_hand >= p.safety_stock} />}
@@ -94,6 +96,7 @@ export function DecisionHero({
         <Tile
           icon={CalendarClock}
           label="Te alcanza"
+          index={2}
           value={cover != null ? `${cover} d` : "—"}
           hint={`tu proveedor demora ${lead} d`}
           visual={<Gauge value={cover ?? 0} target={Math.max(lead, 1)} good={cover == null || cover >= lead} />}
@@ -101,6 +104,7 @@ export function DecisionHero({
         <Tile
           icon={ShoppingCart}
           label="Comprar ahora"
+          index={3}
           value={buy ? `${Math.ceil(p.suggested_qty)} u` : "0 u"}
           hint={buy ? `≈ ${soles(p.suggested_investment)}` : "no hace falta por ahora"}
           accent={buy}
@@ -130,6 +134,7 @@ function Tile({
   hint,
   visual,
   accent,
+  index = 0,
 }: {
   icon: typeof TrendingUp;
   label: string;
@@ -137,40 +142,76 @@ function Tile({
   hint?: string;
   visual?: React.ReactNode;
   accent?: boolean;
+  index?: number;
 }) {
   return (
-    <div className={cn("rounded-2xl bg-surface px-4 py-3.5 shadow-soft", accent && "ring-1 ring-primary/25")}>
-      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-2xl bg-surface px-4 py-3.5 shadow-soft ring-1 ring-border-soft",
+        "transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg",
+        accent && "ring-primary/25",
+      )}
+      style={{ animation: "fade-up 0.55s var(--ease-out) both", animationDelay: `${0.08 + index * 0.07}s` }}
+    >
+      {/* Brillo que sigue al cursor: sutil, solo para que la tarjeta responda. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: "radial-gradient(circle, rgb(var(--c-primary) / 0.14), transparent 70%)" }}
+      />
+      <p className="relative flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-text-muted">
         <Icon className="h-3.5 w-3.5" /> {label}
       </p>
-      <p className="mt-1.5 truncate font-display text-[26px] font-semibold leading-none text-text-primary tabular-nums">
+      <p className="relative mt-1.5 truncate font-display text-[26px] font-semibold leading-none text-text-primary tabular-nums">
         {value}
       </p>
-      <div className="mt-2 h-4">{visual}</div>
-      {hint && <p className="mt-1 truncate text-[11px] text-text-muted">{hint}</p>}
+      <div className="relative mt-2 h-4">{visual}</div>
+      {hint && <p className="relative mt-1 truncate text-[11px] text-text-muted">{hint}</p>}
     </div>
   );
 }
 
-/** Last periods as a 10-point sparkline: the rate above it, seen as a shape. */
+/**
+ * Last periods as a sparkline: the rate above it, seen as a shape. Smoothed with the same
+ * Catmull-Rom curve the engine scene uses, so it reads as a wave and not as a zig-zag, and
+ * it draws itself once when the card lands.
+ */
 function Spark({ values }: { values: number[] }) {
   if (values.length < 2) return null;
   const max = Math.max(...values, 1);
   const w = 100;
   const h = 16;
   const step = w / (values.length - 1);
-  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(h - (v / max) * (h - 2) - 1).toFixed(1)}`);
+  const pts: [number, number][] = values.map((v, i) => [i * step, h - (v / max) * (h - 3) - 1.5]);
+
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  const end = pts[pts.length - 1];
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-4 w-full" aria-hidden>
-      <polyline
-        points={pts.join(" ")}
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-4 w-full overflow-visible" aria-hidden>
+      <path d={`${d} L${w},${h} L0,${h} Z`} fill="rgb(var(--c-primary) / 0.12)" />
+      <path
+        d={d}
+        pathLength={1}
         fill="none"
         stroke="rgb(var(--c-primary))"
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
+        className="ps-draw"
+        style={{ "--d": "0.3s", "--t": "1.1s" } as React.CSSProperties}
       />
+      <circle cx={end[0]} cy={end[1]} r="1.6" fill="rgb(var(--c-primary))" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -180,7 +221,10 @@ function Gauge({ value, target, good }: { value: number; target: number; good: b
   const share = Math.max(4, Math.min(100, (value / (target * 2)) * 100));
   return (
     <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-      <div className={cn("h-1.5 rounded-full", good ? "bg-success" : "bg-warning")} style={{ width: `${share}%` }} />
+      <div
+        className={cn("h-1.5 origin-left rounded-full", good ? "bg-success" : "bg-warning")}
+        style={{ width: `${share}%`, animation: "grow-x 0.8s var(--ease-out) both", animationDelay: "0.25s" }}
+      />
       <span className="absolute inset-y-0 left-1/2 w-px bg-border" />
     </div>
   );

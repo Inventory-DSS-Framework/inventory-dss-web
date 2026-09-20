@@ -129,7 +129,7 @@ export function ForecastBars({
               );
             }}
           />
-          <Bar dataKey="u" fill={`url(#fb-${uid})`} radius={[8, 8, 4, 4]} maxBarSize={46} isAnimationActive={false}>
+          <Bar dataKey="u" fill={`url(#fb-${uid})`} radius={[8, 8, 4, 4]} maxBarSize={46} animationDuration={900} animationEasing="ease-out">
             {data.map((d, i) => (
               <Cell key={d.name} fillOpacity={0.55 + (0.45 * (i + 1)) / data.length} />
             ))}
@@ -164,6 +164,12 @@ export function StockDonut({ p, height = 176 }: { p: OverviewProduct; height?: n
 
   return (
     <div className="relative" style={{ height }}>
+      {/* Halo detrás del anillo: profundidad, no color extra. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ background: `radial-gradient(42% 42% at 50% 50%, ${need > 0 && missing === 0 ? c.success : c.accent2}22, transparent 70%)` }}
+      />
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -175,7 +181,8 @@ export function StockDonut({ p, height = 176 }: { p: OverviewProduct; height?: n
             startAngle={90}
             endAngle={-270}
             stroke="none"
-            isAnimationActive={false}
+            animationDuration={1100}
+            animationEasing="ease-out"
           >
             {data.map((d) => (
               <Cell key={d.name} fill={d.color} />
@@ -270,7 +277,12 @@ export function CoverageTimeline({ p, horizonDays }: { p: OverviewProduct; horiz
   return (
     <div>
       <div className="relative mt-6 h-3 w-full rounded-full bg-surface-muted">
-        {cover != null && <div className={cn("h-3 rounded-full transition-all", bar)} style={{ width: at(cover) }} />}
+        {cover != null && (
+          <div
+            className={cn("h-3 origin-left rounded-full", bar)}
+            style={{ width: at(cover), animation: "grow-x 0.9s var(--ease-out) both" }}
+          />
+        )}
 
         {/* Lead time: the earliest a new order could land on the shelf. */}
         <Marker left={at(lead)} tone="text-text-secondary">
@@ -405,7 +417,7 @@ export function SeasonalityBars({ result, height = 210 }: { result: ForecastResu
               );
             }}
           />
-          <Bar dataKey="u" radius={[8, 8, 4, 4]} maxBarSize={34} isAnimationActive={false}>
+          <Bar dataKey="u" radius={[8, 8, 4, 4]} maxBarSize={34} animationDuration={900} animationEasing="ease-out">
             {data.map((d) => (
               <Cell key={d.name} fill={d.u >= top * 0.98 && d.u > 0 ? `url(#sb-top-${uid})` : `url(#sb-${uid})`} />
             ))}

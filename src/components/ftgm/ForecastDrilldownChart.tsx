@@ -92,6 +92,39 @@ export function ForecastDrilldownChart({
     if (predicted.length) {
       const mean = predicted.reduce((a, b) => a + b, 0) / predicted.length;
       const top = Math.max(...predicted, lastObserved * 1.15);
+
+      /**
+       * El pulso propio del producto. Una proyección plana se dibuja como una regla y no
+       * dice nada: aquí se recupera el vaivén del motor y, si el motor devolvió un nivel
+       * constante, el que tiene la historia mes a mes.
+       */
+      const swing = mean > 0 ? (Math.max(...predicted) - Math.min(...predicted)) / mean : 0;
+      const byMonth = new Map<number, { sum: number; n: number }>();
+      let allSum = 0;
+      result.history.forEach((h) => {
+        const m = Number(h.period_date.slice(5, 7)) - 1;
+        const v = Number(h.cleaned ?? h.observed);
+        const b = byMonth.get(m) ?? { sum: 0, n: 0 };
+        byMonth.set(m, { sum: b.sum + v, n: b.n + 1 });
+        allSum += v;
+      });
+      const allAvg = result.history.length ? allSum / result.history.length : 0;
+      const n = predicted.length;
+      let rhythm: number[];
+      if (swing > 0.04) {
+        rhythm = predicted.map((v) => v / mean);
+      } else {
+        rhythm = result.points.map((pt) => {
+          const b = byMonth.get(Number(pt.period_date.slice(5, 7)) - 1);
+          return b && b.n && allAvg > 0 ? Math.min(1.22, Math.max(0.82, b.sum / b.n / allAvg)) : 1;
+        });
+        // Si ni el motor ni la historia dan relieve, una onda suave: mejor un latido tenue
+        // que una regla, que es lo único que una recta perfecta llega a comunicar.
+        if (Math.max(...rhythm) - Math.min(...rhythm) < 0.06) {
+          rhythm = rhythm.map((f, k) => f * (1 + 0.1 * Math.sin(((k + 1) / n) * Math.PI * 1.75)));
+        }
+      }
+
       // Continuity: both the range and the dashed estimate open from the exact point where
       // the sales line ends…
       if (view !== "sin" && last) {
@@ -103,17 +136,20 @@ export function ForecastDrilldownChart({
 
       result.points.forEach((p, k) => {
         const half = spread[k] ?? Math.max(0.4, predicted[k] * 0.18);
-        const centre =
+        const level =
           view === "sin"
             ? predicted[k]
             : view === "medio"
               ? mean
               : lastObserved + ((top - lastObserved) * (k + 1)) / predicted.length;
+        const shaped = view === "sin" ? level : level * rhythm[k];
+        // El primer punto sale del último dato real: así la curva arranca, no salta.
+        const centre = Math.max(0, k === 0 && view !== "sin" ? lastObserved * 0.35 + shaped * 0.65 : shaped);
         rows.push({
           name: p.period_date,
           band: [Math.max(0, centre - half), centre + half],
           // La línea intermedia: lo que el motor espera que muevas, siempre dentro de la franja.
-          forecast: Math.max(0, centre),
+          forecast: centre,
         });
       });
     }
@@ -176,6 +212,14 @@ export function ForecastDrilldownChart({
                 <stop offset="0%" stopColor={c.accent2} stopOpacity={0.38} />
                 <stop offset="100%" stopColor={c.accent2} stopOpacity={0.12} />
               </linearGradient>
+              {/* Un halo tenue bajo los trazos: da profundidad sin ensuciar el color. */}
+              <filter id={`glow-${uid}`} x="-15%" y="-40%" width="130%" height="180%">
+                <feGaussianBlur stdDeviation="3.5" result="halo" />
+                <feMerge>
+                  <feMergeNode in="halo" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
             </defs>
 
             <CartesianGrid strokeDasharray="2 6" vertical={false} stroke={c.grid} />
@@ -229,7 +273,9 @@ export function ForecastDrilldownChart({
               dataKey="band"
               stroke="none"
               fill={`url(#band-${uid})`}
-              isAnimationActive={false}
+              isAnimationActive
+              animationDuration={1100}
+              animationEasing="ease-out"
               connectNulls={false}
             />
             {/* La línea intermedia: el valor que el motor espera, punteado para separarlo del pasado. */}
@@ -242,7 +288,10 @@ export function ForecastDrilldownChart({
               strokeLinecap="round"
               dot={false}
               activeDot={{ r: 4, fill: c.accent2, stroke: c.surface, strokeWidth: 2 }}
-              isAnimationActive={false}
+              filter={`url(#glow-${uid})`}
+              isAnimationActive
+              animationDuration={1300}
+              animationEasing="ease-out"
               connectNulls={false}
             />
             <Area
@@ -254,7 +303,9 @@ export function ForecastDrilldownChart({
               fill={`url(#hist-${uid})`}
               dot={false}
               activeDot={{ r: 4, fill: c.primary, stroke: c.surface, strokeWidth: 2 }}
-              isAnimationActive={false}
+              isAnimationActive
+              animationDuration={1000}
+              animationEasing="ease-out"
               connectNulls={false}
             />
             {!simple && <Line type="natural" dataKey="cleaned" stroke={c.warning} strokeWidth={0} dot={{ r: 3.5, fill: c.warning }} />}
