@@ -5,13 +5,14 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, BarChart2, Calendar, Check, CheckSquare, ChevronDown, Crown,
-  FileText, Lightbulb, Loader2, Minimize2, Package, RotateCcw, Sparkles, Square, TrendingUp, Wand2, XCircle,
+  ArrowLeft, ArrowRight, BarChart2, Calendar, Check, Crown,
+  FileText, Lightbulb, Minimize2, RotateCcw, Sparkles, TrendingUp, Wand2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
+import { ProductPicker } from "@/components/ftgm/ProductPicker";
 import { RunResultView } from "@/components/ftgm/RunResultView";
 import { PredictingShow, SHOW_MS } from "@/components/ftgm/PredictingShow";
 import { ForecastIntro } from "@/components/ftgm/ForecastIntro";
@@ -56,6 +57,12 @@ const STEP_RAIL = [
 const rise = (i: number): React.CSSProperties => ({ animation: `fade-up 0.55s var(--ease-out) ${0.05 + i * 0.06}s both` });
 
 /**
+ * Cards on the immersive stage. Flat surfaces on a near-black ground read as harsh
+ * grey boxes, so they float instead: translucent fill, blur and a lifted border.
+ */
+const STAGE_CARD = "border-border/70 bg-surface/70 shadow-[0_30px_80px_-48px_rgb(0_0_0/0.95)] backdrop-blur-xl";
+
+/**
  * Everything the AI does, on one page and in one flow:
  * 1) what do you want to predict (only items with enough sales are offered),
  * 2) for how long, 3) a light, staged "the AI is working" screen, and
@@ -73,7 +80,6 @@ export default function ForecastingPage() {
   const [view, setView] = useState<View>(isView(vistaParam) ? vistaParam : "prediccion");
   const [activeRun, setActiveRun] = useState<string | null>(runParam);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [showUnavailable, setShowUnavailable] = useState(false);
   const [horizon, setHorizon] = useState(30);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<FtgmRun | null>(null);
@@ -325,107 +331,28 @@ export default function ForecastingPage() {
       {/* ── Paso 1 · ¿Qué quieres predecir? ─────────────────────── */}
       {step === "what" && (
         <div className="space-y-5">
-          <Card style={rise(1)}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-violet">
-                  <Wand2 className="h-3.5 w-3.5" /> Esto se hará con IA
-                </p>
-                <h2 className="mt-1.5 font-display text-xl font-semibold text-text-primary">¿Qué quieres predecir?</h2>
-                <p className="mt-1 text-sm text-text-secondary">
-                  Estos son tus <span className="font-semibold text-text-primary">ítems disponibles para aplicar predicción</span>:
-                  los que tienen suficientes ventas para que la IA aprenda su ritmo.
-                </p>
-              </div>
-              {available.length > 0 && (
-                <button type="button" onClick={selectAll} className="btn btn-secondary h-10 gap-2 px-4 text-sm">
-                  {allSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                  {allSelected ? "Quitar todos" : `Seleccionar todos (${available.length})`}
-                </button>
-              )}
-            </div>
+          <Card className={STAGE_CARD} style={rise(1)}>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-violet">
+              <Wand2 className="h-3.5 w-3.5" /> Esto se hará con IA
+            </p>
+            <h2 className="mt-1.5 font-display text-xl font-semibold text-text-primary">¿Qué quieres predecir?</h2>
+            <p className="mt-1 max-w-2xl text-sm text-text-secondary">
+              Estos son tus <span className="font-semibold text-text-primary">ítems disponibles para aplicar predicción</span>:
+              los que tienen suficientes ventas para que la IA aprenda su ritmo.
+            </p>
 
-            {preview.loading && !preview.data ? (
-              <p className="py-12 text-center text-sm text-text-muted">
-                <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" /> Revisando tus ventas…
-              </p>
-            ) : available.length === 0 ? (
-              <div className="py-10 text-center">
-                <Package className="mx-auto h-8 w-8 text-text-muted" />
-                <p className="mt-3 text-sm font-semibold text-text-primary">Aún no hay productos listos para predecir</p>
-                <p className="mx-auto mt-1 max-w-md text-sm text-text-secondary">
-                  La IA necesita historial: carga tus ventas pasadas (Ventas › Ventas pasadas) o sigue vendiendo unas
-                  semanas más y vuelve.
-                </p>
-                <Link href="/sales?tab=imported" className="btn btn-primary mt-4 h-10 gap-2 px-4 text-sm">
-                  Cargar mis ventas <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {available.map((p) => {
-                  const on = selected.has(p.product_id);
-                  return (
-                    <button
-                      key={p.product_id}
-                      type="button"
-                      onClick={() => toggle(p.product_id)}
-                      className={cn(
-                        "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
-                        on ? "border-accent-violet/50 bg-accent-violet-soft/30 ring-2 ring-accent-violet/15" : "border-border bg-surface hover:border-accent-violet/30",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors",
-                          on ? "border-accent-violet bg-accent-violet text-white" : "border-border bg-surface",
-                        )}
-                      >
-                        {on && <Check className="h-3 w-3" strokeWidth={3} />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-text-primary">{p.name}</span>
-                        <span className="block text-[11px] text-text-muted">
-                          {p.sales_count} ventas · {Math.round(p.total_units)} u en {p.periods} {p.frequency === "weekly" ? "semanas" : "meses"}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {unavailable.length > 0 && (
-              <div className="mt-4 border-t border-border-soft pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowUnavailable((v) => !v)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-secondary"
-                >
-                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showUnavailable && "rotate-180")} />
-                  {unavailable.length} producto(s) aún no disponibles para predicción
-                </button>
-                {showUnavailable && (
-                  <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                    {unavailable.map((p) => (
-                      <li key={p.product_id} className="rounded-xl bg-surface-soft/70 px-3 py-2 text-xs text-text-muted">
-                        <span className="font-medium text-text-secondary">{p.name}</span> — {reasonFor(p)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            <ProductPicker
+              available={available}
+              unavailable={unavailable}
+              selected={selected}
+              onToggle={toggle}
+              onSelectAll={selectAll}
+              loading={preview.loading && !preview.data}
+              reasonFor={reasonFor}
+            />
           </Card>
 
-          <div className="flex flex-wrap items-center justify-between gap-3" style={rise(2)}>
-            {lastSuccess ? (
-              <button type="button" onClick={() => setStep("results")} className="btn btn-ghost h-11 gap-1.5 px-4 text-sm">
-                Ver mis últimos resultados <ArrowRight className="h-4 w-4" />
-              </button>
-            ) : (
-              <span />
-            )}
+          <div className="flex flex-wrap items-center justify-end gap-3" style={rise(2)}>
             <button
               type="button"
               onClick={() => setStep("when")}
@@ -436,17 +363,25 @@ export default function ForecastingPage() {
             </button>
           </div>
 
-          <div className="space-y-3" style={rise(3)}>
-            <h3 className="font-display text-base font-semibold text-text-primary">Predicciones anteriores</h3>
-            <RunsHistory runs={runs.data ?? []} onSelect={(id) => { setActiveRun(id); setView("prediccion"); setStep("results"); }} />
-          </div>
+          {(runs.data?.length ?? 0) > 0 && (
+            <div style={rise(3)}>
+              <RunsHistory
+                runs={runs.data ?? []}
+                limit={3}
+                className={STAGE_CARD}
+                title="Tus predicciones anteriores"
+                subtitle="Ábrelas cuando quieras: volver a verlas no gasta ninguna predicción del mes."
+                onSelect={(id) => { setActiveRun(id); setView("prediccion"); setStep("results"); }}
+              />
+            </div>
+          )}
         </div>
       )}
 
       {/* ── Paso 2 · ¿Para cuánto tiempo? ───────────────────────── */}
       {step === "when" && (
         <div className="space-y-5">
-          <Card style={rise(1)}>
+          <Card className={STAGE_CARD} style={rise(1)}>
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-violet">
               <Calendar className="h-3.5 w-3.5" /> Un dato más
             </p>
@@ -587,9 +522,19 @@ export default function ForecastingPage() {
   // stays under every step, so the screen is never a flat black.
   if (!mounted) return null;
   return createPortal(
-    <div className="ps-root fixed inset-0 z-[60] flex flex-col overflow-hidden">
+    <div className="ps-root fixed inset-0 z-[60] flex flex-col overflow-hidden" style={{ backgroundColor: "rgb(var(--c-bg))" }}>
       {intro && <ForecastIntro onClose={() => setIntro(false)} />}
       <PremiumBackdrop />
+      {/* Lifts the ground off pure black, so the cards stop cutting against it. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(180deg, rgb(var(--c-primary) / 0.10), transparent 42%)," +
+            "radial-gradient(90% 60% at 50% 0%, rgb(var(--c-accent) / 0.08), transparent 70%)",
+        }}
+      />
       {step === "running" && (
         <div
           aria-hidden

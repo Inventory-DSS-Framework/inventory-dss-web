@@ -13,6 +13,7 @@ import type { BillingCycle, PaymentDTO, PlanDTO } from "@/types/billing";
 import { PremiumManage } from "@/components/premium/PremiumManage";
 import { PricingCards } from "@/components/premium/PricingCards";
 import { PremiumTeaser } from "@/components/premium/PremiumTeaser";
+import { PaymentRow, PremiumFaq, ValueStrip } from "@/components/premium/PremiumExtras";
 import { FALLBACK_PLANS, prefersReducedMotion } from "@/components/premium/plan-data";
 import { clearPremiumOrigin, peekPremiumOrigin, type Origin } from "@/lib/premium-origin";
 
@@ -104,9 +105,15 @@ export default function PremiumPage() {
             }}
           />
           <PricingCards plans={plans} cycle={cycle} onCycle={setCycle} onCheckout={checkout} isPremium />
+          <PremiumFaq />
         </div>
       ) : (
-        <PricingCards plans={plans} cycle={cycle} onCycle={setCycle} onCheckout={checkout} />
+        <div className="space-y-10">
+          <ValueStrip />
+          <PricingCards plans={plans} cycle={cycle} onCycle={setCycle} onCheckout={checkout} />
+          <PaymentRow />
+          <PremiumFaq />
+        </div>
       )}
     </div>
   );
