@@ -6,15 +6,19 @@ import {
   Activity,
   AlertTriangle,
   ArrowDownRight,
-  ArrowRight,
   ArrowUpRight,
   BadgeCheck,
+  BarChart3,
   Boxes,
   CalendarClock,
+  CalendarRange,
   ChevronDown,
+  Gauge,
+  LineChart,
   Minus,
   PackageSearch,
   Percent,
+  PieChart,
   Timer,
   TrendingUp,
   Wallet,
@@ -24,10 +28,11 @@ import { Badge } from "@/components/ui/Table";
 import { Tabs } from "@/components/ui/Tabs";
 import { Select } from "@/components/ui/Select";
 import { DataState } from "@/components/ui/DataState";
-import { ActionPlan } from "@/components/ftgm/ActionPlan";
+import { DecisionHero } from "@/components/ftgm/DecisionHero";
 import { DiagnosticsPanel } from "@/components/ftgm/DiagnosticsPanel";
 import { EngineProgress } from "@/components/ftgm/EngineProgress";
 import { ForecastDrilldownChart } from "@/components/ftgm/ForecastDrilldownChart";
+import { CoverageTimeline, ForecastBars, SeasonalityBars, StockCoverCard } from "@/components/ftgm/ResultCharts";
 import { TrackingPanel } from "@/components/ftgm/TrackingPanel";
 import {
   dateLabel,
@@ -100,6 +105,12 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
   const activeResult = (results.data ?? []).find((r) => r.product_id === activeId);
   const diag = activeId ? ov?.diagnostics[activeId] : undefined;
 
+  // Elegir en la comparativa cambia todas las tarjetas de arriba: hay que volver a verlas.
+  const pick = (id: string) => {
+    setSelected(id);
+    document.getElementById("resultado-producto")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const status = run.data ? runStatusMeta[run.data.status] : null;
   const r = run.data;
 
@@ -111,9 +122,16 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
   return (
     <div className="space-y-6">
       {r && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="font-display text-base font-semibold text-text-primary">{r.scope_description ?? "Resultado del cálculo"}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h3 className="font-display text-base font-semibold text-text-primary">{r.scope_description ?? "Resultado del cálculo"}</h3>
+              {status && (
+                <Badge variant={status.tone} dot>
+                  {status.label}
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-text-muted">
               {expert
                 ? `Ejecutado el ${dateLabel(r.created_at ?? r.started_at)} · horizonte ${horizonLabel(r.horizon_days)} · frecuencia ${
@@ -124,10 +142,11 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
                   }`}
             </p>
           </div>
-          {status && (
-            <Badge variant={status.tone} dot>
-              {status.label}
-            </Badge>
+          {/* One selector for the whole result: every card below follows this product. */}
+          {done && rows.length > 1 && (
+            <div className="w-64 max-w-full">
+              <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" aria-label="Producto" />
+            </div>
           )}
         </div>
       )}
@@ -146,34 +165,57 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
 
               {/* "Confianza X en este cálculo": oculto a pedido del negocio. */}
 
-              <ActionPlan rows={rows} />
+              {/* La decisión, una sola vez: qué hacer, por qué, los números y el botón. */}
+              {activeRow && (
+                <div id="resultado-producto" className="scroll-mt-24">
+                  <DecisionHero p={activeRow} diag={diag} result={activeResult} />
+                </div>
+              )}
 
-              {/* 60 / 40: the interactive projection on the left, what to do about it on the right. */}
+              {/* 60 / 40: la proyección a la izquierda, "¿me alcanza el stock?" a la derecha. */}
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
-                <Card>
-                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-display text-base font-semibold text-text-primary">Así irían tus ventas</h3>
-                      <p className="text-xs text-text-muted">
-                        La línea sólida es lo que vendiste; la franja es el rango probable de lo que viene.
-                      </p>
-                    </div>
-                    <div className="w-60 max-w-full">
-                      <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
-                    </div>
-                  </div>
+                <ChartCard
+                  icon={LineChart}
+                  title="Así irían tus ventas"
+                  hint="La línea sólida es lo que vendiste; la franja es el rango probable de lo que viene."
+                >
                   {activeResult && activeRow ? (
                     <ForecastDrilldownChart result={activeResult} frequency={activeRow.frequency} simple={!expert} height={300} />
                   ) : (
-                    <p className="py-14 text-center text-sm text-text-muted">Sin historia para este producto.</p>
+                    <NoData />
                   )}
-                </Card>
-                {activeRow ? (
-                  <RestockCard p={activeRow} diag={diag} />
-                ) : (
-                  <Card className="grid place-items-center text-sm text-text-muted">Elige un producto para ver su recomendación.</Card>
-                )}
+                </ChartCard>
+                <ChartCard icon={PieChart} title="¿Te alcanza el stock?" hint="Cuánto de lo que venderás ya está en tu almacén.">
+                  {activeRow ? <StockCoverCard p={activeRow} /> : <NoData />}
+                </ChartCard>
               </div>
+
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <ChartCard
+                  icon={BarChart3}
+                  title="Cuánto venderás cada periodo"
+                  hint="La barra es lo esperado; la marca vertical, el rango probable."
+                >
+                  {activeResult && activeRow ? <ForecastBars result={activeResult} frequency={activeRow.frequency} /> : <NoData />}
+                </ChartCard>
+                <ChartCard
+                  icon={CalendarRange}
+                  title="En qué meses vendes más"
+                  hint="Promedio de cada mes en tu historia: la barra resaltada es tu temporada alta."
+                >
+                  {activeResult ? <SeasonalityBars result={activeResult} /> : <NoData />}
+                </ChartCard>
+              </div>
+
+              <ChartCard
+                icon={Gauge}
+                title="Hasta cuándo te alcanza"
+                hint="Los días que dura tu stock frente a lo que demora tu proveedor y hasta dónde mira la predicción."
+              >
+                {activeRow && r ? <CoverageTimeline p={activeRow} horizonDays={r.horizon_days} /> : <NoData />}
+              </ChartCard>
+
+              {rows.length > 1 && <ProductCompare rows={rows} activeId={activeId} onSelect={pick} />}
 
               {expert && (
                 <div className="flex justify-center pt-2">
@@ -313,88 +355,116 @@ function MockNotice({ diagnostics }: { diagnostics: Record<string, ProductDiagno
   );
 }
 
-/**
- * The 40% column next to the chart: what to do with the product on screen, how much to
- * reorder, what it costs and why — the same decision dictionary the action plan uses.
- */
-function RestockCard({ p, diag }: { p: OverviewProduct; diag?: ProductDiagnostics }) {
-  const d = decide(p);
-  const a = ACTIONS[d.action];
-  const buy = d.action === "reponer_ya" || d.action === "reponer";
-  const tone =
-    a.tone === "danger"
-      ? "border-danger/30 bg-danger-soft/25"
-      : a.tone === "warning"
-        ? "border-warning/30 bg-warning-soft/25"
-        : a.tone === "success"
-          ? "border-success/30 bg-success-soft/20"
-          : "border-accent-violet/25 bg-accent-violet-soft/20";
-  const chip =
-    a.tone === "danger"
-      ? "bg-danger text-white"
-      : a.tone === "warning"
-        ? "bg-warning text-white"
-        : a.tone === "success"
-          ? "bg-success text-white"
-          : "bg-accent-violet text-white";
-
+/** Every visual of the result sits in the same frame, so the grid reads as one block. */
+function ChartCard({
+  icon: Icon,
+  title,
+  hint,
+  children,
+}: {
+  icon: typeof TrendingUp;
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Card className={cn("flex flex-col gap-4", tone)}>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Recomendación de reposición</p>
-        <p className="mt-1 truncate font-display text-lg font-semibold text-text-primary" title={p.name}>
-          {p.name}
-        </p>
+    <Card className="flex flex-col">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-soft text-text-secondary">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="font-display text-[15px] font-semibold text-text-primary">{title}</h3>
+          <p className="text-xs leading-relaxed text-text-muted">{hint}</p>
+        </div>
       </div>
-
-      <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide", chip)}>
-        <a.icon className="h-3.5 w-3.5" /> {a.title}
-      </span>
-
-      <div className="rounded-xl bg-surface px-4 py-3">
-        <p className="text-xs text-text-muted">{buy ? "Cuánto reponer" : "Cuánto comprar ahora"}</p>
-        <p className="font-display text-3xl font-semibold leading-none text-text-primary tabular-nums">
-          {p.suggested_qty > 0 ? `${Math.ceil(p.suggested_qty)} u` : "0 u"}
-        </p>
-        <p className="mt-1.5 text-xs text-text-secondary">
-          {p.suggested_qty > 0 ? `≈ ${soles(p.suggested_investment)} de inversión` : "No necesitas comprar por ahora"}
-        </p>
-      </div>
-
-      <p className="text-sm leading-relaxed text-text-secondary">{d.sentence}</p>
-
-      <div className="grid grid-cols-3 gap-2">
-        <MiniStat icon={TrendingUp} label="Vendes" value={d.rate} />
-        <MiniStat icon={Boxes} label="Tienes" value={`${p.on_hand} u`} />
-        <MiniStat icon={CalendarClock} label="Te alcanza" value={d.coverDays != null ? `${d.coverDays} d` : "—"} />
-      </div>
-
-      {diag?.rotation && (
-        <p className="rounded-xl bg-surface-soft px-3 py-2 text-xs text-text-secondary">
-          <span className="font-semibold text-text-primary">Rotación {diag.rotation}</span>
-          {diag.units_per_month != null && <> · ≈ {diag.units_per_month} u al mes</>}
-        </p>
-      )}
-
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-        <span />
-        {buy && (
-          <Link href="/purchases/new" className="btn btn-primary h-9 gap-1.5 px-3 text-xs">
-            Registrar compra <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        )}
-      </div>
+      <div className="flex-1">{children}</div>
     </Card>
   );
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: typeof TrendingUp; label: string; value: string }) {
+function NoData() {
+  return <p className="py-14 text-center text-sm text-text-muted">Sin datos para este producto.</p>;
+}
+
+/**
+ * With several products the old card list repeated the decision once per product. This says
+ * the same in one glance: who moves the most, what to do with each and what it costs —
+ * and clicking a row points every chart above at that product.
+ */
+function ProductCompare({
+  rows,
+  activeId,
+  onSelect,
+}: {
+  rows: OverviewProduct[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const sorted = [...rows].sort((a, b) => b.next_period_units - a.next_period_units);
+  const top = Math.max(...sorted.map((p) => p.next_period_units), 1);
+
   return (
-    <div className="rounded-xl bg-surface px-2.5 py-2 text-center">
-      <Icon className="mx-auto h-3.5 w-3.5 text-text-muted" />
-      <p className="mt-1 text-[10.5px] text-text-muted">{label}</p>
-      <p className="truncate font-display text-[13px] font-semibold text-text-primary">{value}</p>
-    </div>
+    <Card className="p-0">
+      <div className="flex items-start gap-3 px-6 pb-4 pt-6">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-soft text-text-secondary">
+          <BarChart3 className="h-[18px] w-[18px]" />
+        </span>
+        <div>
+          <h3 className="font-display text-[15px] font-semibold text-text-primary">Comparativa de tus productos</h3>
+          <p className="text-xs text-text-muted">Cuánto moverá cada uno el próximo periodo. Elige uno para ver su detalle arriba.</p>
+        </div>
+      </div>
+      <div className="divide-y divide-border-soft border-t border-border">
+        {sorted.map((p) => {
+          const d = decide(p);
+          const a = ACTIONS[d.action];
+          const chip =
+            a.tone === "danger"
+              ? "bg-danger-soft text-danger"
+              : a.tone === "warning"
+                ? "bg-warning-soft text-warning"
+                : a.tone === "success"
+                  ? "bg-success-soft text-success"
+                  : a.tone === "violet"
+                    ? "bg-accent-violet-soft text-accent-violet"
+                    : "bg-surface-muted text-text-secondary";
+          return (
+            <button
+              key={p.product_id}
+              type="button"
+              onClick={() => onSelect(p.product_id)}
+              className={cn(
+                "flex w-full items-center gap-4 px-6 py-3.5 text-left transition-colors hover:bg-surface-soft",
+                activeId === p.product_id && "bg-primary-soft/25",
+              )}
+            >
+              <span className="w-[34%] min-w-0">
+                <span className="block truncate text-sm font-medium text-text-primary">{p.name}</span>
+                <span className="block font-mono text-[11px] text-text-muted">{p.sku}</span>
+              </span>
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                  <span
+                    className="block h-2.5 rounded-full bg-primary"
+                    style={{ width: `${Math.max(4, (p.next_period_units / top) * 100)}%` }}
+                  />
+                </span>
+                <span className="w-16 shrink-0 text-right font-display text-sm font-semibold text-text-primary tabular-nums">
+                  {units(p.next_period_units, 1)}
+                </span>
+              </span>
+              <span className={cn("hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:inline-flex", chip)}>
+                <a.icon className="h-3.5 w-3.5" /> {a.short}
+              </span>
+              <span className="w-20 shrink-0 text-right text-xs text-text-secondary tabular-nums">
+                {p.suggested_qty > 0 ? `${Math.ceil(p.suggested_qty)} u` : "—"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

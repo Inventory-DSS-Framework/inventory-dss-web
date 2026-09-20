@@ -490,23 +490,28 @@ export default function ForecastingPage() {
       {/* ── Paso 4 · Resultados y recomendaciones ───────────────── */}
       {step === "results" && (
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3" style={rise(1)}>
-            <nav className="flex flex-wrap gap-1.5 rounded-xl border border-border bg-surface p-1">
+          {/* Cuatro secciones del mismo ancho: la barra ocupa el contenido completo y
+              queda alineada con las tarjetas de abajo. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch" style={rise(1)}>
+            <nav className="grid flex-1 grid-cols-2 gap-1.5 rounded-2xl border border-border bg-surface p-1.5 sm:grid-cols-4">
               {VIEWS.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => setView(v.id)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold transition-colors",
-                    view === v.id ? "bg-accent-violet text-white shadow-[0_6px_18px_-8px_rgb(var(--c-accent)/0.8)]" : "text-text-secondary hover:bg-surface-soft hover:text-text-primary",
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-2 text-[13px] font-semibold transition-colors",
+                    view === v.id
+                      ? "bg-accent-violet text-white shadow-[0_6px_18px_-8px_rgb(var(--c-accent)/0.8)]"
+                      : "text-text-secondary hover:bg-surface-soft hover:text-text-primary",
                   )}
                 >
-                  <v.icon className="h-4 w-4" /> {v.label}
+                  <v.icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{v.label}</span>
                 </button>
               ))}
             </nav>
-            <button type="button" onClick={startOver} className="btn btn-secondary h-11 gap-2 px-4 text-sm">
+            <button type="button" onClick={startOver} className="btn btn-secondary shrink-0 gap-2 rounded-2xl px-5 text-sm">
               <RotateCcw className="h-4 w-4" /> Hacer otra predicción
             </button>
           </div>
