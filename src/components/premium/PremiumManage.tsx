@@ -5,8 +5,7 @@ import Link from "next/link";
 import { ArrowRight, BrainCircuit, CalendarClock, Check, CreditCard, Crown, Loader2, Play, Receipt } from "lucide-react";
 import type { SubscriptionDTO } from "@/types/api";
 import type { PaymentDTO } from "@/types/billing";
-import { CYCLE_LABEL, METHOD_LABEL, fmtDate, fmtSoles } from "./plan-data";
-import { PREMIUM_FEATURES } from "./IntroScenes";
+import { CYCLE_LABEL, METHOD_LABEL, PREMIUM_FEATURES, fmtDate, fmtSoles } from "./plan-data";
 
 type Style = React.CSSProperties & Record<`--${string}`, string>;
 const d = (s: number): Style => ({ "--d": `${s}s` });
@@ -17,7 +16,8 @@ interface Props {
   canManage: boolean;
   onCancel: () => Promise<void>;
   onResume: () => Promise<void>;
-  onReplay: () => void;
+  /** Only set where an intro exists to replay; the plans page has none. */
+  onReplay?: () => void;
 }
 
 /** Calm "you're already premium" management view. */
@@ -79,9 +79,11 @@ export function PremiumManage({ subscription, payments, canManage, onCancel, onR
           <Link href="/forecasting" className="btn ps-btn-light h-11 gap-2 rounded-xl px-5 text-sm">
             <BrainCircuit className="h-4 w-4" /> Ir a la IA <ArrowRight className="h-4 w-4" />
           </Link>
-          <button onClick={onReplay} className="btn ps-btn-ghost h-11 gap-2 rounded-xl px-4 text-sm">
-            <Play className="h-3.5 w-3.5" /> Ver la presentación
-          </button>
+          {onReplay && (
+            <button onClick={onReplay} className="btn ps-btn-ghost h-11 gap-2 rounded-xl px-4 text-sm">
+              <Play className="h-3.5 w-3.5" /> Ver la presentación
+            </button>
+          )}
         </div>
       </div>
 

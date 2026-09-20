@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, PackageSearch } from "lucide-react";
+import { ArrowRight, Boxes, CalendarClock, PackageSearch, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import type { OverviewProduct } from "@/types/ftgm";
@@ -96,9 +96,9 @@ export function ActionPlan({ rows }: { rows: OverviewProduct[] }) {
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat label="Vendes" value={d.rate} />
-                <Stat label="Tienes" value={`${p.on_hand} u`} />
-                <Stat label="Te alcanza" value={d.coverDays != null ? `${d.coverDays} días` : "—"} />
+                <Stat icon={TrendingUp} label="Vendes" value={d.rate} />
+                <Stat icon={Boxes} label="Tienes" value={`${p.on_hand} u`} />
+                <Stat icon={CalendarClock} label="Te alcanza" value={d.coverDays != null ? `${d.coverDays} días` : "—"} />
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border-soft pt-3">
@@ -125,10 +125,12 @@ export function ActionPlan({ rows }: { rows: OverviewProduct[] }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ icon: Icon, label, value }: { icon: typeof TrendingUp; label: string; value: string }) {
   return (
     <div className="rounded-xl bg-surface-soft px-2 py-2">
-      <p className="text-[11px] text-text-muted">{label}</p>
+      <p className="flex items-center justify-center gap-1 text-[11px] text-text-muted">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </p>
       <p className="truncate font-display text-sm font-semibold text-text-primary">{value}</p>
     </div>
   );

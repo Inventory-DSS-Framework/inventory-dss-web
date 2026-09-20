@@ -58,8 +58,29 @@ export function decide(p: OverviewProduct): Decision {
           : "Ya casi no se vende. No vuelvas a comprarlo.",
     };
   }
+  // Slow mover: a product that barely sells never gets pushed into a big purchase, even if
+  // it ran out. Keep a thin stock (or let it go) instead of tying money up in it.
+  if (p.total_forecast_units < 3 && rateN < 1) {
+    const perMonth = round(rateN * (perWeek ? 4.3 : 1));
+    return {
+      ...base,
+      action: "no_comprar",
+      sentence:
+        p.on_hand > 0
+          ? `Se vende muy poco (≈ ${perMonth} al mes) y todavía tienes ${p.on_hand} u. Mantén el stock bajo: no repongas por ahora.`
+          : `Se vende muy poco (≈ ${perMonth} al mes). No conviene reponerlo: pide solo si un cliente te lo encarga.`,
+    };
+  }
   if (p.on_hand <= 0) {
     return { ...base, action: "reponer_ya", sentence: `Se te acabó y los clientes lo siguen pidiendo (${rate}). ${buy} cuanto antes.` };
+  }
+  // Fast mover about to run into the supplier's wait: always top of the list.
+  if (rateN >= 20 && cover != null && cover <= p.lead_time_days + 7) {
+    return {
+      ...base,
+      action: "reponer_ya",
+      sentence: `Se vende rápido (${rate}) y te alcanza para unos ${cover} días, menos de lo que demora tu proveedor (${p.lead_time_days}). ${buy} hoy mismo.`,
+    };
   }
   if (p.needs_restock && p.stockout_risk === "alto") {
     return {

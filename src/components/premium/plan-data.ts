@@ -1,4 +1,23 @@
+import {
+  BarChart3,
+  GitCompareArrows,
+  Layers3,
+  PackageSearch,
+  ShieldAlert,
+  ShoppingCart,
+  type LucideIcon,
+} from "lucide-react";
 import type { BillingCycle, PlanDTO } from "@/types/billing";
+
+/** What Premium adds, listed on the plans page, the success screen and the manage view. */
+export const PREMIUM_FEATURES: { icon: LucideIcon; title: string; desc: string }[] = [
+  { icon: PackageSearch, title: "Pronóstico de todo tu catálogo", desc: "Cada producto, semana a semana, en una sola corrida." },
+  { icon: GitCompareArrows, title: "Pronosticado vs real", desc: "Sigue la precisión de la IA con tus ventas reales." },
+  { icon: ShoppingCart, title: "Recomendaciones de compra", desc: "Qué pedir, cuánto y cuándo, listo para tu proveedor." },
+  { icon: ShieldAlert, title: "Riesgo de quiebre y cobertura", desc: "Días de stock y alertas antes de quedarte sin nada." },
+  { icon: Layers3, title: "Por proveedor, vendedor o categoría", desc: "Agrupa el pronóstico como tú gestionas el negocio." },
+  { icon: BarChart3, title: "Reportes y KPIs", desc: "Indicadores claros para decidir y compartir." },
+];
 
 /** Fallback catalog mirroring GET /billing/plans (used when the API is unreachable). */
 export const FALLBACK_PLANS: PlanDTO[] = [

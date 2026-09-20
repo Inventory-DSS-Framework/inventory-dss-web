@@ -67,9 +67,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // The Premium flow and the welcome onboarding are full-screen stages of their own:
-  // no sidebar or topbar ever shows behind them — not on the first frame, not during the fade-in.
-  if (pathname.startsWith("/premium") || pathname === "/welcome") {
+  // Checkout and the welcome onboarding are full-screen stages of their own: no sidebar or
+  // topbar ever shows behind them. The plans page itself is an ordinary page in the app.
+  if (pathname.startsWith("/premium/") || pathname === "/welcome") {
     return (
       <ExperienceProvider>
         <div className={pathname === "/welcome" ? "min-h-screen" : "ps-root min-h-screen"}>{children}</div>

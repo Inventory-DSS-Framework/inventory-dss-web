@@ -3,13 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  Activity,
   AlertTriangle,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
+  BadgeCheck,
   Boxes,
+  CalendarClock,
   ChevronDown,
   Minus,
   PackageSearch,
+  Percent,
+  Timer,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -40,10 +46,10 @@ import { cn } from "@/lib/utils";
 import { soles } from "@/lib/ui";
 import { useApi } from "@/hooks/useApi";
 import { useExpertMode } from "@/hooks/useExpertMode";
-import { confidenceOf } from "@/components/ftgm/decisions";
+import { ACTIONS, confidenceOf, decide } from "@/components/ftgm/decisions";
 import { forecastingApi } from "@/lib/api";
 import { ftgmApi } from "@/lib/apis/ftgm";
-import type { OverviewProduct, RunTracking } from "@/types/ftgm";
+import type { OverviewProduct, ProductDiagnostics, RunTracking } from "@/types/ftgm";
 
 /**
  * The result of one prediction: how much you will sell, what to buy and (for experts)
@@ -136,29 +142,38 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
         <DataState loading={overview.loading && !ov} error={overview.error} onRetry={overview.reload}>
           {ov && (
             <div className="space-y-6">
+              <MockNotice diagnostics={ov.diagnostics} />
+
               <Reliability accuracy={ov.summary.accuracy_pct ?? null} products={ov.summary.products} />
 
               <ActionPlan rows={rows} />
 
-              {/* Projection: past sales + forecast, in plain words (the technical version lives below). */}
-              <Card>
-                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-base font-semibold text-text-primary">Así irían tus ventas</h3>
-                    <p className="text-xs text-text-muted">
-                      La línea sólida es lo que vendiste; la punteada, lo que venderías. La franja es el rango probable.
-                    </p>
+              {/* 60 / 40: the interactive projection on the left, what to do about it on the right. */}
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
+                <Card>
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display text-base font-semibold text-text-primary">Así irían tus ventas</h3>
+                      <p className="text-xs text-text-muted">
+                        La línea sólida es lo que vendiste; la punteada, lo que venderías. La franja es el rango probable.
+                      </p>
+                    </div>
+                    <div className="w-60 max-w-full">
+                      <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
+                    </div>
                   </div>
-                  <div className="w-72 max-w-full">
-                    <Select value={activeId ?? ""} onChange={setSelected} options={productOptions} size="sm" />
-                  </div>
-                </div>
-                {activeResult && activeRow ? (
-                  <ForecastDrilldownChart result={activeResult} frequency={activeRow.frequency} simple={!expert} height={280} />
+                  {activeResult && activeRow ? (
+                    <ForecastDrilldownChart result={activeResult} frequency={activeRow.frequency} simple={!expert} height={300} />
+                  ) : (
+                    <p className="py-14 text-center text-sm text-text-muted">Sin historia para este producto.</p>
+                  )}
+                </Card>
+                {activeRow ? (
+                  <RestockCard p={activeRow} diag={diag} />
                 ) : (
-                  <p className="py-14 text-center text-sm text-text-muted">Sin historia para este producto.</p>
+                  <Card className="grid place-items-center text-sm text-text-muted">Elige un producto para ver su recomendación.</Card>
                 )}
-              </Card>
+              </div>
 
               {expert && (
                 <div className="flex justify-center pt-2">
@@ -279,6 +294,113 @@ export function RunResultView({ companyId, runId }: { companyId: string | null; 
   );
 }
 
+/**
+ * The demo engine labels every result it produces; the real engine never sets `engine`,
+ * so this banner only ever shows in mock mode.
+ */
+function MockNotice({ diagnostics }: { diagnostics: Record<string, ProductDiagnostics> }) {
+  const mock = Object.values(diagnostics ?? {}).find((d) => d?.engine === "mock");
+  if (!mock) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-accent-violet/30 bg-accent-violet-soft/40 px-4 py-3">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-accent-violet text-white">
+        <BadgeCheck className="h-4 w-4" />
+      </span>
+      <p className="text-sm font-semibold text-text-primary">
+        {mock.mock_notice ?? "Cálculo listo — SUFICIENTE ventas para REALIZAR PREDICCIÓN."}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The 40% column next to the chart: what to do with the product on screen, how much to
+ * reorder, what it costs and why — the same decision dictionary the action plan uses.
+ */
+function RestockCard({ p, diag }: { p: OverviewProduct; diag?: ProductDiagnostics }) {
+  const d = decide(p);
+  const a = ACTIONS[d.action];
+  const buy = d.action === "reponer_ya" || d.action === "reponer";
+  const tone =
+    a.tone === "danger"
+      ? "border-danger/30 bg-danger-soft/25"
+      : a.tone === "warning"
+        ? "border-warning/30 bg-warning-soft/25"
+        : a.tone === "success"
+          ? "border-success/30 bg-success-soft/20"
+          : "border-accent-violet/25 bg-accent-violet-soft/20";
+  const chip =
+    a.tone === "danger"
+      ? "bg-danger text-white"
+      : a.tone === "warning"
+        ? "bg-warning text-white"
+        : a.tone === "success"
+          ? "bg-success text-white"
+          : "bg-accent-violet text-white";
+
+  return (
+    <Card className={cn("flex flex-col gap-4", tone)}>
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Recomendación de reposición</p>
+        <p className="mt-1 truncate font-display text-lg font-semibold text-text-primary" title={p.name}>
+          {p.name}
+        </p>
+      </div>
+
+      <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide", chip)}>
+        <a.icon className="h-3.5 w-3.5" /> {a.title}
+      </span>
+
+      <div className="rounded-xl bg-surface px-4 py-3">
+        <p className="text-xs text-text-muted">{buy ? "Cuánto reponer" : "Cuánto comprar ahora"}</p>
+        <p className="font-display text-3xl font-semibold leading-none text-text-primary tabular-nums">
+          {p.suggested_qty > 0 ? `${Math.ceil(p.suggested_qty)} u` : "0 u"}
+        </p>
+        <p className="mt-1.5 text-xs text-text-secondary">
+          {p.suggested_qty > 0 ? `≈ ${soles(p.suggested_investment)} de inversión` : "No necesitas comprar por ahora"}
+        </p>
+      </div>
+
+      <p className="text-sm leading-relaxed text-text-secondary">{d.sentence}</p>
+
+      <div className="grid grid-cols-3 gap-2">
+        <MiniStat icon={TrendingUp} label="Vendes" value={d.rate} />
+        <MiniStat icon={Boxes} label="Tienes" value={`${p.on_hand} u`} />
+        <MiniStat icon={CalendarClock} label="Te alcanza" value={d.coverDays != null ? `${d.coverDays} d` : "—"} />
+      </div>
+
+      {diag?.rotation && (
+        <p className="rounded-xl bg-surface-soft px-3 py-2 text-xs text-text-secondary">
+          <span className="font-semibold text-text-primary">Rotación {diag.rotation}</span>
+          {diag.units_per_month != null && <> · ≈ {diag.units_per_month} u al mes</>}
+        </p>
+      )}
+
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+        <span className="text-[11px] text-text-muted">
+          Confianza: <strong className="text-text-secondary">{d.confidence}</strong>
+          {p.accuracy_pct != null && <> · acertó {Math.round(p.accuracy_pct)}%</>}
+        </span>
+        {buy && (
+          <Link href="/purchases/new" className="btn btn-primary h-9 gap-1.5 px-3 text-xs">
+            Registrar compra <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function MiniStat({ icon: Icon, label, value }: { icon: typeof TrendingUp; label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-surface px-2.5 py-2 text-center">
+      <Icon className="mx-auto h-3.5 w-3.5 text-text-muted" />
+      <p className="mt-1 text-[10.5px] text-text-muted">{label}</p>
+      <p className="truncate font-display text-[13px] font-semibold text-text-primary">{value}</p>
+    </div>
+  );
+}
+
 function Kpi({
   icon: Icon,
   label,
@@ -389,13 +511,13 @@ function ProductCard({ p }: { p: OverviewProduct }) {
         <Badge variant={risk.tone}>{risk.label}</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
-        <Mini label={`Próximo (${periodLabel(p.next_period, p.frequency)})`} value={units(p.next_period_units, 1)} />
-        <Mini label="Total horizonte" value={units(p.total_forecast_units)} />
-        <Mini label="Stock actual" value={units(p.on_hand)} />
-        <Mini label="Cobertura" value={p.coverage_days != null ? `${num(p.coverage_days)} días` : "—"} />
-        <Mini label="Precisión (pasado)" value={p.accuracy_pct != null ? `${Math.round(p.accuracy_pct)}%` : "—"} />
-        <Mini label={acc.holdout ? "MAPE validación" : "MAPE ajuste"} value={pct(acc.mape)} />
-        <Mini label="MASE" value={acc.mase != null ? acc.mase.toFixed(2) : "—"} />
+        <Mini icon={CalendarClock} label={`Próximo (${periodLabel(p.next_period, p.frequency)})`} value={units(p.next_period_units, 1)} />
+        <Mini icon={TrendingUp} label="Total horizonte" value={units(p.total_forecast_units)} />
+        <Mini icon={Boxes} label="Stock actual" value={units(p.on_hand)} />
+        <Mini icon={Timer} label="Cobertura" value={p.coverage_days != null ? `${num(p.coverage_days)} días` : "—"} />
+        <Mini icon={BadgeCheck} label="Precisión (pasado)" value={p.accuracy_pct != null ? `${Math.round(p.accuracy_pct)}%` : "—"} />
+        <Mini icon={Percent} label={acc.holdout ? "MAPE validación" : "MAPE ajuste"} value={pct(acc.mape)} />
+        <Mini icon={Activity} label="MASE" value={acc.mase != null ? acc.mase.toFixed(2) : "—"} />
       </div>
       {p.suggested_qty > 0 ? (
         <div className="rounded-2xl border border-accent-violet/25 bg-accent-violet-soft/25 p-4">
@@ -415,11 +537,14 @@ function ProductCard({ p }: { p: OverviewProduct }) {
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
+function Mini({ icon: Icon, label, value }: { icon: typeof TrendingUp; label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-surface-soft px-3 py-2">
-      <p className="truncate text-[10.5px] text-text-muted">{label}</p>
-      <p className="font-display text-sm font-semibold text-text-primary tabular-nums">{value}</p>
+    <div className="flex items-center gap-2.5 rounded-xl bg-surface-soft px-3 py-2">
+      <Icon className="h-4 w-4 shrink-0 text-text-muted" />
+      <div className="min-w-0">
+        <p className="truncate text-[10.5px] text-text-muted">{label}</p>
+        <p className="font-display text-sm font-semibold text-text-primary tabular-nums">{value}</p>
+      </div>
     </div>
   );
 }

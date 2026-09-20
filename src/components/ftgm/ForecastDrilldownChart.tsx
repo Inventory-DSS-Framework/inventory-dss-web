@@ -46,8 +46,14 @@ export function ForecastDrilldownChart({
       stockout: h.is_stockout ? Number(h.observed) : null,
       outlier: (h as { is_outlier?: boolean }).is_outlier ? Number(h.observed) : null,
     }));
+    // Continuity: the forecast (and its band) start exactly where the observed line ends,
+    // so the dashed projection grows out of the last real period instead of jumping.
     const last = rows[rows.length - 1];
-    if (last && result.points.length) last.forecast = last.fitted ?? last.observed;
+    if (last && result.points.length) {
+      const anchor = (last.observed ?? last.fitted) as number;
+      last.forecast = anchor;
+      last.band = [anchor, anchor];
+    }
     for (const p of result.points) {
       rows.push({
         name: p.period_date,
@@ -67,7 +73,7 @@ export function ForecastDrilldownChart({
           {simple ? (
             <>
               <LegendChip color={c.primary} label="Lo que vendiste" />
-              <LegendChip color={c.accent} label="Lo que venderías" />
+              <LegendChip color={c.accent} label="Lo que venderías" dashed />
               <LegendChip color={c.accent2} label="Rango probable" />
             </>
           ) : (
@@ -75,7 +81,7 @@ export function ForecastDrilldownChart({
               <LegendChip color={c.primary} label="Demanda observada" />
               <LegendChip color={c.warning} label="Demanda reparada" />
               <LegendChip color={c.muted} label="Ajuste del modelo" dashed />
-              <LegendChip color={c.accent} label="Pronóstico" />
+              <LegendChip color={c.accent} label="Pronóstico" dashed />
               <LegendChip color={c.accent2} label="Intervalo 90%" />
               <LegendChip color={c.danger} label="Quiebre" />
             </>
@@ -135,7 +141,7 @@ export function ForecastDrilldownChart({
             <Area type="monotone" dataKey="observed" stroke={c.primary} strokeWidth={2} fill={c.primary} fillOpacity={0.07} dot={false} />
             {!simple && <Line type="monotone" dataKey="cleaned" stroke={c.warning} strokeWidth={0} dot={{ r: 3.5, fill: c.warning }} />}
             {!simple && <Line type="monotone" dataKey="fitted" stroke={c.muted} strokeWidth={1.5} strokeDasharray="5 4" dot={false} />}
-            <Line type="monotone" dataKey="forecast" stroke={c.accent} strokeWidth={2.6} strokeDasharray={simple ? "6 4" : undefined} dot={{ r: 3, fill: c.accent }} />
+            <Line type="monotone" dataKey="forecast" stroke={c.accent} strokeWidth={2.6} strokeDasharray="6 4" dot={{ r: 3, fill: c.accent }} />
             {!simple && <Scatter dataKey="stockout" fill={c.danger} />}
             {!simple && <Scatter dataKey="outlier" fill={c.warning} shape="diamond" />}
           </ComposedChart>

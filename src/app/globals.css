@@ -628,22 +628,29 @@ input:-webkit-autofill:focus {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   PLAN PREMIUM — immersive intro, checkout & success (components/premium)
-   A self-contained dark "stage" derived from the theme tokens: in light mode the
-   ink colour becomes the ground; in dark mode the deep background does.
+   PLAN PREMIUM — checkout & success (components/premium)
+   A calm, light stage derived from the theme tokens: the app background is the
+   ground and the ink is the foreground (in dark mode, the deep background is).
+   `.ps-light` carries the same palette without claiming the background, for the
+   premium blocks that now live inside the normal app shell.
    ══════════════════════════════════════════════════════════════════════════ */
-.ps-root {
-  --ps-bg: var(--c-text);
-  --ps-fg: var(--c-bg);
+.ps-root,
+.ps-light {
+  --ps-bg: var(--c-bg);
+  --ps-fg: var(--c-text);
   --ps-glow-a: var(--c-primary);
   --ps-glow-b: var(--c-accent-2);
-  --ps-hi: var(--c-accent-2);
+  --ps-hi: var(--c-accent);
+}
+.ps-root {
   background-color: rgb(var(--ps-bg));
   color: rgb(var(--ps-fg));
 }
-[data-mode="dark"] .ps-root {
+[data-mode="dark"] .ps-root,
+[data-mode="dark"] .ps-light {
   --ps-bg: var(--c-bg-deep);
   --ps-fg: var(--c-text);
+  --ps-hi: var(--c-accent-2);
 }
 .ps-fg { color: rgb(var(--ps-fg)); }
 .ps-fg-2 { color: rgb(var(--ps-fg) / 0.72); }
@@ -812,3 +819,16 @@ input:-webkit-autofill:focus {
 @keyframes ia-flow {
   to { stroke-dashoffset: -24; }
 }
+
+/* The forecasting stage borrows the premium scene helpers (ps-draw / ps-rise / ps-word …)
+   on a light ground. */
+.ia-stage {
+  --ps-fg: var(--c-text);
+  --ps-hi: var(--c-accent);
+}
+/* The dark stage's white CTA becomes the brand button on the light one. */
+.ps-btn-light {
+  background-color: rgb(var(--c-primary));
+  color: #fff;
+}
+.ps-btn-light:hover { background-color: rgb(var(--c-primary) / 0.9); }

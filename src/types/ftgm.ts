@@ -154,6 +154,14 @@ export interface ProductDiagnostics {
   forecast_vs_recent_pct?: number | null;
   explanations?: string[];
   warnings?: string[];
+  /** "mock" when the demo engine produced this result (the real engine never sets it). */
+  engine?: string | null;
+  /** Literal notice the demo engine asks the screens to show. */
+  mock_notice?: string | null;
+  /** How fast the product moves, and the advice that follows from it. */
+  rotation?: "baja" | "media" | "alta" | null;
+  units_per_month?: number | null;
+  advice?: "no_reponer" | "normal" | "reponer_prioritario" | null;
 }
 
 export interface OverviewProduct {

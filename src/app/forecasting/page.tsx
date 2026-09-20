@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, BarChart2, Brain, Calendar, Check, CheckSquare, ChevronDown, Crown,
+  ArrowLeft, ArrowRight, BarChart2, Calendar, Check, CheckSquare, ChevronDown, Crown,
   FileText, Lightbulb, Loader2, Package, RotateCcw, Sparkles, Square, TrendingUp, Wand2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -12,6 +12,7 @@ import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
 import { RunResultView } from "@/components/ftgm/RunResultView";
+import { PredictingStage } from "@/components/ftgm/PredictingStage";
 import { BuyPanel } from "@/components/ftgm/panels/BuyPanel";
 import { NumbersPanel } from "@/components/ftgm/panels/NumbersPanel";
 import { ReportsPanel } from "@/components/ftgm/panels/ReportsPanel";
@@ -40,6 +41,13 @@ const HORIZONS = [
 ];
 
 const STAGES = ["Procesando la data…", "Haciendo cálculos…", "Limpiando ruido…", "Generando recomendaciones…"];
+
+/**
+ * The processing stage is part of the experience: it explains what the AI is doing while
+ * it works. The demo engine answers almost instantly, so hold the stage long enough for
+ * its four steps to be read (the real engine usually takes longer than this on its own).
+ */
+const MIN_STAGE_MS = 8000;
 
 const STEP_RAIL = [
   { id: "what", label: "¿Qué quieres predecir?" },
@@ -105,6 +113,9 @@ export default function ForecastingPage() {
     }
   }, [runParam, vistaParam]);
 
+  // When the current run was launched, so the processing stage can run its full course.
+  const startedAt = useRef(0);
+
   // Deep link (/forecasting?product=id): preselect that product if it is predictable.
   const preselected = useRef(false);
   useEffect(() => {
@@ -141,6 +152,7 @@ export default function ForecastingPage() {
     setError(null);
     setStep("running");
     setStage(0);
+    startedAt.current = Date.now();
     try {
       const created = await ftgmApi.createRun(companyId, {
         scope: allSelected ? { type: "all" } : { type: "products", product_ids: [...selected] },
@@ -158,19 +170,26 @@ export default function ForecastingPage() {
   // While running: cycle the stage copy and poll the run until it lands on the results step.
   useEffect(() => {
     if (step !== "running" || !run || !companyId) return;
-    const stages = window.setInterval(() => setStage((v) => (v + 1) % STAGES.length), 2600);
+    const timers: number[] = [];
+    const stages = window.setInterval(() => setStage((v) => (v + 1) % STAGES.length), 2000);
     const poll = window.setInterval(async () => {
       try {
         const r = await ftgmApi.getRun(companyId, run.id);
         if (r.status === "success") {
           window.clearInterval(poll);
-          window.clearInterval(stages);
-          setActiveRun(r.id);
-          setView("prediccion");
-          setStep("results");
-          runs.reload();
-          quota.reload();
-          router.replace(`/forecasting?run=${r.id}`, { scroll: false });
+          // Let the stage finish telling its story before handing over the results.
+          const left = Math.max(0, MIN_STAGE_MS - (Date.now() - startedAt.current));
+          timers.push(
+            window.setTimeout(() => {
+              window.clearInterval(stages);
+              setActiveRun(r.id);
+              setView("prediccion");
+              setStep("results");
+              runs.reload();
+              quota.reload();
+              router.replace(`/forecasting?run=${r.id}`, { scroll: false });
+            }, left),
+          );
         } else if (r.status === "failed" || r.status === "cancelled") {
           window.clearInterval(poll);
           window.clearInterval(stages);
@@ -181,10 +200,11 @@ export default function ForecastingPage() {
       } catch {
         /* transient; keep polling */
       }
-    }, 2000);
+    }, 1500);
     return () => {
       window.clearInterval(poll);
       window.clearInterval(stages);
+      timers.forEach((t) => window.clearTimeout(t));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, run?.id, companyId]);
@@ -444,34 +464,9 @@ export default function ForecastingPage() {
 
       {/* ── Paso 3 · La IA trabaja ──────────────────────────────── */}
       {step === "running" && (
-        <Card className="relative overflow-hidden py-16 text-center" style={rise(0)}>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(45% 45% at 50% 30%, rgb(var(--c-accent) / 0.10), transparent 70%)",
-            }}
-          />
-          <div className="relative mx-auto grid h-24 w-24 place-items-center rounded-xl bg-gradient-to-br from-accent-violet to-primary shadow-[0_18px_50px_-14px_rgb(var(--c-accent)/0.55)]">
-            <span className="absolute inset-0 rounded-xl bg-accent-violet/30" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
-            <Sparkles className="star-twinkle absolute -right-2.5 -top-2.5 h-5 w-5 text-warning" />
-            <Sparkles className="star-twinkle absolute -bottom-2 -left-3 h-4 w-4 text-accent-violet" style={{ animationDelay: "0.7s" }} />
-            <Brain className="relative z-10 h-11 w-11 text-white" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
-          </div>
-          <p key={stage} className="mt-6 font-display text-xl font-semibold text-text-primary animate-fade-up">{STAGES[stage]}</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
-            La IA está leyendo {selected.size} producto(s) de tus ventas. Esto toma menos de un minuto.
-          </p>
-          <div className="mx-auto mt-6 flex max-w-[240px] items-center gap-1.5">
-            {STAGES.map((_, i) => (
-              <span
-                key={i}
-                className={cn("h-1.5 flex-1 rounded-full transition-colors duration-500", i <= stage ? "bg-accent-violet" : "bg-surface-muted")}
-              />
-            ))}
-          </div>
-        </Card>
+        <div style={rise(0)}>
+          <PredictingStage stages={STAGES} stage={stage} products={selected.size} />
+        </div>
       )}
 
       {/* ── Paso 4 · Resultados y recomendaciones ───────────────── */}

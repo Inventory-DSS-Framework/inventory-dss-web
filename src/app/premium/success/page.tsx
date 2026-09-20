@@ -8,7 +8,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { billingPlansApi } from "@/lib/apis/billing";
 import type { PaymentDTO } from "@/types/billing";
 import { PremiumOverlay } from "@/components/premium/PremiumOverlay";
-import { PREMIUM_FEATURES } from "@/components/premium/IntroScenes";
+import { PREMIUM_FEATURES } from "@/components/premium/plan-data";
 import { CYCLE_LABEL, METHOD_LABEL, fmtDate, fmtSoles, prefersReducedMotion } from "@/components/premium/plan-data";
 
 type Style = React.CSSProperties & Record<`--${string}`, string>;
