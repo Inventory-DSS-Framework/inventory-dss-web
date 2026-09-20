@@ -34,7 +34,7 @@ import {
   priceFor,
 } from "@/components/premium/plan-data";
 
-const STEPS = ["Validando", "Procesando pago", "Activando motor FTGM"];
+const STEPS = ["Validando", "Procesando pago", "Activando la IA"];
 
 /** Plain-language guidance per payment method, shown next to the form and the summary. */
 const METHOD_HINT: Record<PaymentMethod, { name: string; how: string; pending: string; activation: string }> = {
@@ -249,7 +249,7 @@ function Checkout() {
                 </span>
                 <div>
                   <p className="font-display font-semibold ps-fg">Plan Premium</p>
-                  <p className="text-xs ps-fg-3">Motor FTGM completo</p>
+                  <p className="text-xs ps-fg-3">Motor de IA completo</p>
                 </div>
               </div>
 
@@ -290,7 +290,7 @@ function Checkout() {
                 <ol className="mt-2.5 space-y-2 text-[13px] ps-fg-2">
                   {[
                     `Hoy se cobra ${fmtSoles(total)} con ${METHOD_HINT[method].name}.`,
-                    `${METHOD_HINT[method].activation}: el Motor FTGM pronostica todo tu catálogo.`,
+                    `${METHOD_HINT[method].activation}: la IA pronostica todo tu catálogo.`,
                     `Recibes tu comprobante en Ajustes › Plan y pagos.`,
                     `${plan.isPremium ? "Se extiende" : "Se renueva"} el ${fmtDate(renewal)}. Puedes cancelar antes sin costo.`,
                   ].map((t, i) => (

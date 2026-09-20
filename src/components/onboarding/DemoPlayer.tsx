@@ -21,7 +21,7 @@ const CHAPTERS: Record<
       [0.1, "Ventas: donde cobras cada día."],
       [0.34, "Compras: todo lo que entra a tu almacén."],
       [0.56, "Inventario: tu stock y tus columnas por tipo de producto."],
-      [0.78, "Motor FTGM: cuánto venderás y qué comprar."],
+      [0.78, "IA: cuánto venderás y qué comprar."],
     ],
   },
   import: {
@@ -47,12 +47,12 @@ const CHAPTERS: Record<
     ],
   },
   ftgm: {
-    title: "Motor FTGM",
+    title: "Predicciones con IA",
     duration: 12000,
     lockAt: FTGM_LOCK_AT,
     Scene: FtgmScene,
     captions: [
-      [0, "FTGM lee tu historial de ventas, producto por producto."],
+      [0, "La IA lee tu historial de ventas, producto por producto."],
       [0.3, "Detecta tendencia, estacionalidad y ciclos."],
       [0.54, "Calcula cuánto venderás y qué tan seguro es."],
       [0.8, "Y te dice qué comprar y cuándo."],
@@ -246,9 +246,9 @@ export function DemoPlayer({
               <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: "rgb(167 139 250)" }}>Aquí empieza Premium</p>
               <h3 className="mt-2 font-display text-[clamp(1.1rem,2.4vw,1.5rem)] font-semibold text-white">Tu historial ya está analizado</h3>
               <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-white/70">
-                Con Premium, el Motor FTGM calcula cuánto venderás de todo tu catálogo y te dice qué comprar y cuándo.
+                Con Premium, la IA calcula cuánto venderás de todo tu catálogo y te dice qué comprar y cuándo.
               </p>
-              <p className="mt-1.5 text-[11.5px] text-white/45">En el plan gratis puedes pronosticar 1 producto.</p>
+              <p className="mt-1.5 text-[11.5px] text-white/45">En el plan gratis tienes 3 predicciones al mes.</p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"

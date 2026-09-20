@@ -33,45 +33,31 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-// The ERP is the business's day-to-day: sell, buy, keep stock. "Motor FTGM" is the
-// forecasting brain plus everything it produces (recommendations, KPIs, reports).
+// Four sections: home, the day-to-day ERP (sell, buy, stock), the AI predictions
+// (the product's differentiator, framed as its own glowing block) and system.
 export const adminNav: NavGroup[] = [
   { key: "home", label: "Inicio", items: [{ name: "Panel", href: "/dashboard", icon: LayoutDashboard }] },
   {
-    key: "sales",
-    label: "Ventas",
+    key: "erp",
+    label: "ERP",
     icon: ShoppingBag,
     items: [
       { name: "Nueva venta", href: "/sales/new", icon: ScanBarcode },
       { name: "Ventas", href: "/sales", icon: Receipt },
-    ],
-  },
-  {
-    key: "purchases",
-    label: "Compras",
-    icon: Truck,
-    items: [
       { name: "Nueva compra", href: "/purchases/new", icon: PackagePlus },
       { name: "Proveedores", href: "/suppliers", icon: Truck },
-    ],
-  },
-  {
-    key: "inventory",
-    label: "Inventario",
-    icon: Boxes,
-    items: [
       { name: "Inventario", href: "/inventory", icon: Archive },
       { name: "Productos", href: "/products", icon: Package },
     ],
   },
   {
     key: "ftgm",
-    label: "Planifica tus compras",
+    label: "Predice con IA",
     icon: BrainCircuit,
     tone: "brand",
-    hint: "Con el Motor FTGM: cuánto venderás y qué comprar",
+    hint: "La IA analiza tus ventas: cuánto venderás y qué comprar",
     items: [
-      { name: "¿Cuánto venderé?", href: "/forecasting", icon: Activity },
+      { name: "Predecir mis ventas", href: "/forecasting", icon: Activity },
       { name: "Qué comprar", href: "/recommendations", icon: Lightbulb },
       { name: "Mis números", href: "/kpis", icon: BarChart2 },
       { name: "Reportes", href: "/reports", icon: FileText },
@@ -194,7 +180,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
               className={cn(
                 brand &&
                   !collapsed &&
-                  "relative overflow-hidden rounded-2xl border border-accent-violet/15 bg-gradient-to-b from-accent-violet-soft/60 to-accent-violet-soft/10 p-1.5 pt-2.5",
+                  "ia-border relative rounded-2xl border border-accent-violet/15 bg-gradient-to-b from-accent-violet-soft/60 to-accent-violet-soft/10 p-1.5 pt-2.5",
                 brand && collapsed && "rounded-2xl border border-accent-violet/20 bg-accent-violet-soft/30 py-1.5",
               )}
             >
@@ -220,7 +206,7 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                       type="button"
                       onClick={() => setFtgm(!ftgmOpen)}
                       aria-expanded={ftgmOpen}
-                      aria-label={ftgmOpen ? "Plegar Motor FTGM" : "Desplegar Motor FTGM"}
+                      aria-label={ftgmOpen ? "Plegar Predice con IA" : "Desplegar Predice con IA"}
                       className="grid h-6 w-6 place-items-center rounded-lg text-accent-violet transition-colors hover:bg-surface/70"
                     >
                       <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300", ftgmOpen && "rotate-180")} />
@@ -244,8 +230,8 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                     <BrainCircuit className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold text-text-primary">Planifica tus compras</span>
-                    <span className="block text-[11px] leading-snug text-text-muted">Cuánto venderás y qué comprar</span>
+                    <span className="block text-[13px] font-semibold text-text-primary">Predice tus ventas con IA</span>
+                    <span className="block text-[11px] leading-snug text-text-muted">Descubre qué comprar antes de quedarte sin stock</span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-accent-violet transition-transform group-hover:translate-x-0.5" />
                 </button>
@@ -302,11 +288,11 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             } catch {}
           }}
           className={cn(
-            "flex items-center rounded-xl text-[13.5px] font-medium text-text-secondary transition-colors hover:bg-surface/60 hover:text-text-primary",
+            "flex items-center rounded-xl bg-danger text-[13.5px] font-semibold text-white transition-colors hover:bg-danger/85",
             collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2",
           )}
         >
-          <LogOut className="h-[18px] w-[18px] text-text-muted" />
+          <LogOut className="h-[18px] w-[18px] text-white" />
           {!collapsed && "Salir"}
         </Link>
       </div>

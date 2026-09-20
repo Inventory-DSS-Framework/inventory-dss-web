@@ -82,7 +82,7 @@ export function StartChecklist({ state }: { state: OnboardingState }) {
           tone="neutral"
         />
         <PhaseGroup
-          label="Fase 2 · Motor FTGM"
+          label="Fase 2 · Predice con IA"
           icon={BrainCircuit}
           caption={erpDone ? "Listo para pronosticar." : "Se activa cuando termines la Fase 1."}
           steps={ftgmSteps}

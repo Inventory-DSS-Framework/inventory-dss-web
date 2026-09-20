@@ -32,7 +32,7 @@ export function SceneHook() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
       <p className="ps-fade mb-8 text-[11px] font-semibold uppercase tracking-[0.32em] ps-fg-3" style={d(0)}>
-        Motor FTGM
+        Motor de IA
       </p>
       <h1 className="font-display text-[clamp(2.4rem,7vw,5.6rem)] font-semibold leading-[1.02] tracking-[-0.035em]">
         <Words text="Tu negocio ya vende." start={0.15} step={0.14} className="block ps-fg-2" />
@@ -285,10 +285,10 @@ export function SceneYou({ stats, instant = false }: { stats: CompanyStats | nul
                 {" "}y <span className="ps-hi"><Counter value={s} delay={0.45} instant={instant} /> {s === 1 ? "proveedor" : "proveedores"}</span>
               </>
             )}
-            , FTGM puede decirte <span className="whitespace-nowrap">qué comprar y cuándo.</span>
+            , la IA puede decirte <span className="whitespace-nowrap">qué comprar y cuándo.</span>
           </>
         ) : (
-          <>Con tu catálogo y tus proveedores, FTGM puede decirte qué comprar y cuándo.</>
+          <>Con tu catálogo y tus proveedores, la IA puede decirte qué comprar y cuándo.</>
         )}
       </h2>
 

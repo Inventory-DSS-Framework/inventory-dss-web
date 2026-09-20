@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronRight, Crown, LogOut, Search } from "lucide-react";
+import { Bell, ChevronRight, LogOut, Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { initialsOf, useProfile } from "@/hooks/useProfile";
 import { useRole } from "@/hooks/useRole";
 import { notificationsApi } from "@/lib/api";
+import { ftgmApi } from "@/lib/apis/ftgm";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { useExperience } from "@/components/experience/ExperienceProvider";
 import { openCommandPalette } from "@/components/experience/CommandPalette";
@@ -46,6 +47,12 @@ export function Topbar() {
     [companyId],
   );
   const unread = (notifs.data?.items ?? []).filter((n) => !n.is_read).length;
+  // Free plan: how many AI predictions are left this month (refreshes on navigation).
+  const quota = useApi(
+    () => (companyId && !isSeller ? ftgmApi.quota(companyId).catch(() => null) : Promise.resolve(null)),
+    [companyId, isSeller, pathname],
+  );
+  const q = quota.data;
   const crumb = useBreadcrumb(pathname, isSeller);
   const onStage = stage === "ftgm";
 
@@ -59,7 +66,7 @@ export function Topbar() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgb(var(--c-primary))]" />
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Motor FTGM</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary">Predicciones con IA</span>
           </>
         ) : (
           <span className="truncate text-text-muted">{crumb.group}</span>
@@ -93,13 +100,29 @@ export function Topbar() {
           </Link>
         )}
 
+        {!onStage && !isSeller && q?.monthly_limit != null && (
+          <Link
+            href={q.remaining === 0 ? "/premium" : "/forecasting"}
+            title="Predicciones con IA disponibles este mes en el plan gratis"
+            className={cn(
+              "hidden h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors md:inline-flex",
+              q.remaining === 0
+                ? "border-warning/40 bg-warning-soft/50 text-warning"
+                : "border-border bg-surface/60 text-text-secondary hover:text-text-primary",
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-accent-violet" />
+            IA: {q.remaining}/{q.monthly_limit} este mes
+          </Link>
+        )}
+
         {!onStage && !isSeller && !isPremium && (
           <Link
             href="/premium"
-            className="hidden h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary-soft lg:inline-flex"
+            className="hidden h-9 items-center gap-1.5 rounded-xl border border-accent-violet/30 bg-accent-violet-soft/40 px-3 text-xs font-semibold text-accent-violet transition-colors hover:bg-accent-violet-soft lg:inline-flex"
           >
-            <Crown className="h-3.5 w-3.5" />
-            Mejorar
+            <Sparkles className="star-twinkle h-3.5 w-3.5" />
+            Premium
           </Link>
         )}
 

@@ -107,7 +107,7 @@ export default function RecommendationsPage() {
         title={expert ? "Recomendaciones de compra" : "Qué comprar"}
         description={
           expert
-            ? "Cuánto reponer de cada producto, cruzando el pronóstico FTGM con tu stock actual, lead time y stock de seguridad."
+            ? "Cuánto reponer de cada producto, cruzando el pronóstico de la IA con tu stock actual, lead time y stock de seguridad."
             : "La lista de lo que te conviene comprar, según tu stock y lo que calculamos que vas a vender."
         }
         action={

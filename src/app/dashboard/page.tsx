@@ -3,22 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import {
-  AlertTriangle,
-  ArrowRight,
-  Crown,
-  Lightbulb,
-  PackageMinus,
-  PackageX,
-  Receipt,
-  ShoppingBag,
-  ShoppingCart,
-  Sparkles,
-  Truck,
-  UploadCloud,
-  Wallet,
-  Warehouse,
-} from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Crown, Lightbulb, PackageMinus, PackageX, Receipt, ShoppingBag, ShoppingCart, Sparkles, TrendingUp, Truck, UploadCloud, Wallet, Warehouse } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Table";
@@ -31,6 +16,7 @@ import { useApi } from "@/hooks/useApi";
 import { useBrandColors } from "@/hooks/useBrandColors";
 import { useCompanyId } from "@/hooks/useCompanyId";
 import { useExpertMode } from "@/hooks/useExpertMode";
+import { AiTips } from "@/components/dashboard/AiTips";
 import { usePlan } from "@/hooks/usePlan";
 import { recommendationsApi } from "@/lib/api";
 import { dashboardApi, ftgmApi } from "@/lib/apis/ftgm";
@@ -89,7 +75,7 @@ export default function DashboardPage() {
           <>
             {/* Hoy: the three things an owner checks first. */}
             <section className="space-y-3">
-              <h2 className="font-display text-xl font-semibold tracking-tight text-text-primary">Hoy</h2>
+              <h2 className="font-display text-xl font-semibold tracking-tight text-text-primary">Tus ventas</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <TodayCard
                   icon={Receipt}
@@ -104,88 +90,62 @@ export default function DashboardPage() {
                   cta="Ver mis ventas"
                 />
                 <TodayCard
-                  icon={PackageMinus}
-                  label="Productos por acabarse"
-                  value={`${s.low_stock_count}`}
-                  tone={s.out_of_stock_count ? "danger" : s.low_stock_count ? "warning" : undefined}
-                  explain={
-                    s.low_stock_count === 0 && s.out_of_stock_count === 0
-                      ? "Tienes stock suficiente de todo. ¡Bien!"
-                      : s.out_of_stock_count > 0
-                        ? `${s.out_of_stock_count} ya se ${s.out_of_stock_count === 1 ? "acabó" : "acabaron"}. Revisa cuáles y repón.`
-                        : "Te quedan pocas unidades. Revisa cuáles y repón pronto."
-                  }
-                  href="/inventory"
-                  cta="Ver cuáles son"
+                  icon={Wallet}
+                  label="Ventas de la última semana"
+                  value={soles(s.revenue_7d)}
+                  explain="Lo vendido en los últimos 7 días, con IGV."
+                  href="/sales"
+                  cta="Ver el detalle"
                 />
                 <TodayCard
-                  icon={Lightbulb}
-                  label="Qué comprar"
-                  value={`${pendingRecs.length}`}
-                  tone={urgentRecs ? "danger" : pendingRecs.length ? "warning" : undefined}
+                  icon={ShoppingBag}
+                  label="Ventas del último mes"
+                  value={soles(s.revenue_30d)}
                   explain={
-                    pendingRecs.length === 0
-                      ? "No tienes compras pendientes. Calcula cuánto venderás para recibir sugerencias."
-                      : urgentRecs > 0
-                        ? `${pendingRecs.length} producto(s) por comprar; ${urgentRecs} ${urgentRecs === 1 ? "es urgente" : "son urgentes"}.`
-                        : `${pendingRecs.length} producto(s) que te conviene comprar pronto.`
+                    s.revenue_change_pct == null
+                      ? "Lo vendido en los últimos 30 días."
+                      : s.revenue_change_pct >= 0
+                        ? `${s.revenue_change_pct}% más que el mes anterior. ¡Bien!`
+                        : `${Math.abs(s.revenue_change_pct)}% menos que el mes anterior.`
                   }
-                  href={pendingRecs.length === 0 ? "/forecasting" : "/recommendations"}
-                  cta={pendingRecs.length === 0 ? "Calcular cuánto venderé" : "Ver qué comprar"}
+                  href="/sales"
+                  cta="Ver el detalle"
                 />
               </div>
             </section>
 
             <h2 className="pt-2 font-display text-xl font-semibold tracking-tight text-text-primary">Así va tu negocio</h2>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Tile
-                icon={Wallet}
-                label="Ventas del último mes"
-                value={soles(s.revenue_30d)}
-                hint={`Última semana: ${soles(s.revenue_7d)}`}
-                change={s.revenue_change_pct}
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Tile
                 icon={ShoppingBag}
-                label={expert ? "Ticket promedio (30 d)" : "Gasto promedio por venta"}
+                label="Ticket promedio"
                 value={s.avg_ticket_30d != null ? soles(s.avg_ticket_30d) : "—"}
-                hint={expert ? `${num(s.tickets_30d)} tickets` : `En ${num(s.tickets_30d)} ventas del último mes`}
+                hint={`En ${num(s.tickets_30d)} ventas del último mes`}
               />
               <Tile
-                icon={Warehouse}
-                label={expert ? "Inventario a costo" : "Lo que vale tu mercadería"}
-                value={soles(s.inventory_value)}
-                hint={expert ? `${s.active_products} productos activos` : `A precio de compra · ${s.active_products} productos`}
+                icon={TrendingUp}
+                label="Margen de utilidad bruta"
+                value={s.margin_pct_30d != null ? `${s.margin_pct_30d}%` : "—"}
+                hint={s.revenue_30d > 0 ? `${soles(s.gross_margin_30d)} ganados este mes (ventas − costo)` : "Sin ventas este mes"}
               />
               <Tile
-                icon={Truck}
-                label="Lo que compraste este mes"
-                value={soles(s.purchases_month_total)}
-                hint={`${s.purchases_month_count} compra(s) registrada(s)`}
+                icon={PackageMinus}
+                label="Productos con riesgo de acabarse"
+                value={`${s.low_stock_count}`}
+                hint={
+                  s.out_of_stock_count > 0
+                    ? `${s.out_of_stock_count} ya se agotaron — repón cuanto antes`
+                    : s.low_stock_count > 0
+                      ? "Quedan pocas unidades; revisa cuáles"
+                      : "Stock sano en todo el catálogo"
+                }
+                tone={s.out_of_stock_count ? "danger" : s.low_stock_count ? "warning" : undefined}
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <MiniTile
-                icon={PackageX}
-                label="Productos que ya se acabaron"
-                value={`${s.out_of_stock_count}`}
-                hint={s.out_of_stock_count ? "Repónlos para no perder ventas." : "Ninguno. ¡Bien!"}
-                tone={s.out_of_stock_count ? "danger" : undefined}
-              />
-              <MiniTile
-                icon={AlertTriangle}
-                label={expert ? "Ventas perdidas (30 d)" : "Ventas que perdiste por no tener stock (último mes)"}
-                value={`${s.lost_sales_30d_attempts}`}
-                hint={
-                  expert
-                    ? `${num(s.lost_sales_30d_units)} u no vendidas por quiebre`
-                    : `${num(s.lost_sales_30d_units)} unidades que te pidieron y no tenías`
-                }
-                tone={s.lost_sales_30d_attempts ? "danger" : undefined}
-              />
-            </div>
+            {/* Always-on AI recommendations (free and premium alike). */}
+            <AiTips s={s} pendingRecs={pendingRecs} urgentRecs={urgentRecs} latestRun={latestOk ?? null} />
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
               <Card className="xl:col-span-2">
@@ -298,30 +258,54 @@ export default function DashboardPage() {
               </Card>
 
               <Card>
-                <Header title="Lo que más vendes" subtitle="Último mes, ordenado por lo que te dejó en soles." href="/sales" />
+                <Header title="Ranking de productos" subtitle="Último mes: los que más venden y los que menos rotan." href="/sales" />
                 {s.top_products.length === 0 ? (
                   <p className="py-8 text-center text-sm text-text-muted">Aún no hay ventas en el último mes.</p>
                 ) : (
-                  <div className="space-y-3">
-                    {s.top_products.map((p, i) => {
-                      const max = s.top_products[0].revenue || 1;
-                      return (
-                        <Link key={p.product_id} href={`/inventory/${p.product_id}`} className="group block">
-                          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span className="w-4 text-xs font-semibold text-text-muted">{i + 1}</span>
-                              <span className="truncate font-medium text-text-primary group-hover:text-primary">{p.name}</span>
+                  <div className="space-y-4">
+                    <div className="space-y-2.5">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-success">
+                        <ArrowUpRight className="h-3.5 w-3.5" /> Más ventas
+                      </p>
+                      {s.top_products.slice(0, 5).map((p, i) => {
+                        const max = s.top_products[0].revenue || 1;
+                        return (
+                          <Link key={p.product_id} href={`/inventory/${p.product_id}`} className="group block">
+                            <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="w-4 text-xs font-semibold text-text-muted">{i + 1}</span>
+                                <span className="truncate font-medium text-text-primary group-hover:text-primary">{p.name}</span>
+                              </span>
+                              <span className="shrink-0 tabular-nums text-text-secondary">
+                                {soles(p.revenue)} · {num(p.units)} u
+                              </span>
+                            </div>
+                            <div className="ml-6 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                              <div className="h-full rounded-full bg-success" style={{ width: `${(p.revenue / max) * 100}%` }} />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                    {(s.bottom_products ?? []).length > 0 && (
+                      <div className="space-y-2 border-t border-border-soft pt-3">
+                        <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-danger">
+                          <ArrowDownRight className="h-3.5 w-3.5" /> Menos ventas (con stock en tienda)
+                        </p>
+                        {s.bottom_products.slice(0, 4).map((p) => (
+                          <Link
+                            key={p.product_id}
+                            href={`/inventory/${p.product_id}`}
+                            className="group flex items-center justify-between gap-3 rounded-xl bg-surface-soft/70 px-3 py-2 text-sm transition-colors hover:bg-surface-muted"
+                          >
+                            <span className="truncate font-medium text-text-primary group-hover:text-primary">{p.name}</span>
+                            <span className="shrink-0 tabular-nums text-xs text-text-secondary">
+                              {p.units === 0 ? "0 ventas" : `${num(p.units)} u vendidas`} · {num(p.on_hand)} en stock
                             </span>
-                            <span className="shrink-0 tabular-nums text-text-secondary">
-                              {soles(p.revenue)} · {num(p.units)} u
-                            </span>
-                          </div>
-                          <div className="ml-6 h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${(p.revenue / max) * 100}%` }} />
-                          </div>
-                        </Link>
-                      );
-                    })}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </Card>
@@ -380,18 +364,20 @@ function Tile({
   value,
   hint,
   change,
+  tone,
 }: {
   icon: typeof Receipt;
   label: string;
   value: string;
   hint?: string;
   change?: number | null;
+  tone?: "danger" | "warning";
 }) {
   return (
     <Card interactive particle className="flex flex-col justify-between gap-5">
       <div className="flex items-start justify-between gap-3">
         <p className="text-[13px] font-medium text-text-secondary">{label}</p>
-        <span className="rounded-xl bg-primary-soft p-2.5 text-primary">
+        <span className={cn("rounded-xl p-2.5", tone === "danger" ? "bg-danger-soft text-danger" : tone === "warning" ? "bg-warning-soft text-warning" : "bg-primary-soft text-primary")}>
           <Icon className="h-[18px] w-[18px]" />
         </span>
       </div>
@@ -475,7 +461,7 @@ function FtgmCard({
     <Card className="flex flex-col justify-between gap-5 border-accent-violet/25 bg-accent-violet-soft/15">
       <div>
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent-violet-soft px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-accent-violet">
-          <Sparkles className="h-3 w-3" /> Motor FTGM
+          <Sparkles className="h-3 w-3" /> Predicción con IA
         </div>
         {latest ? (
           <>
@@ -492,7 +478,7 @@ function FtgmCard({
                 <div className="mt-4 grid grid-cols-2 gap-2.5">
                   <Stat label="Demanda proyectada" value={`${num(latest.summary.total_forecast_units)} u`} />
                   <Stat label="Próximo periodo" value={`${num(latest.summary.next_period_units)} u`} />
-                  <Stat label="Con FTGM" value={`${latest.summary.products_ok}`} />
+                  <Stat label="Con IA" value={`${latest.summary.products_ok}`} />
                   <Stat label="Con baseline" value={`${latest.summary.products_fallback}`} />
                 </div>
               ) : (
@@ -519,7 +505,7 @@ function FtgmCard({
           <>
             <h3 className="font-display text-lg font-semibold text-text-primary">¿Cuánto venderé?</h3>
             <p className="mt-1 text-sm text-text-secondary">
-              El motor FTGM mira tus ventas pasadas y te dice cuánto venderás de cada producto, para que compres lo justo.
+              La IA mira tus ventas pasadas y te dice cuánto venderás de cada producto, para que compres lo justo.
               {!isPremium && " Pruébalo gratis con un producto."}
             </p>
           </>

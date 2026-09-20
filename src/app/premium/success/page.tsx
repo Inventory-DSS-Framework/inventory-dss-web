@@ -90,7 +90,7 @@ function Success() {
           Bienvenido a <span className="ps-hi">Premium</span>.
         </h1>
         <p className="ps-rise mt-3 max-w-md text-sm ps-fg-2 sm:text-base" style={d(1.3)}>
-          El Motor FTGM completo ya está activo para tu negocio.
+          El La IA completa ya está activa para tu negocio.
         </p>
 
         <div className="ps-rise mt-7 w-full rounded-2xl p-4 text-left ps-glass" style={d(1.45)}>
@@ -133,7 +133,7 @@ function Success() {
 
         <div className="ps-rise mt-9 flex flex-wrap items-center justify-center gap-3" style={d(2.1)}>
           <button onClick={() => router.push("/forecasting")} className="btn ps-btn-light group h-12 gap-2 rounded-2xl px-6 text-[15px]">
-            <BrainCircuit className="h-4 w-4" /> Ir al Motor FTGM
+            <BrainCircuit className="h-4 w-4" /> Ir a la IA
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
           <button onClick={() => router.push("/dashboard")} className="btn ps-btn-ghost h-12 gap-2 rounded-2xl px-5 text-sm">

@@ -72,12 +72,12 @@ export function PremiumManage({ subscription, payments, canManage, onCancel, onR
         </h1>
         <p className="ps-rise mx-auto mt-3 max-w-lg text-sm ps-fg-2 sm:text-base" style={d(0.22)}>
           {canceled
-            ? `Tu plan no se renovará. Conservas todo el Motor FTGM${hasFutureEnd ? ` hasta el ${fmtDate(end)}` : ""}.`
-            : "El Motor FTGM completo está trabajando para tu negocio."}
+            ? `Tu plan no se renovará. Conservas todas las predicciones con IA${hasFutureEnd ? ` hasta el ${fmtDate(end)}` : ""}.`
+            : "El Motor de IA completo está trabajando para tu negocio."}
         </p>
         <div className="ps-rise mt-7 flex flex-wrap items-center justify-center gap-3" style={d(0.3)}>
           <Link href="/forecasting" className="btn ps-btn-light h-11 gap-2 rounded-xl px-5 text-sm">
-            <BrainCircuit className="h-4 w-4" /> Ir al Motor FTGM <ArrowRight className="h-4 w-4" />
+            <BrainCircuit className="h-4 w-4" /> Ir a la IA <ArrowRight className="h-4 w-4" />
           </Link>
           <button onClick={onReplay} className="btn ps-btn-ghost h-11 gap-2 rounded-xl px-4 text-sm">
             <Play className="h-3.5 w-3.5" /> Ver la presentación

@@ -58,10 +58,11 @@ const config: Config = {
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       borderRadius: {
+        // One radius for the whole app: every rounded-* tier resolves to 12px.
         xl: "0.75rem",
-        "2xl": "1rem",
-        "3xl": "1.25rem",
-        "4xl": "1.75rem",
+        "2xl": "0.75rem",
+        "3xl": "0.75rem",
+        "4xl": "0.75rem",
       },
       boxShadow: {
         soft: "0 1px 2px rgb(var(--shadow-color) / 0.04), 0 4px 18px -8px rgb(var(--shadow-color) / 0.07)",

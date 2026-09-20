@@ -17,7 +17,7 @@ const MAP_STOPS = [
   { href: "/sales/new", from: 0.1, to: 0.3, title: "Nueva venta", body: "Cobra con efectivo, tarjeta, Yape o Plin y emite boleta o factura." },
   { href: "/purchases/new", from: 0.34, to: 0.52, title: "Nueva compra", body: "Registra lo que compras: sube tu stock y actualiza tu costo." },
   { href: "/inventory", from: 0.56, to: 0.74, title: "Inventario", body: "Stock en vivo, columnas por tipo de producto e importación Excel." },
-  { href: "/forecasting", from: 0.78, to: 0.96, title: "Motor FTGM", body: "Predice cuánto venderás y te dice qué comprar y cuándo." },
+  { href: "/forecasting", from: 0.78, to: 0.96, title: "Predicciones con IA", body: "Predice cuánto venderás y te dice qué comprar y cuándo." },
 ];
 
 export function MapScene({ t }: { t: number }) {
@@ -452,11 +452,11 @@ export function FtgmScene({ t }: { t: number }) {
   const frozen = t >= FTGM_LOCK_AT - 0.001 && t < 0.54;
 
   return (
-    <MockWindow path="/forecasting" crumb="Motor FTGM › ¿Cuánto venderé?" active="/forecasting" dark>
+    <MockWindow path="/forecasting" crumb="Predicciones con IA › ¿Cuánto venderé?" active="/forecasting" dark>
       <div className="absolute inset-0" style={{ background: `radial-gradient(60% 50% at 70% 10%, rgb(${NEON} / 0.08), transparent 70%), radial-gradient(40% 40% at 10% 90%, rgb(${VIOLET} / 0.08), transparent 70%)` }} />
       <div className="absolute left-4 top-3 flex items-center gap-2">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: `rgb(${NEON})`, boxShadow: `0 0 10px rgb(${NEON})` }} />
-        <span className="font-mono text-[9.5px] uppercase tracking-[0.3em]" style={{ color: `rgb(${NEON})` }}>Motor FTGM</span>
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.3em]" style={{ color: `rgb(${NEON})` }}>Predicciones con IA</span>
       </div>
       <div className="absolute left-4 top-7 font-display text-[16px] font-semibold text-white">¿Cuánto venderé?</div>
 
@@ -529,7 +529,7 @@ export function FtgmScene({ t }: { t: number }) {
         </svg>
         {frozen && (
           <div className="absolute right-4 top-3 flex items-center gap-1.5 text-[9.5px] text-white/60">
-            <Loader2 className="h-3 w-3 animate-spin" /> Calculando cuánto venderás…
+            <Loader2 className="h-3 w-3 animate-spin" /> La IA está calculando cuánto venderás…
           </div>
         )}
       </div>

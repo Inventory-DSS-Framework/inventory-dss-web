@@ -33,7 +33,7 @@ export interface OnboardingState {
 /**
  * Derives start-up progress from real backend state: two ERP milestones (catalog, a
  * first sale) plus one Motor FTGM milestone (a completed run) — mirrors the sidebar's
- * "ERP" / "Motor FTGM" split so the Panel and the nav always tell the same story.
+ * "ERP" / "Predicciones con IA" split so the Panel and the nav always tell the same story.
  */
 export function useOnboarding(companyId: string | null): OnboardingState {
   const products = useApi(
@@ -84,7 +84,7 @@ export function useOnboarding(companyId: string | null): OnboardingState {
         key: "forecast",
         phase: "ftgm",
         step: 1,
-        title: "Ejecuta el motor FTGM",
+        title: "Lanza tu primera predicción con IA",
         description: "Analiza tus datos por producto y corre el pronóstico de demanda.",
         href: "/forecasting",
         cta: "Ir a Pronóstico",

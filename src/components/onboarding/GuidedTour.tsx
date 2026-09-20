@@ -14,7 +14,7 @@ const STEPS: TourStep[] = [
   { target: "/purchases/new", title: "Nueva compra", body: "Registra lo que compras a tus proveedores: sube tu stock y recalcula tu costo." },
   { target: "/inventory", title: "Inventario", body: "Stock en vivo, importación desde Excel con vista previa y el botón “Columnas” para personalizar por tipo de producto." },
   { target: "/products", title: "Catálogo", body: "Tus productos y tus tipos de producto (categorías). Las columnas propias se asignan a estos tipos." },
-  { target: "/forecasting", title: "Motor FTGM", body: "Te dice cuánto venderás y qué comprar. En el plan gratis funciona con 1 producto; con Premium, con todo tu catálogo." },
+  { target: "/forecasting", title: "Predicciones con IA", body: "Te dice cuánto venderás y qué comprar. En el plan gratis tienes 3 predicciones al mes; con Premium, sin límites." },
   { target: "search", title: "Busca cualquier cosa", body: "Presiona Ctrl + K para saltar a cualquier módulo o acción sin usar el menú." },
   { target: "/settings", title: "Ajustes", body: "Apariencia, tu plan y tus pagos. Desde aquí también puedes repetir este recorrido." },
 ];

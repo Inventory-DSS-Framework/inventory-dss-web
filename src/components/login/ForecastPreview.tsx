@@ -98,7 +98,7 @@ export function ForecastPreview({ className }: { className?: string }) {
             <p className="mt-1 font-display text-lg font-semibold tracking-[-0.02em] text-text-primary">Alimento Premium Gato 3kg</p>
           </div>
           <span className="badge inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" /> FTGM
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" /> IA
           </span>
         </div>
 

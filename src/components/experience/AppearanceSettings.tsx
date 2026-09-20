@@ -156,7 +156,7 @@ export function AppearanceSettings() {
           )}
         </div>
         <p className="mt-3 text-xs text-text-muted">
-          El plan base usa verde esmeralda. El Motor FTGM siempre se muestra en negro y neón.
+          El plan base usa verde esmeralda. El modo IA siempre se muestra en negro y neón.
         </p>
       </div>
 

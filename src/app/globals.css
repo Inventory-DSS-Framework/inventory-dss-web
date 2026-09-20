@@ -752,3 +752,59 @@ input:-webkit-autofill:focus {
   100% { opacity: 0; transform: translate3d(var(--x, 0px), 105vh, 0) rotate(var(--r, 540deg)); }
 }
 /* ═══ END PLAN PREMIUM ═══ */
+
+/* ── "Con IA" attention effects ─────────────────────────────────────────── */
+/* A light that runs around the border of the AI block in the sidebar. */
+@property --ia-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.ia-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--ia-angle, 0deg),
+    transparent 0 72%,
+    rgb(var(--c-accent) / 0.9) 86%,
+    rgb(var(--c-primary) / 0.9) 94%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ia-spin 3.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes ia-spin {
+  to { --ia-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ia-border::before { animation: none; }
+}
+
+/* Premium star: a soft twinkle in the topbar. */
+@keyframes star-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(0.82) rotate(-8deg); opacity: 0.55; }
+  60% { transform: scale(1.12) rotate(6deg); opacity: 1; }
+}
+.star-twinkle { animation: star-twinkle 2.4s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .star-twinkle { animation: none; }
+}
+
+/* AIJourney: the brain pumps and pulses travel down the connectors. */
+@keyframes brain-pump {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.85; }
+}
+@keyframes journey-drop {
+  0% { top: -4px; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: calc(100% - 4px); opacity: 0; }
+}

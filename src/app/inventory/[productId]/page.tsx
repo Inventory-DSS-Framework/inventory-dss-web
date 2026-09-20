@@ -193,7 +193,7 @@ export default function ProductDetailPage() {
               <ClipboardCheck className="h-4 w-4" /> Corregir stock
             </Button>
             <Button variant="violet" onClick={() => router.push(`/forecasting?product=${product.id}`)}>
-              <BrainCircuit className="h-4 w-4" /> {expert ? "Pronosticar con FTGM" : "¿Cuánto venderé?"}
+              <BrainCircuit className="h-4 w-4" /> {expert ? "Predecir con IA" : "¿Cuánto venderé?"}
             </Button>
           </div>
         </div>

@@ -2,6 +2,7 @@
 import { apiClient } from "@/lib/api-client";
 import type {
   CompanyUserLite,
+  FtgmQuota,
   ErpSummary,
   ForecastScope,
   FtgmFrequency,
@@ -32,6 +33,7 @@ export const ftgmApi = {
     apiClient.get<ProductInsight>(
       `${runs(companyId)}/product-insight/${productId}?frequency=${frequency}&periods=${periods}`,
     ),
+  quota: (companyId: string) => apiClient.get<FtgmQuota>(`${runs(companyId)}/quota`),
   companyUsers: (companyId: string) => apiClient.get<CompanyUserLite[]>(`/companies/${companyId}/users?size=100`),
 };
 

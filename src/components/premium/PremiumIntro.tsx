@@ -108,7 +108,7 @@ export function PremiumIntro({ plans, stats, reduced, cycle, onCycle, onCheckout
     ) : null;
 
   return (
-    <PremiumOverlay label="Plan Premium — Motor FTGM" onClose={onClose} actions={skip} subheader={progress}>
+    <PremiumOverlay label="Plan Premium — Predicciones con IA" onClose={onClose} actions={skip} subheader={progress}>
       <div key={`${run}-${scene}`} className={cn("min-h-full", scene < FINAL && "h-full", leaving ? "ps-scene-out" : "ps-scene-in")}>
         {scene === 0 && <SceneHook />}
         {scene === 1 && <SceneEngine />}

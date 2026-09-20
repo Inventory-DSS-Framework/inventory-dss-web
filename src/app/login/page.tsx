@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight, Building2, Check, Eye, EyeOff, Hash, Loader2, Lock, Mail, User, type LucideIcon,
 } from "lucide-react";
-import { getRole, login, register } from "@/lib/auth";
+import { getRole, login, logout, register } from "@/lib/auth";
 import { markOnboardingPending } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { DotField } from "@/components/login/DotField";
-import { ForecastPreview } from "@/components/login/ForecastPreview";
+import { AIJourney } from "@/components/login/AIJourney";
 
 type Mode = "login" | "register";
 
@@ -43,6 +43,7 @@ export default function Login() {
   const [capsLock, setCapsLock] = useState(false);
   const [success, setSuccess] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false);
 
   const copy = COPY[mode];
 
@@ -51,9 +52,12 @@ export default function Login() {
     setError(null);
     setLoading(true);
     try {
-      if (mode === "login") {
-        await login(email, password);
-      } else {
+      if (mode === "register") {
+        if (!/^\d{11}$/.test(taxId)) {
+          setError("El RUC debe tener exactamente 11 dígitos numéricos.");
+          setLoading(false);
+          return;
+        }
         await register({
           email,
           password,
@@ -61,17 +65,24 @@ export default function Login() {
           company_name: companyName,
           tax_id: taxId,
         });
+        // The account exists; sign out and let the person log in themselves.
+        logout();
+        markOnboardingPending();
+        setLoading(false);
+        setPassword("");
+        setMode("login");
+        setJustRegistered(true);
+        return;
       }
-      // A brand-new account starts with the full-screen welcome flow.
-      if (mode === "register") markOnboardingPending();
+      await login(email, password);
       // Success: a check on the button, then the page settles out quietly into the app.
       setSuccess(true);
       const reduced =
         window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
         document.documentElement.getAttribute("data-motion") === "reduced";
       window.setTimeout(() => setLeaving(true), reduced ? 0 : 420);
-      // Sellers (cashiers) land straight on the till.
-      const home = mode === "register" ? "/welcome" : getRole() === "seller" ? "/sales/new" : "/dashboard";
+      // Sellers (cashiers) land straight on the till; a fresh account starts on the welcome tour.
+      const home = getRole() === "seller" ? "/sales/new" : "/dashboard";
       window.setTimeout(() => router.push(home), reduced ? 0 : 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo completar la operación");
@@ -83,6 +94,7 @@ export default function Login() {
     if (next === mode) return;
     setMode(next);
     setError(null);
+    setJustRegistered(false);
   };
 
   const detectCaps = (e: React.KeyboardEvent) => setCapsLock(e.getModifierState?.("CapsLock") ?? false);
@@ -98,11 +110,11 @@ export default function Login() {
           "linear-gradient(165deg, rgb(var(--c-bg)) 0%, rgb(var(--c-bg-deep)) 100%)",
       }}
     >
-      <DotField className="absolute inset-0" />
+      <DotField className="absolute inset-0 z-0 opacity-40" />
       {/* A calm pocket behind the form so the field never fights the inputs. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 z-0"
         style={{
           background:
             "radial-gradient(42% 62% at 19% 55%, rgb(var(--c-bg) / 0.7) 20%, rgb(var(--c-bg) / 0.3) 55%, transparent 80%)",
@@ -181,6 +193,13 @@ export default function Login() {
             ))}
           </div>
 
+          {justRegistered && mode === "login" && (
+            <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-success/30 bg-success-soft px-4 py-3 text-sm text-success animate-fade-up">
+              <Check className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={3} />
+              Tu cuenta fue creada. Inicia sesión con tu correo y contraseña.
+            </div>
+          )}
+
           {error && (
             <div className="mt-5 flex items-start gap-2.5 rounded-2xl border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger animate-fade-up">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
@@ -193,7 +212,7 @@ export default function Login() {
               <div className="space-y-3.5 animate-fade-up">
                 <FloatingField icon={User} label="Nombre completo" value={fullName} onChange={setFullName} autoComplete="name" />
                 <FloatingField icon={Building2} label="Nombre de la empresa" value={companyName} onChange={setCompanyName} autoComplete="organization" />
-                <FloatingField icon={Hash} label="RUC" value={taxId} onChange={setTaxId} inputMode="numeric" />
+                <FloatingField icon={Hash} label="RUC (11 dígitos)" value={taxId} onChange={(v) => setTaxId(v.replace(/\D/g, "").slice(0, 11))} inputMode="numeric" maxLength={11} />
               </div>
             )}
             {mode === "login" ? (
@@ -221,6 +240,7 @@ export default function Login() {
               }
             />
             {capsLock && <p className="pl-1 text-xs font-medium text-warning animate-fade-in">Bloq Mayús está activado</p>}
+            {mode === "register" && password.length > 0 && <PasswordStrength password={password} />}
 
             <button
               type="submit"
@@ -259,15 +279,15 @@ export default function Login() {
         <section className="hidden lg:block" style={{ animation: "rise 1s var(--ease-out) 0.15s both" }}>
           <div className="badge inline-flex items-center gap-2 rounded-full bg-surface/70 px-3 py-1 text-[11px] font-semibold text-text-secondary backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgb(var(--c-primary))]" />
-            ERP + Motor FTGM de pronóstico
+            ERP + IA que predice tus ventas
           </div>
-          <h2 className="mt-5 max-w-[640px] font-display text-[58px] font-semibold leading-[1] tracking-[-0.05em]">
+          <h2 className="mt-5 max-w-[640px] font-display text-[42px] font-semibold leading-[1.02] tracking-[-0.04em]">
             Decide tu inventario <span className="text-gradient-brand">con datos</span>, no con intuición.
           </h2>
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-text-secondary">
-            Vende, compra y controla tu stock — y deja que el motor te diga qué reponer, cuánto y cuándo.
+            Cargas tu inventario, cargas tus ventas, y la IA te dice qué reponer, cuánto y cuándo.
           </p>
-          <ForecastPreview className="mt-10" />
+          <AIJourney className="mt-8" compact />
         </section>
       </main>
 
@@ -290,6 +310,7 @@ function FloatingField({
   onChange,
   type = "text",
   autoComplete,
+  maxLength,
   inputMode,
   trailing,
   onKeyUp,
@@ -300,6 +321,7 @@ function FloatingField({
   onChange: (v: string) => void;
   type?: string;
   autoComplete?: string;
+  maxLength?: number;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   trailing?: React.ReactNode;
   onKeyUp?: (e: React.KeyboardEvent) => void;
@@ -316,6 +338,7 @@ function FloatingField({
         onKeyUp={onKeyUp}
         placeholder=" "
         autoComplete={autoComplete}
+        maxLength={maxLength}
         inputMode={inputMode}
         required
         className="peer h-[58px] w-full rounded-2xl border border-border bg-surface/80 pb-2 pl-11 pr-12 pt-6 text-[15px] text-text-primary outline-none transition-all hover:border-text-muted/40 focus:border-primary/60 focus:bg-surface focus:shadow-[0_0_0_4px_rgb(var(--c-primary)/0.12)]"
@@ -327,6 +350,36 @@ function FloatingField({
         {label}
       </label>
       {trailing && <div className="absolute right-2.5 top-1/2 -translate-y-1/2">{trailing}</div>}
+    </div>
+  );
+}
+
+/** Simple strength meter: red / yellow / green from length + character variety. */
+function PasswordStrength({ password }: { password: string }) {
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  const level = score <= 2 ? 0 : score <= 3 ? 1 : 2;
+  const meta = [
+    { label: "Débil", cls: "bg-danger", text: "text-danger" },
+    { label: "Aceptable", cls: "bg-warning", text: "text-warning" },
+    { label: "Fuerte", cls: "bg-success", text: "text-success" },
+  ][level];
+  return (
+    <div className="space-y-1 pl-1 animate-fade-in">
+      <div className="flex items-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className={cn("h-1.5 flex-1 rounded-full transition-colors duration-300", i <= level ? meta.cls : "bg-surface-muted")}
+          />
+        ))}
+        <span className={cn("ml-1 text-xs font-semibold", meta.text)}>{meta.label}</span>
+      </div>
+      {level === 0 && <p className="text-[11px] text-text-muted">Usa 8+ caracteres mezclando mayúsculas, números o símbolos.</p>}
     </div>
   );
 }

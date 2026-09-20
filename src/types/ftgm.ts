@@ -309,6 +309,9 @@ export interface ErpSummary {
   lost_sales_30d_attempts: number;
   lost_sales_30d_units: number;
   top_products: { product_id: string; sku: string; name: string; revenue: number; units: number }[];
+  bottom_products: { product_id: string; sku: string; name: string; revenue: number; units: number; on_hand: number }[];
+  gross_margin_30d: number;
+  margin_pct_30d: number | null;
   sales_by_day: { date: string; revenue: number; units: number; tickets: number }[];
   has_forecast: boolean;
 }
@@ -319,4 +322,11 @@ export interface CompanyUserLite {
   email: string | null;
   role: string;
   status: string;
+}
+
+export interface FtgmQuota {
+  plan: "free" | "premium";
+  monthly_limit: number | null;
+  used: number;
+  remaining: number | null;
 }

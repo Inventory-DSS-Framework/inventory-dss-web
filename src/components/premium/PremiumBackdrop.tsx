@@ -107,7 +107,7 @@ export function PremiumWordmark() {
         </svg>
       </span>
       <span className="font-display text-[15px] font-semibold tracking-tight ps-fg">
-        FTGM <span className="ps-fg-3 font-medium">Premium</span>
+        IA <span className="ps-fg-3 font-medium">Premium</span>
       </span>
     </div>
   );

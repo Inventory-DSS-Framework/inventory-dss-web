@@ -70,7 +70,7 @@ export function PlanComparison({ plans, cycle, onCycle, onCheckout, onBack, onRe
           Deja de adivinar. <span className="ps-hi">Empieza a anticipar.</span>
         </h2>
         <p className="ps-rise mx-auto mt-3 max-w-lg text-sm ps-fg-2 sm:text-base" style={d(0.12)}>
-          Tu ERP sigue siendo gratis. Premium desbloquea el Motor FTGM completo. Precios con IGV incluido.
+          Tu ERP sigue siendo gratis. Premium desbloquea el Motor de IA completo. Precios con IGV incluido.
         </p>
         <div className="ps-rise mt-7" style={d(0.2)}>
           <CycleToggle cycle={cycle} onChange={onCycle} savings={premium.yearly_savings} />

@@ -1,578 +1,425 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, ArrowRight, CalendarRange, ChevronDown, Crown, FileSpreadsheet, Loader2, PackageCheck, SlidersHorizontal, Sparkles, Wand2,
+  ArrowLeft, ArrowRight, Brain, Calendar, Check, CheckSquare, ChevronDown, Crown,
+  Loader2, Package, Sparkles, Square, Wand2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { HowItWorksButton } from "@/components/ftgm/HowItWorks";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { EngineProgress } from "@/components/ftgm/EngineProgress";
 import { RunsHistory } from "@/components/ftgm/RunsHistory";
-import { ScopeAnalysis } from "@/components/ftgm/ScopeAnalysis";
-import { ScopePicker, scopeIsComplete } from "@/components/ftgm/ScopePicker";
-import { frequencyLabel, num } from "@/components/ftgm/labels";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/hooks/useApi";
 import { useCompanyId } from "@/hooks/useCompanyId";
-import { useExpertMode } from "@/hooks/useExpertMode";
-import { usePlan } from "@/hooks/usePlan";
-import { categoriesApi, productsApi, suppliersApi } from "@/lib/api";
-import { dashboardApi, ftgmApi } from "@/lib/apis/ftgm";
-import type { ProductDTO } from "@/types/api";
-import type { ForecastScope, FtgmFrequency, FtgmRun, PreviewTotals, ScopePreview } from "@/types/ftgm";
+import { ftgmApi } from "@/lib/apis/ftgm";
+import type { FtgmRun, PreviewProduct } from "@/types/ftgm";
 
-/**
- * Shown when nothing in the scope is ready for the FTGM yet (typically a brand-new account):
- * says why, how much history each model needs, and takes the user to import it.
- */
-function HistoryGuide({ totals, expert }: { totals: PreviewTotals; expert: boolean }) {
-  const nothing = totals.products_included === 0;
-  const needs = expert
-    ? [
-        ["1 semana completa", "baseline (promedio móvil)"],
-        ["26 semanas con ventas regulares", "FTGM semanal"],
-        ["24 meses", "FTGM mensual con estacionalidad"],
-      ]
-    : [
-        ["1 semana de ventas", "un cálculo básico"],
-        ["6 meses de ventas", "un cálculo semana a semana"],
-        ["2 años de ventas", "un cálculo que entiende las temporadas del año"],
-      ];
-  return (
-    <Card className="border-primary/25 bg-primary-softer/50">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
-            <FileSpreadsheet className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <p className="font-display font-semibold text-text-primary">
-              {nothing
-                ? "Aún no tienes ventas suficientes para calcular"
-                : expert
-                  ? "Con esta historia el motor usará un baseline"
-                  : "Con pocas ventas, el cálculo será aproximado"}
-            </p>
-            <p className="mt-1 text-sm text-text-secondary">
-              {expert ? (
-                <>
-                  El motor aprende de <strong>semanas o meses completos</strong> de ventas; las del periodo en curso entran
-                  cuando ese periodo termina. Si tu negocio es nuevo en InventoryDSS, importa las ventas de tu sistema
-                  anterior o de tu Excel y el pronóstico queda listo al instante.
-                </>
-              ) : (
-                <>
-                  Mientras más ventas pasadas tengas registradas, mejor será el cálculo. Si antes anotabas tus ventas en
-                  un Excel o en otro sistema, <strong>súbelas aquí</strong> y el cálculo queda listo al instante.
-                </>
-              )}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              {needs.map(([need, gets]) => (
-                <span key={need} className="rounded-full border border-border bg-surface px-3 py-1 text-text-secondary">
-                  <strong className="text-text-primary">{need}</strong> → {gets}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-        <Link href="/sales?tab=imported" className="btn btn-primary shrink-0 gap-2 px-4 py-2.5 text-sm">
-          <FileSpreadsheet className="h-4 w-4" /> Subir mis ventas pasadas
-        </Link>
-      </div>
-    </Card>
-  );
-}
+type Step = "what" | "when" | "running";
 
 const HORIZONS = [
-  { days: 30, label: "1 mes" },
-  { days: 90, label: "3 meses" },
-  { days: 180, label: "6 meses" },
-  { days: 365, label: "12 meses" },
-];
-const FREQS: { value: FtgmFrequency; plain: string; plainHint: string; hint: string }[] = [
-  {
-    value: "auto",
-    plain: "Automático (recomendado)",
-    plainHint: "Elegimos lo mejor según cuántas ventas tengas.",
-    hint: "Mensual con ≥ 24 meses, semanal con ≥ 26 semanas",
-  },
-  { value: "monthly", plain: "Mes a mes", plainHint: "Para negocios con 2 años o más de ventas.", hint: "Estacionalidad anual (T = 12)" },
-  { value: "weekly", plain: "Semana a semana", plainHint: "Para negocios con pocos meses de ventas.", hint: "Más detalle para historias cortas (T = 52)" },
+  { days: 30, label: "1 mes", hint: "Para tu próxima compra" },
+  { days: 60, label: "2 meses", hint: "Para planear con calma" },
+  { days: 90, label: "3 meses", hint: "Para campañas y temporadas" },
 ];
 
-/** Plain description of what will be calculated. */
-function describeScope(scope: ForecastScope, productOf: (id: string) => ProductDTO | undefined): string {
-  switch (scope.type) {
-    case "recent_sales":
-      return `Los productos que vendiste en los últimos ${scope.months ?? 12} meses.`;
-    case "all":
-      return "Todo tu catálogo.";
-    case "supplier":
-      return "Los productos del proveedor que elegiste.";
-    case "seller":
-      return "Los productos que vende la persona que elegiste.";
-    case "category":
-      return "Los productos de la categoría que elegiste.";
-    case "products": {
-      const ids = scope.product_ids ?? [];
-      if (ids.length === 0) return "Aún no elegiste un producto.";
-      if (ids.length === 1) return productOf(ids[0])?.name ?? "1 producto.";
-      return `${ids.length} productos que elegiste.`;
-    }
-    default:
-      return "";
-  }
-}
+const STAGES = ["Procesando tu data…", "Haciendo cálculos…", "Limpiando ruido…", "Generando recomendaciones…"];
 
+const rise = (i: number): React.CSSProperties => ({ animation: `fade-up 0.55s var(--ease-out) ${0.05 + i * 0.06}s both` });
+
+/**
+ * Predicting in 3 questions, always with the "con IA" frame:
+ * 1) what do you want to predict (only items with enough sales are offered),
+ * 2) for how long, 3) a light, staged "the AI is working" screen that lands on the result.
+ */
 export default function ForecastingPage() {
-  return (
-    <Suspense fallback={null}>
-      <ForecastingFlow />
-    </Suspense>
-  );
-}
-
-function ForecastingFlow() {
-  const companyId = useCompanyId();
   const router = useRouter();
-  const params = useSearchParams();
-  const presetProduct = params.get("product");
-  const { isPremium, loading: planLoading } = usePlan();
-  const [expert] = useExpertMode();
+  const companyId = useCompanyId();
+  const search = useSearchParams();
+  const deepLinkProduct = search.get("product");
 
-  const products = useApi(() => (companyId ? productsApi.list(companyId) : Promise.resolve([])), [companyId]);
-  const suppliers = useApi(() => (companyId ? suppliersApi.list(companyId).catch(() => []) : Promise.resolve([])), [companyId]);
-  const categories = useApi(() => (companyId ? categoriesApi.list(companyId).catch(() => []) : Promise.resolve([])), [companyId]);
-  const users = useApi(() => (companyId ? ftgmApi.companyUsers(companyId).catch(() => []) : Promise.resolve([])), [companyId]);
-  const runs = useApi(() => (companyId ? ftgmApi.listRuns(companyId) : Promise.resolve([])), [companyId]);
-  // Free plan works with one product: preselect the best seller so the owner doesn't have to choose.
-  const summary = useApi(
-    () => (companyId && !isPremium && !presetProduct ? dashboardApi.erpSummary(companyId).catch(() => null) : Promise.resolve(null)),
-    [companyId, isPremium, presetProduct],
-  );
-  const topProductId = summary.data?.top_products?.[0]?.product_id ?? null;
-
-  const productOf = useMemo(() => {
-    const map = new Map((products.data ?? []).map((p) => [p.id, p]));
-    return (id: string) => map.get(id);
-  }, [products.data]);
-
-  const [step, setStep] = useState<1 | 2>(1);
-  const [scope, setScope] = useState<ForecastScope>({ type: "products", product_ids: [] });
-  const [scopeTouched, setScopeTouched] = useState(false);
-  const [frequency, setFrequency] = useState<FtgmFrequency>("auto");
-  const [horizon, setHorizon] = useState(90);
-  const [preview, setPreview] = useState<ScopePreview | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+  const [step, setStep] = useState<Step>("what");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [horizon, setHorizon] = useState(30);
   const [error, setError] = useState<string | null>(null);
-  const [launching, setLaunching] = useState(false);
-  const [activeRun, setActiveRun] = useState<FtgmRun | null>(null);
-  const [advanced, setAdvanced] = useState(false);
+  const [run, setRun] = useState<FtgmRun | null>(null);
+  const [stage, setStage] = useState(0);
 
-  // Default scope: ?product preselects one product; Premium starts on "vendidos en 12 meses";
-  // free plan starts on the best-selling product.
-  useEffect(() => {
-    if (scopeTouched || planLoading) return;
-    if (presetProduct) setScope({ type: "products", product_ids: [presetProduct] });
-    else if (isPremium) setScope({ type: "recent_sales", months: 12 });
-    else if (topProductId) setScope({ type: "products", product_ids: [topProductId] });
-  }, [presetProduct, isPremium, planLoading, scopeTouched, topProductId]);
-
-  const analyze = useCallback(
-    async (freq: FtgmFrequency = frequency) => {
-      if (!companyId) return null;
-      setPreviewing(true);
-      setError(null);
-      try {
-        const data = await ftgmApi.previewScope(companyId, { scope, frequency: freq });
-        setPreview(data);
-        setStep(2);
-        return data;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "No se pudo revisar tus ventas.");
-        return null;
-      } finally {
-        setPreviewing(false);
-      }
-    },
-    [companyId, scope, frequency],
+  const preview = useApi(
+    () => (companyId ? ftgmApi.previewScope(companyId, { scope: { type: "all" } }) : Promise.resolve(null)),
+    [companyId],
   );
+  const quota = useApi(
+    () => (companyId ? ftgmApi.quota(companyId).catch(() => null) : Promise.resolve(null)),
+    [companyId],
+  );
+  const runs = useApi(() => (companyId ? ftgmApi.listRuns(companyId, 8) : Promise.resolve([])), [companyId]);
+
+  const products = preview.data?.products ?? [];
+  // "Disponible" = el motor puede procesarlo (readiness listo o pocos datos pero incluido).
+  const available = useMemo(() => products.filter((p) => p.included && p.sales_count > 2), [products]);
+  const unavailable = useMemo(() => products.filter((p) => !p.included || p.sales_count <= 2), [products]);
+
+  // Deep link (/forecasting?product=id): preselect that product if it is predictable.
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current || !deepLinkProduct || available.length === 0) return;
+    if (available.some((p) => p.product_id === deepLinkProduct)) {
+      preselected.current = true;
+      setSelected(new Set([deepLinkProduct]));
+    }
+  }, [deepLinkProduct, available]);
+
+  const toggle = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allSelected = available.length > 0 && available.every((p) => selected.has(p.product_id));
+  const selectAll = () => setSelected(allSelected ? new Set() : new Set(available.map((p) => p.product_id)));
+
+  const q = quota.data;
+  const outOfQuota = q?.remaining === 0;
 
   const launch = async () => {
-    if (!companyId) return;
-    setLaunching(true);
+    if (!companyId || selected.size === 0) return;
     setError(null);
+    setStep("running");
+    setStage(0);
     try {
-      const run = await ftgmApi.createRun(companyId, { scope, horizon_days: horizon, frequency });
-      setActiveRun(run);
-      runs.reload();
+      const created = await ftgmApi.createRun(companyId, {
+        scope: allSelected ? { type: "all" } : { type: "products", product_ids: [...selected] },
+        horizon_days: horizon,
+        frequency: "auto",
+      });
+      setRun(created);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo lanzar el motor FTGM.");
-    } finally {
-      setLaunching(false);
+      setError(e instanceof Error ? e.message : "No se pudo lanzar la predicción con IA.");
+      setStep("when");
+      quota.reload();
     }
   };
 
-  /** One click: check the sales history and, if there is something to calculate, run it right away. */
-  const quickRun = async () => {
-    const data = await analyze();
-    if (data && data.totals.products_included > 0) await launch();
-  };
-
-  // Poll the launched run; open the result when it finishes.
-  const runRef = useRef(activeRun);
-  runRef.current = activeRun;
+  // While running: cycle the stage copy and poll the run until it finishes.
   useEffect(() => {
-    if (!activeRun || !companyId) return;
-    if (activeRun.status === "success") {
-      const t = setTimeout(() => router.push(`/forecasting/${activeRun.id}`), 900);
-      return () => clearTimeout(t);
-    }
-    if (activeRun.status === "failed" || activeRun.status === "cancelled") return;
-    const t = setInterval(async () => {
-      const cur = runRef.current;
-      if (!cur) return;
+    if (step !== "running" || !run || !companyId) return;
+    const stages = window.setInterval(() => setStage((v) => (v + 1) % STAGES.length), 2600);
+    const poll = window.setInterval(async () => {
       try {
-        setActiveRun(await ftgmApi.getRun(companyId, cur.id));
+        const r = await ftgmApi.getRun(companyId, run.id);
+        if (r.status === "success") {
+          window.clearInterval(poll);
+          window.clearInterval(stages);
+          router.push(`/forecasting/${r.id}`);
+        } else if (r.status === "failed" || r.status === "cancelled") {
+          window.clearInterval(poll);
+          window.clearInterval(stages);
+          setError(r.error_message ?? "La predicción no pudo completarse. Inténtalo de nuevo.");
+          setStep("when");
+          quota.reload();
+        }
       } catch {
-        /* keep polling */
+        /* transient; keep polling */
       }
     }, 2000);
-    return () => clearInterval(t);
-  }, [activeRun?.status, activeRun?.id, companyId, router]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const changeScope = (s: ForecastScope) => {
-    setScopeTouched(true);
-    setScope(s);
-    setPreview(null);
-    setStep(1);
-  };
-
-  const ready = scopeIsComplete(scope) && !!companyId;
-  const totals = preview?.totals;
-  const busy = previewing || launching;
-  const periodsHint = useMemo(() => {
-    const f = totals?.frequency === "weekly" || frequency === "weekly" ? 7 : 30.4;
-    return Math.max(1, Math.ceil(horizon / f - 1e-6));
-  }, [horizon, frequency, totals?.frequency]);
-  const horizonText = HORIZONS.find((h) => h.days === horizon)?.label ?? `${horizon} días`;
-  // Nothing preselected (free plan without sales yet): open the options so the owner can pick a product.
-  const showAdvanced = advanced || (!ready && !planLoading && !summary.loading && !products.loading);
+    return () => {
+      window.clearInterval(poll);
+      window.clearInterval(stages);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, run?.id, companyId]);
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-8">
+    <div className="relative mx-auto max-w-[1100px] space-y-8">
+      {/* Light stage backdrop (premium-style, never dark). */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(50% 36% at 80% 0%, rgb(var(--c-accent) / 0.10), transparent 70%)," +
+            "radial-gradient(40% 30% at 6% 12%, rgb(var(--c-primary) / 0.08), transparent 70%)",
+        }}
+      />
+
       <PageHeader
-        eyebrow="Planifica tus compras"
+        eyebrow="Predice con IA"
         eyebrowTone="violet"
-        title={expert ? "Pronóstico de demanda" : "¿Cuánto venderé?"}
-        description={
-          expert
-            ? "Elige qué productos analizar, revisa lo que el motor va a leer de tus ventas y lanza un pronóstico con modelo de Fourier."
-            : "Miramos tus ventas pasadas y te decimos cuánto venderás de cada producto y qué te conviene comprar."
-        }
+        title="Predice tus ventas"
+        description="La IA analiza tus ventas pasadas y te dice cuánto venderás y qué te conviene comprar."
         action={
           <div className="flex flex-wrap items-center gap-2">
             <HowItWorksButton />
-            {!isPremium && !planLoading && (
-              <Link href="/premium" className="btn btn-secondary h-10 gap-2 px-4 text-sm">
-                <Crown className="h-4 w-4 text-accent-violet" /> Calcular todo mi catálogo
-              </Link>
+            {q?.monthly_limit != null && (
+              <span
+                className={cn(
+                  "inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold",
+                  outOfQuota ? "border-warning/40 bg-warning-soft/50 text-warning" : "border-border bg-surface text-text-secondary",
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-accent-violet" />
+                Te quedan {q.remaining} de {q.monthly_limit} este mes
+              </span>
             )}
           </div>
         }
       />
 
-      {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{error}</div>}
+      {step !== "running" && (
+        <>
+          {/* Stepper rail */}
+          <ol className="flex items-center gap-2" style={rise(0)}>
+            {[
+              { id: "what", label: "¿Qué quieres predecir?" },
+              { id: "when", label: "¿Para cuánto tiempo?" },
+              { id: "go", label: "La IA trabaja" },
+            ].map((s, i) => {
+              const stepIdx = step === "what" ? 0 : 1;
+              const state = i < stepIdx ? "done" : i === stepIdx ? "active" : "todo";
+              return (
+                <li key={s.id} className="flex flex-1 items-center gap-2">
+                  <span
+                    className={cn(
+                      "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold transition-colors",
+                      state === "done" && "bg-primary text-on-primary",
+                      state === "active" && "bg-accent-violet text-white",
+                      state === "todo" && "bg-surface-muted text-text-muted",
+                    )}
+                  >
+                    {state === "done" ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : i + 1}
+                  </span>
+                  <span className={cn("hidden truncate text-sm font-medium sm:block", state === "active" ? "text-text-primary" : "text-text-muted")}>
+                    {s.label}
+                  </span>
+                  {i < 2 && <span className="h-px flex-1 bg-border" />}
+                </li>
+              );
+            })}
+          </ol>
 
-      {/* Simple launcher: one button with sensible defaults */}
-      <Card className="border-accent-violet/25 bg-accent-violet-soft/15">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent-violet-soft text-accent-violet">
-              <Sparkles className="h-6 w-6" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-display text-lg font-semibold text-text-primary">Calcula cuánto venderás en los próximos {horizonText}</p>
-              <p className="mt-1 text-sm text-text-secondary">
-                <span className="font-medium text-text-primary">Qué vamos a calcular:</span> {describeScope(scope, productOf)}
-              </p>
-              <p className="mt-1 text-xs text-text-muted">Toma menos de un minuto. Al terminar te mostramos qué comprar.</p>
+          {error && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger" style={rise(0)}>
+              <XCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
             </div>
-          </div>
-          <Button variant="violet" size="lg" className="shrink-0" disabled={!ready || busy} onClick={quickRun}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Calcular cuánto venderé
-          </Button>
-        </div>
-
-        <div className="mt-5 border-t border-border/70 pt-4">
-          <button
-            type="button"
-            onClick={() => setAdvanced(!showAdvanced)}
-            aria-expanded={showAdvanced}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-accent-violet hover:opacity-80"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Opciones avanzadas
-            <ChevronDown className={cn("h-4 w-4 transition-transform", showAdvanced && "rotate-180")} />
-          </button>
-          {!showAdvanced && (
-            <p className="mt-1 text-xs text-text-muted">Elegir otros productos, para cuánto tiempo calcular y cómo agrupar tus ventas.</p>
           )}
-        </div>
-      </Card>
-
-      {preview && totals && totals.products_ready === 0 && !advanced && (
-        <HistoryGuide totals={totals} expert={expert} />
+        </>
       )}
 
-      {showAdvanced && (
-        <div className="space-y-8 animate-fade-up">
-          {expert && <Stepper step={preview ? 2 : 1} />}
-
-          {/* Step 1 */}
-          <section className="space-y-4">
-            <SectionTitle
-              n={1}
-              title={expert ? "¿A qué le aplicamos el motor FTGM?" : "¿De qué productos quieres saber?"}
-              subtitle={expert ? "El historial se construye directo de las ventas registradas en tu ERP." : "Usamos las ventas que registras en el sistema."}
-            />
-            <ScopePicker
-              scope={scope}
-              onChange={changeScope}
-              isPremium={isPremium}
-              products={products.data ?? []}
-              suppliers={suppliers.data ?? []}
-              categories={categories.data ?? []}
-              users={users.data ?? []}
-            />
-          </section>
-
-          {/* Horizon + frequency (defaults: 3 meses, automático) */}
-          <section className="space-y-4">
-            <SectionTitle
-              n={2}
-              title={expert ? "Horizonte y frecuencia" : "¿Para cuánto tiempo?"}
-              subtitle={expert ? "Cuánto quieres ver hacia adelante y con qué frecuencia agrupa el motor." : "Si no sabes, deja lo que ya está marcado."}
-            />
-            <Card>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-                    <CalendarRange className="h-3.5 w-3.5" /> {expert ? "Horizonte" : "Calcular para los próximos"}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {HORIZONS.map((h) => (
-                      <button
-                        key={h.days}
-                        type="button"
-                        onClick={() => setHorizon(h.days)}
-                        className={cn(
-                          "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
-                          horizon === h.days
-                            ? "border-accent-violet bg-accent-violet text-surface"
-                            : "border-border bg-surface text-text-secondary hover:border-accent-violet/40",
-                        )}
-                      >
-                        {h.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">{expert ? "Frecuencia" : "Agrupar mis ventas"}</p>
-                  <div className="space-y-1.5">
-                    {FREQS.map((f) => (
-                      <button
-                        key={f.value}
-                        type="button"
-                        onClick={() => {
-                          setFrequency(f.value);
-                          if (preview) analyze(f.value);
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors",
-                          frequency === f.value ? "border-accent-violet/50 bg-surface" : "border-transparent hover:bg-surface/60",
-                        )}
-                      >
-                        <span>
-                          <span className="block text-sm font-semibold text-text-primary">{expert ? frequencyLabel[f.value] : f.plain}</span>
-                          <span className="block text-[11px] text-text-muted">{expert ? f.hint : f.plainHint}</span>
-                        </span>
-                        <span className={cn("h-3.5 w-3.5 rounded-full border-2", frequency === f.value ? "border-accent-violet bg-accent-violet" : "border-border")} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
+      {/* ── Paso 1 · ¿Qué quieres predecir? ─────────────────────── */}
+      {step === "what" && (
+        <div className="space-y-5">
+          <Card style={rise(1)}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-violet">
+                  <Wand2 className="h-3.5 w-3.5" /> Esto se hará con IA
+                </p>
+                <h2 className="mt-1.5 font-display text-xl font-semibold text-text-primary">¿Qué quieres predecir?</h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  Estos son tus productos <span className="font-semibold text-text-primary">disponibles para predicción</span>:
+                  los que tienen suficientes ventas para que la IA aprenda su ritmo.
+                </p>
               </div>
-            </Card>
-            {step === 1 && (
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button variant="secondary" size="lg" disabled={!ready || busy} onClick={() => analyze()}>
-                  {previewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  {expert ? "Analizar datos" : "Revisar mis ventas antes de calcular"}
-                </Button>
-                <Button variant="violet" size="lg" disabled={!ready || busy} onClick={quickRun}>
-                  {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Calcular cuánto venderé
-                </Button>
+              {available.length > 0 && (
+                <button type="button" onClick={selectAll} className="btn btn-secondary h-10 gap-2 px-4 text-sm">
+                  {allSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                  {allSelected ? "Quitar todos" : `Seleccionar todos (${available.length})`}
+                </button>
+              )}
+            </div>
+
+            {preview.loading && !preview.data ? (
+              <p className="py-12 text-center text-sm text-text-muted">
+                <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" /> Revisando tus ventas…
+              </p>
+            ) : available.length === 0 ? (
+              <div className="py-10 text-center">
+                <Package className="mx-auto h-8 w-8 text-text-muted" />
+                <p className="mt-3 text-sm font-semibold text-text-primary">Aún no hay productos listos para predecir</p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-text-secondary">
+                  La IA necesita historial: carga tus ventas pasadas (Ventas › Ventas pasadas) o sigue vendiendo unas
+                  semanas más y vuelve.
+                </p>
+                <Link href="/sales?tab=imported" className="btn btn-primary mt-4 h-10 gap-2 px-4 text-sm">
+                  Cargar mis ventas <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {available.map((p) => {
+                  const on = selected.has(p.product_id);
+                  return (
+                    <button
+                      key={p.product_id}
+                      type="button"
+                      onClick={() => toggle(p.product_id)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                        on ? "border-accent-violet/50 bg-accent-violet-soft/30 ring-2 ring-accent-violet/15" : "border-border bg-surface hover:border-accent-violet/30",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-colors",
+                          on ? "border-accent-violet bg-accent-violet text-white" : "border-border bg-surface",
+                        )}
+                      >
+                        {on && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-text-primary">{p.name}</span>
+                        <span className="block text-[11px] text-text-muted">
+                          {p.sales_count} ventas · {Math.round(p.total_units)} u en {p.periods} {p.frequency === "weekly" ? "semanas" : "meses"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
-          </section>
 
-          {/* Review what the engine will read */}
-          {preview && companyId && (
-            <section className="space-y-4 animate-fade-up">
-              <SectionTitle
-                n={3}
-                title={expert ? "Antes de pronosticar" : "Tus ventas, revisadas"}
-                subtitle={
-                  expert
-                    ? `${preview.totals.description} · corte al ${preview.totals.as_of}. Abre un producto para ver su stock, reabastecimientos y cómo le fue a su último pronóstico.`
-                    : "Esto es lo que usaremos para calcular. Abre un producto para ver su detalle."
-                }
-              />
-              {preview.products.length === 0 ? (
-                <Card className="py-10 text-center text-sm text-text-secondary">
-                  Ningún producto coincide con lo que elegiste. Prueba con otro periodo, proveedor o categoría.
-                </Card>
-              ) : (
-                <>
-                  {preview.totals.products_ready === 0 && <HistoryGuide totals={preview.totals} expert={expert} />}
-                  <ScopeAnalysis companyId={companyId} preview={preview} />
-                </>
-              )}
-            </section>
-          )}
+            {unavailable.length > 0 && (
+              <div className="mt-4 border-t border-border-soft pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUnavailable((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-secondary"
+                >
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showUnavailable && "rotate-180")} />
+                  {unavailable.length} producto(s) aún no disponibles para predicción
+                </button>
+                {showUnavailable && (
+                  <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {unavailable.map((p) => (
+                      <li key={p.product_id} className="rounded-xl bg-surface-soft/70 px-3 py-2 text-xs text-text-muted">
+                        <span className="font-medium text-text-secondary">{p.name}</span> — {reasonFor(p)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Card>
 
-          {/* Launch after review */}
-          {preview && totals && totals.products_included > 0 && (
-            <section className="space-y-4 animate-fade-up">
-              <Card className="border-accent-violet/25 bg-accent-violet-soft/15">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-violet-soft text-accent-violet">
-                      <PackageCheck className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 text-sm">
-                      {expert ? (
-                        <>
-                          <p className="font-display font-semibold text-text-primary">Con esto se va al motor FTGM</p>
-                          <p className="mt-1 text-text-secondary">
-                            <strong className="text-text-primary">{totals.products_included}</strong> producto(s) ·{" "}
-                            <strong className="text-text-primary">{num(totals.total_data_points)}</strong> periodos ·{" "}
-                            {frequencyLabel[totals.frequency ?? "auto"]}
-                          </p>
-                          <p className="text-xs text-text-muted">
-                            {totals.date_start} → {totals.date_end} · ~{periodsHint} periodo(s) a pronosticar
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-display font-semibold text-text-primary">Todo listo para calcular</p>
-                          <p className="mt-1 text-text-secondary">
-                            Vamos a calcular <strong className="text-text-primary">{totals.products_included}</strong> producto(s) para los
-                            próximos {horizonText}, usando tus ventas desde {totals.date_start ?? "el inicio"}.
-                          </p>
-                        </>
-                      )}
-                      {totals.products_excluded > 0 && (
-                        <details className="mt-2 text-xs text-text-muted">
-                          <summary className="cursor-pointer">
-                            {expert ? `${totals.products_excluded} excluido(s)` : `${totals.products_excluded} producto(s) no se pueden calcular todavía`}
-                          </summary>
-                          <ul className="mt-1 space-y-0.5">
-                            {totals.excluded.map((x) => (
-                              <li key={x.product_id}>
-                                <span className="text-text-secondary">{x.name}</span>
-                                {expert && <>: {x.reason}</>}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </div>
-                  </div>
-                  <Button variant="violet" size="lg" className="shrink-0" onClick={launch} disabled={busy}>
-                    {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {expert ? "Ejecutar motor FTGM" : "Calcular cuánto venderé"}
-                  </Button>
-                </div>
-              </Card>
-            </section>
-          )}
+          <div className="flex justify-end" style={rise(2)}>
+            <button
+              type="button"
+              onClick={() => setStep("when")}
+              disabled={selected.size === 0}
+              className="btn btn-violet h-12 gap-2 rounded-2xl px-6 text-[15px] disabled:opacity-50"
+            >
+              Continuar ({selected.size} {selected.size === 1 ? "producto" : "productos"}) <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3" style={rise(3)}>
+            <h3 className="font-display text-base font-semibold text-text-primary">Predicciones anteriores</h3>
+            <RunsHistory runs={runs.data ?? []} />
+          </div>
         </div>
       )}
 
-      <section className="space-y-3">
-        <RunsHistory runs={runs.data ?? []} />
-      </section>
+      {/* ── Paso 2 · ¿Para cuánto tiempo? ───────────────────────── */}
+      {step === "when" && (
+        <div className="space-y-5">
+          <Card style={rise(1)}>
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-violet">
+              <Calendar className="h-3.5 w-3.5" /> Un dato más
+            </p>
+            <h2 className="mt-1.5 font-display text-xl font-semibold text-text-primary">¿Para cuánto tiempo quieres la predicción?</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {HORIZONS.map((h) => (
+                <button
+                  key={h.days}
+                  type="button"
+                  onClick={() => setHorizon(h.days)}
+                  className={cn(
+                    "rounded-xl border p-5 text-left transition-all",
+                    horizon === h.days
+                      ? "border-accent-violet/50 bg-accent-violet-soft/30 ring-2 ring-accent-violet/15"
+                      : "border-border bg-surface hover:border-accent-violet/30",
+                  )}
+                >
+                  <p className="font-display text-lg font-semibold text-text-primary">{h.label}</p>
+                  <p className="text-sm text-text-secondary">{h.hint}</p>
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-sm text-text-secondary">
+              Vas a predecir <span className="font-semibold text-text-primary">{selected.size} producto(s)</span> para{" "}
+              <span className="font-semibold text-text-primary">{HORIZONS.find((h) => h.days === horizon)?.label}</span>.
+            </p>
+          </Card>
 
-      <Modal
-        open={!!activeRun}
-        onClose={() => activeRun && ["failed", "cancelled", "success"].includes(activeRun.status) && setActiveRun(null)}
-        title={expert ? "Motor FTGM" : "Calculando cuánto venderás"}
-        description={activeRun?.scope_description ?? undefined}
-        size="md"
-        footer={
-          activeRun && (activeRun.status === "failed" || activeRun.status === "cancelled") ? (
-            <Button variant="secondary" onClick={() => setActiveRun(null)}>
-              <ArrowLeft className="h-4 w-4" /> Volver
-            </Button>
-          ) : activeRun ? (
-            <Link href={`/forecasting/${activeRun.id}`} className="btn btn-ghost h-9 gap-1.5 px-3 text-sm">
-              {expert ? "Ver en segundo plano" : "Seguir mientras calcula"} <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : undefined
-        }
-      >
-        {activeRun && <EngineProgress status={activeRun.status} productCount={activeRun.product_count} error={activeRun.error_message} />}
-      </Modal>
-    </div>
-  );
-}
+          {outOfQuota && (
+            <Card className="flex flex-wrap items-center justify-between gap-3 border-warning/30 bg-warning-soft/40" style={rise(2)}>
+              <p className="text-sm text-text-primary">
+                Usaste tus {q?.monthly_limit} predicciones gratis de este mes. Con Premium predices sin límites.
+              </p>
+              <Link href="/premium" className="btn btn-primary h-10 gap-2 px-4 text-sm">
+                <Crown className="h-4 w-4" /> Ver Premium
+              </Link>
+            </Card>
+          )}
 
-function Stepper({ step }: { step: 1 | 2 }) {
-  const items = ["Alcance", "Análisis", "Horizonte y ejecución"];
-  return (
-    <ol className="flex flex-wrap items-center gap-2">
-      {items.map((label, i) => {
-        const on = i + 1 <= step + (step === 2 ? 1 : 0);
-        return (
-          <li key={label} className="flex items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold",
-                on ? "bg-accent-violet-soft text-accent-violet" : "bg-surface-muted text-text-muted",
-              )}
+          <div className="flex items-center justify-between" style={rise(2)}>
+            <button type="button" onClick={() => setStep("what")} className="btn btn-ghost h-11 gap-1.5 px-4 text-sm">
+              <ArrowLeft className="h-4 w-4" /> Atrás
+            </button>
+            <button
+              type="button"
+              onClick={() => void launch()}
+              disabled={outOfQuota}
+              className="btn btn-violet h-12 gap-2 rounded-2xl px-7 text-[15px] disabled:opacity-50"
             >
-              <span className={cn("grid h-4 w-4 place-items-center rounded-full text-[10px]", on ? "bg-accent-violet text-surface" : "bg-border")}>
-                {i + 1}
-              </span>
-              {label}
-            </span>
-            {i < items.length - 1 && <span className="h-px w-6 bg-border" />}
-          </li>
-        );
-      })}
-    </ol>
+              <Sparkles className="h-4 w-4" /> Predecir con IA
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Paso 3 · La IA trabaja ──────────────────────────────── */}
+      {step === "running" && (
+        <Card className="relative overflow-hidden py-16 text-center" style={rise(0)}>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(45% 45% at 50% 30%, rgb(var(--c-accent) / 0.10), transparent 70%)",
+            }}
+          />
+          <div className="relative mx-auto grid h-24 w-24 place-items-center rounded-xl bg-gradient-to-br from-accent-violet to-primary shadow-[0_18px_50px_-14px_rgb(var(--c-accent)/0.55)]">
+            <span className="absolute inset-0 rounded-xl bg-accent-violet/30" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
+            <Sparkles className="star-twinkle absolute -right-2.5 -top-2.5 h-5 w-5 text-warning" />
+            <Sparkles className="star-twinkle absolute -bottom-2 -left-3 h-4 w-4 text-accent-violet" style={{ animationDelay: "0.7s" }} />
+            <Brain className="relative z-10 h-11 w-11 text-white" style={{ animation: "brain-pump 2.2s ease-in-out infinite" }} />
+          </div>
+          <p key={stage} className="mt-6 font-display text-xl font-semibold text-text-primary animate-fade-up">{STAGES[stage]}</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-text-secondary">
+            La IA está leyendo {selected.size} producto(s) de tus ventas. Esto toma menos de un minuto.
+          </p>
+          <div className="mx-auto mt-6 flex max-w-[240px] items-center gap-1.5">
+            {STAGES.map((_, i) => (
+              <span
+                key={i}
+                className={cn("h-1.5 flex-1 rounded-full transition-colors duration-500", i <= stage ? "bg-accent-violet" : "bg-surface-muted")}
+              />
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 
-function SectionTitle({ n, title, subtitle }: { n: number; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-accent-violet text-sm font-bold text-surface">{n}</span>
-      <div>
-        <h2 className="font-display text-xl font-semibold tracking-tight text-text-primary">{title}</h2>
-        {subtitle && <p className="text-sm text-text-secondary">{subtitle}</p>}
-      </div>
-    </div>
-  );
+function reasonFor(p: PreviewProduct): string {
+  if (p.readiness === "sin_ventas") return "sin ventas registradas todavía";
+  if (p.sales_count <= 2) return `solo ${p.sales_count === 1 ? "se vendió una vez" : `${p.sales_count} ventas`}: la IA necesita más historial`;
+  return p.reason || "pocos datos todavía";
 }

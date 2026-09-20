@@ -9,7 +9,6 @@ import { isSellerRoute } from "@/hooks/useRole";
 import { ONBOARDING_PREF, isOnboardingPending, markOnboardingPending } from "@/lib/onboarding";
 import { productsApi } from "@/lib/api";
 import { preferencesApi } from "@/lib/apis/custom-fields";
-import { PremiumFab } from "@/components/premium/PremiumFab";
 import { ExperienceProvider, useExperience } from "@/components/experience/ExperienceProvider";
 import { AmbientBackground } from "@/components/experience/AmbientBackground";
 import { CommandPalette } from "@/components/experience/CommandPalette";
@@ -66,31 +65,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Inset layout: the sidebar sits on the deep background and the workspace floats as a
- * rounded panel. On the Motor FTGM stage the sidebar folds into a rail so the black
- * canvas takes almost the whole screen.
+ * The navigation is the framed piece: the sidebar floats as a rounded panel on the
+ * left, and the page content sits directly on the app background (no extra container
+ * around every screen).
  */
 function Shell({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const { stage } = useExperience();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background-deep transition-colors duration-500">
-      <Sidebar collapsed={stage === "ftgm"} />
-      <div className="min-w-0 flex-1 py-2 pr-2">
-        <div className="shell-panel relative flex h-full flex-col overflow-hidden rounded-[22px] border border-border bg-background">
-          <AmbientBackground />
-          <Topbar />
-          <main className="relative z-[1] flex-1 overflow-y-auto px-5 py-8 lg:px-10">
-            <div key={pathname} className="page-enter">
-              {children}
-            </div>
-          </main>
+    <div className="flex h-screen overflow-hidden bg-background transition-colors duration-500">
+      <div className="shrink-0 py-2 pl-2">
+        <div className="shell-panel flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background-deep/60">
+          <Sidebar collapsed={stage === "ftgm"} />
         </div>
+      </div>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <AmbientBackground />
+        <Topbar />
+        <main className="relative z-[1] flex-1 overflow-y-auto px-5 py-8 lg:px-10">
+          <div key={pathname} className="page-enter">
+            {children}
+          </div>
+        </main>
       </div>
       <CommandPalette />
       <GuidedTour />
-      {/* The till needs its bottom-right corner (cart total / Cobrar). */}
-      {pathname !== "/sales/new" && <PremiumFab />}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, CheckCircle2, FileSpreadsheet, ListOrdered, Loader2, PackageSearch, UserRound, X } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, ListOrdered, Loader2, PackageSearch, UserRound, X } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 import { SalesImportWizard } from "@/components/sales/SalesImportWizard";
 import { cn } from "@/lib/utils";
@@ -13,8 +13,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { customFieldsApi } from "@/lib/apis/custom-fields";
 import { CheckoutError, lostSalesApi, posApi } from "@/lib/apis/pos";
 import type { CatalogProduct, PaymentMethod, SalesDocumentType, SalesOrder } from "@/types/pos";
-import { ProductSearch } from "@/components/pos/ProductSearch";
-import { QuickProductPicker } from "@/components/pos/QuickProductPicker";
+import { CatalogGrid } from "@/components/pos/CatalogGrid";
 import { CameraScannerModal } from "@/components/pos/CameraScannerModal";
 import { ProductDetailCard } from "@/components/pos/ProductDetailCard";
 import { CartPanel } from "@/components/pos/CartPanel";
@@ -271,11 +270,6 @@ export default function NewSalePage() {
             <CalendarClock className="h-4 w-4 text-primary" />
             {dateLabel} · <span className="font-semibold tabular-nums text-text-primary">{timeLabel}</span>
           </span>
-          {isAdmin && (
-            <button type="button" onClick={() => setBulkOpen(true)} className="btn btn-secondary gap-1.5 px-3 py-2 text-sm">
-              <FileSpreadsheet className="h-4 w-4 text-primary" /> Carga masiva
-            </button>
-          )}
           <Link href="/sales" className="btn btn-ghost gap-1.5 px-3 py-2 text-sm">
             <ListOrdered className="h-4 w-4" /> Ventas
           </Link>
@@ -285,13 +279,14 @@ export default function NewSalePage() {
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
         {/* Left: scanner + product detail */}
         <div className="space-y-4">
-          <ProductSearch
+          <CatalogGrid
             companyId={companyId}
             inputRef={searchRef}
             onPick={addProduct}
             onOpenCamera={() => setCameraOpen(true)}
+            onOpenBulk={isAdmin ? () => setBulkOpen(true) : undefined}
+            refreshKey={receipt?.id ?? 0}
           />
-          <QuickProductPicker companyId={companyId} onPick={addProduct} refreshKey={receipt?.id ?? 0} />
 
           {notice && (
             <div

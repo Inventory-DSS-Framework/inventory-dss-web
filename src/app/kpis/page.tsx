@@ -118,7 +118,7 @@ export default function KPIsPage() {
         title={expert ? "Indicadores de inventario" : "Mis números"}
         description={
           expert
-            ? "Cobertura, riesgo de quiebre, sobrestock y rotación de cada producto, calculados con su pronóstico FTGM más reciente."
+            ? "Cobertura, riesgo de quiebre, sobrestock y rotación de cada producto, calculados con su pronóstico de IA más reciente."
             : "Cómo está el stock de cada producto, comparado con lo que calculamos que vas a vender."
         }
         action={
